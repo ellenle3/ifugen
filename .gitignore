@@ -1,6 +1,7 @@
 # Python notebook for testing
 *.ipynb
 *out.txt
+.ipynb_checkpoints/*
 
 # Prerequisites
 *.d
