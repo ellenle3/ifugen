@@ -15,32 +15,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
 
-double ConvertAngle(double t);
-double Conic3DSag(double x, double r, double k, double theta);
-void SliceAngles (double* alpha, double* beta, int slice_num, int n_each, int n_rows, int mode, double dalpha, double dbeta, double alpha_cen, double beta_cen);
-int ImageSlicerSag(double *z, double x, double y, int n_each, int n_rows, int mode, double dalpha, double dbeta, double alpha_cen, double beta_cen, double dx, double dy, double c, double k, double gap_width, double gap_depth);
-
-typedef struct {
-   int n_each;
-   int n_rows;
-   int n_cols;
-   int mode;
-   double dalpha;
-   double dbeta;
-   double dgamma;
-   double alpha_cen;
-   double beta_cen;
-   double gamma_cen;
-   double dx;
-   double dy;
-   double c;
-   double k;
-   double gx_width;
-   double gx_depth;
-   double gy_width;
-   double gy_depth;
-} imageSlicerParams;
-
 BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	{
    return TRUE;
@@ -222,6 +196,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          break;
       case 9:
       	/* ZEMAX is calling the DLL for the last time, do any memory release here. */
+         break;
+      case 10;
+         /* Scaling of parameter and extra data values */
          break;
       }
    return 0;

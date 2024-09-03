@@ -17,7 +17,7 @@ double ConvertAngle(double t) {
     return t;
 }
 
-double Conic3DSag(double x, double y, double c, double k, double alpha, double beta, double gamma) {
+double Conic3DSag(double x, double y, int derv, double c, double k, double alpha, double beta, double gamma) {
     // Also keep track of the angle, which determines which solution of
     // the quadratic to use
     alpha = ConvertAngle(alpha) * M_PI/180;
@@ -36,16 +36,6 @@ double Conic3DSag(double x, double y, double c, double k, double alpha, double b
         x = x + x0;
     }
 
-    // Special cases for k=-1
-    if (k==-1) {
-        if (gamma==0) {
-            return c*(x*x + y*y) / (1 + sqrt(1 - (1+k)*c*c*(x*x+y*y)));
-        }
-        if (fabs( fabs(gamma) - M_PI ) < 1E-10) {
-            return -c*(x*x + y*y) / (1 + sqrt(1 - (1+k)*c*c*(x*x+y*y)));
-        }     
-    }
-
     // Rotate about the x-axis
     double cosg = cos(gamma);
     double cosg2 = cosg*cosg;
@@ -53,16 +43,17 @@ double Conic3DSag(double x, double y, double c, double k, double alpha, double b
     double sing2 = sing*sing;
     double asol = c*(sing2 + (k+1)*cosg2);
     double bsol = -2*cosg*(x*k*c*sing + 1);
-    double csol = 2*x*sing + c*(x*x*cosg2 + y*y + (k+1)*x*x*sing2);
+    double csol = 2*x*sing + c*(y*y + x*x*cosg2 + (k+1)*x*x*sing2);
 
     if (bsol*bsol - 4*asol*csol < 0 || fabs(2*asol) < 1E-10) {
         // Invalid solution
         return 0;
     }
-    return (-bsol - sgn*sqrt(bsol*bsol - 4*asol*csol)) / (2*asol);
+    return (2*csol) / (-bsol + sgn*sqrt(bsol*bsol - 4*asol*csol));
 }
 
-void SliceAngles (double* alpha, double* beta, double* gamma, int slice_num, int col_num, struct imageSlicerParams p) {
+
+void SliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, struct imageSlicerParams p) {
     // Get row number as well as the subindex of the slice on that row
     int row_num = slice_num / p.n_each;
     int slice_num_row = slice_num - row_num * p.n_each;
