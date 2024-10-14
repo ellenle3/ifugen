@@ -1,6 +1,80 @@
 #ifndef IFU_HELPERS_H
 #define IFU_HELPERS_H
 
+/** @struct IMAGE_SLICER_PARAMS
+*   @brief Parameters that define the image slicer.
+*   @var IMAGE_SLICER_PARAMS::n_each
+*       Number of slices per block. n_each > 0
+*   @var IMAGE_SLICER_PARAMS::n_rows
+*       Number of rows. n_rows > 0
+*   @var IMAGE_SLICER_PARAMS::n_cols
+*       Number of columns. n_cols > 0
+*   @var IMAGE_SLICER_PARAMS::mode
+*       Mode for switching angles between blocks.
+*   @var IMAGE_SLICER_PARAMS::trace_gaps
+*       If 0 do not ray trace gaps, if 1 attempt to ray trace gaps.
+*   @var IMAGE_SLICER_PARAMS::dalpha
+*       Change in angle between rows in degrees.
+*   @var IMAGE_SLICER_PARAMS::dbeta
+*       Change in angle between columns in degrees.
+*   @var IMAGE_SLICER_PARAMS::dgamma
+*       Change in angle between slices in degrees.
+*   @var IMAGE_SLICER_PARAMS::alpha_cen
+*       If n_each is odd, angle of central row in degrees. If even, mean of angle
+*       between two center-most rows.
+*   @var IMAGE_SLICER_PARAMS::beta_cen
+*       Angle of central column; analagous to alpha_cen for columns.
+*   @var IMAGE_SLICER_PARAMS::gamma_cen
+*       Angle of central slice; analagous to alpha_cen for slices in each block.
+*   @var IMAGE_SLICER_PARAMS::dx
+*       Length of each slice. dx > 0
+*   @var IMAGE_SLICER_PARAMS::dy
+*       Width of each slice. dy > 0
+*   @var IMAGE_SLICER_PARAMS::gx_width
+*       Width of gaps between slices along x-direction. gx_width >= 0
+*   @var IMAGE_SLICER_PARAMS::gx_depth
+*       Depth of gaps between slices along x-direction. gx_depth >= 0
+*   @var IMAGE_SLICER_PARAMS::gy_width
+*       Width of gaps between columns. gy_width >= 0
+*   @var IMAGE_SLICER_PARAMS::gy_depth
+*       Depth of gaps between columns. gy_depth >= 0
+*   @var IMAGE_SLICER_PARAMS::cv
+*       Curvature. cv > 0
+*   @var IMAGE_SLICER_PARAMS::k
+*       Conic constant.
+*/
+typedef struct {
+    int n_each;
+    int n_rows;
+    int n_cols;      
+    int mode;
+    int trace_gaps;
+    double dalpha;
+    double dbeta;
+    double dgamma;
+    double alpha_cen;
+    double beta_cen;
+    double gamma_cen;
+    double dx;
+    double dy;
+    double gx_width;
+    double gx_depth;
+    double gy_width;
+    double gy_depth;
+    double cv;
+    double k;
+} IMAGE_SLICER_PARAMS;
+
+/** @struct SUBPUPIL_MIRROR_PARAMS
+* 
+* 
+*/
+typedef struct {
+    float d_sp;
+    double c_sp;
+    double k_sp; 
+} SUBPUPIL_MIRROR_PARAMS;
+
 
 /** @brief Converts an angle to be between -180 and 180 degrees.
 *   @param t Angle in degrees.
@@ -42,65 +116,18 @@ double Conic3DSag(double x, double y, int derv, double c, double k, double alpha
 *   @param beta Pointer to angle about y.
 *   @param slice_num See ImageSlicerSag for remaining parameters.
 **/
-void SliceAngles (double* alpha, double* beta, double* gamma, int slice_num, int col_num, struct imageSlicerParams p);
+void SliceAngles (double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p);
 
 
 /** @brief Computes the sag of the image slicer.
 * 
-*   @param zptr Pointer to sag of the image slicer.
+*   @param z Pointer to sag of the image slicer.
 *   @param x x-value to evaluate. The x-axis is oriented along the slice length.
 *   @param y y-value to evaluate. The y-axis is oriented along the slice width.
-*   @param n_each Number of slices per row.
-*   @param n_rows Number of rows.
-*   @param mode If 0, alternate the angle of the slices between rows. If 1, do not alternate.
-*   @param dalpha Change in angle between slices in degrees.
-*   @param dbeta Change in angle between rows in degrees.
-*   @param alpha_cen If n_each is odd, this is the angle of the central slice in degrees.
-*                    If n_each is even, mean of the angle between the 2 central slices.
-*   @param beta_cen Angle of the central row in degrees. See alpha_cen for difference
-*                   between odd and even n_rows.
-*   @param dx Length of the slice.
-*   @param dy Width of the slice.
-*   @param c Curvature.
-*   @param k Conic constant.
-*   @param gap_width Width of gaps between slices.
-*   @param gap_depth Depth of gaps between slices.
+*   @param p Image slicer parameters.
 * 
 *   @return 0 if success.
 **/
-int ImageSlicerSag(double *z, double x, double y, struct imageSlicerParams p);
-
-
-/** @struct
-* 
-* 
-*/
-typedef struct {
-    int n_each;  // > 0
-    int n_rows;  // > 0
-    int n_cols;  // > 0
-    int mode;
-    int trace_gaps;
-    double dalpha;
-    double dbeta;
-    double dgamma;
-    double alpha_cen;
-    double beta_cen;
-    double gamma_cen;
-    double dx;
-    double dy;
-    double gx_width;
-    double gx_depth;
-    double gy_width;
-    double gy_depth;
-    double cv;
-    double k;
-} IMAGE_SLICER_PARAMS;
-
-typedef struct {
-    float d_sp;
-    double c_sp;
-    double k_sp; 
-} SUBPUPIL_MIRROR_PARAMS;
+int ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p);
 
 #endif
