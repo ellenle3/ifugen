@@ -17,7 +17,7 @@ double ConvertAngle(double t) {
     return t;
 }
 
-double Conic3DSag(double x, double y, int derv, double c, double k, double alpha, double beta, double gamma) {
+double Conic3DSag(double x, double y, int derv, double cv, double k, double alpha, double beta, double gamma) {
     // Also keep track of the angle, which determines which solution of
     // the quadratic to use
     alpha = ConvertAngle(alpha) * M_PI/180;
@@ -28,10 +28,10 @@ double Conic3DSag(double x, double y, int derv, double c, double k, double alpha
     else {sgn = -1;}
 
     // Determine the off-axis distance
-    if (fabs(c) > 1E-10) {
+    if (fabs(cv) > 1E-10) {
         // If curvature is very small, it's basically a plane so no need to shift y-coordinate
-        double y0 = sin(alpha) / ( c * (1+cos(alpha)) );
-        double x0 = sin(beta) / ( c * (1+cos(beta)) );
+        double y0 = sin(alpha) / ( cv * (1+cos(alpha)) );
+        double x0 = sin(beta) / ( cv * (1+cos(beta)) );
         y = y + y0;
         x = x + x0;
     }
@@ -41,9 +41,9 @@ double Conic3DSag(double x, double y, int derv, double c, double k, double alpha
     double cosg2 = cosg*cosg;
     double sing = sin(gamma);
     double sing2 = sing*sing;
-    double asol = c*(sing2 + (k+1)*cosg2);
-    double bsol = -2*cosg*(x*k*c*sing + 1);
-    double csol = 2*x*sing + c*(y*y + x*x*cosg2 + (k+1)*x*x*sing2);
+    double asol = cv*(sing2 + (k+1)*cosg2);
+    double bsol = -2*cosg*(x*k*cv*sing + 1);
+    double csol = 2*x*sing + cv*(y*y + x*x*cosg2 + (k+1)*x*x*sing2);
 
     if (bsol*bsol - 4*asol*csol < 0 || fabs(2*asol) < 1E-10) {
         // Invalid solution
@@ -53,7 +53,7 @@ double Conic3DSag(double x, double y, int derv, double c, double k, double alpha
 }
 
 
-void SliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, struct imageSlicerParams p) {
+void SliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
     // Get row number as well as the subindex of the slice on that row
     int row_num = slice_num / p.n_each;
     int slice_num_row = slice_num - row_num * p.n_each;
@@ -102,7 +102,7 @@ void SliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int 
     }
 }
 
-int ImageSlicerSag(double *z, double x, double y, struct imageSlicerParams p) {
+int ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p) {
     // Get dimensions of the image slicer
     int n_slices = p.n_each * p.n_rows;
     double ysize = (n_slices*p.dy + (n_slices-1)*p.gy_width);
@@ -136,6 +136,6 @@ int ImageSlicerSag(double *z, double x, double y, struct imageSlicerParams p) {
     double alpha = *alphaptr;
     double beta = *betaptr;
     double gamma = *gammaptr;
-    *z = Conic3DSag(x, y, p.c, p.k, alpha, beta, gamma);
+    *z = Conic3DSag(x, y, p.cv, p.k, 0, alpha, beta, gamma);
     return 0;
 }

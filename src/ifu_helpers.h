@@ -75,15 +75,10 @@ int ImageSlicerSag(double *z, double x, double y, struct imageSlicerParams p);
 * 
 * 
 */
-struct imageSlicerParams{
-    double x;
-    double y;
-    double z;
-    double alpha;
-    double beta;
-    int n_each;
-    int n_rows;
-    int n_cols;
+typedef struct {
+    int n_each;  // > 0
+    int n_rows;  // > 0
+    int n_cols;  // > 0
     int mode;
     int trace_gaps;
     double dalpha;
@@ -94,18 +89,18 @@ struct imageSlicerParams{
     double gamma_cen;
     double dx;
     double dy;
-    double c;
-    double k;
     double gx_width;
     double gx_depth;
     double gy_width;
     double gy_depth;
-};
+    double cv;
+    double k;
+} IMAGE_SLICER_PARAMS;
 
-struct subpupilMirrorParams{
+typedef struct {
     float d_sp;
     double c_sp;
     double k_sp; 
-};
+} SUBPUPIL_MIRROR_PARAMS;
 
 #endif

@@ -36,7 +36,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             case 0:
             	/* ZEMAX wants to know the name of the surface */
 		         /* do not exceed 12 characters */
-		         strcpy(UD->string, "SubpupilsMir");
+		         strcpy(UD->string, "SubpupilMiro");
                break;
             case 1:
             	/* ZEMAX wants to know if this surface is rotationally symmetric */
