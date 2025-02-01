@@ -49,6 +49,8 @@ typedef struct {
     int n_cols;      
     int mode;
     int trace_gaps;
+    int active_x;
+    int active_y;
     double dalpha;
     double dbeta;
     double dgamma;
@@ -105,7 +107,7 @@ double ConvertAngle(double t);
 *   
 *   @return Sag of the conic surface.
 **/
-double Conic3DSag(double x, double y, int derv, double c, double k, double alpha, double beta, double gamma);
+double Conic3DSag(double x, double y, double c, double k, double alpha, double beta, double gamma);
 
 
 /** @brief Computes the angles alpha and beta for the given slice number. Indexing
