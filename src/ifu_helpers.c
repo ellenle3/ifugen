@@ -18,9 +18,10 @@ double ConvertAngle(double t) {
 }
 
 
+// Functions for generating the sag
+
 double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
-    // Also keep track of the angle, which determines which solution of
-    // the quadratic to use
+    // The value of gamma determines which solution of the quadratic to use
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
@@ -28,9 +29,9 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     if (fabs(gamma) <= M_PI/2) {sgn = 1;}
     else {sgn = -1;}
 
-    // Determine the off-axis distance
+    // Determine the off-axis distance. If curvature is very small, it's basically
+    // a plane so no need to shift y-coordinate
     if (fabs(cv) > 1E-10) {
-        // If curvature is very small, it's basically a plane so no need to shift y-coordinate
         double y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
         double x0 = sin(beta) / ( cv * (1 + cos(beta)) );
         y = y + y0;
@@ -42,6 +43,7 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     double cosg2 = cosg*cosg;
     double sing = sin(gamma);
     double sing2 = sing*sing;
+
     double asol = cv*(sing2 + (k+1)*cosg2);
     double bsol = -2*cosg*(x*k*cv*sing + 1);
     double csol = 2*x*sing + cv*(y*y + x*x*cosg2 + (k+1)*x*x*sing2);
@@ -138,16 +140,16 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
 }
 
 
-int ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p) {
+void ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p) {
     // Get dimensions of the image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-
     // Check if (x, y) is out of bounds
     if (fabs(x) >= xsize/2 || fabs(y) >= ysize/2) {
-        *z = 0;
-        return -1;
+        *z = NAN;
+        return;
     }
+
     // Figure out which slice and column number we are on to determine gaps
     int col_num, slice_num;
     GetSlicerIndex(&col_num, &slice_num, x, y, p);
@@ -156,21 +158,171 @@ int ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p) {
     IsInsideSlicerGap(&in_xgap, &in_ygap, x, y, p);
     if (in_xgap) {
         *z = p.gx_depth;
-        return 0;
+        return;
     }
     if (in_ygap) {
         *z = p.gy_depth;
-        return 0;
+        return;
     }
-    double xgap_left = (col_num + 1) * p.dx + col_num*p.gx_width - xsize/2;
-    double xgap_right = xgap_left + p.gx_width;
-    if (x > xgap_left && x <= xgap_right) {
-        *z = p.gx_depth;
-        return 0;
-    }
+
     // Inside a slice. From the slice number, determine the angles
     double alpha, beta, gamma;
     GetSliceAngles(&alpha, &beta, &gamma, slice_num, col_num, p);
-    *z = Conic3DSag(x, y, 0, p.cv, p.k, alpha, beta, gamma);
-    return 0;
+    *z = Conic3DSag(x, y, p.cv, p.k, alpha, beta, gamma);
+}
+
+
+// Functions for computing global maximum and minimum
+
+void Conic3DCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k, double alpha, double beta, double gamma) {
+
+    alpha = ConvertAngle(alpha) * M_PI/180;
+    beta = ConvertAngle(beta) * M_PI/180;
+    gamma = ConvertAngle(gamma) * M_PI/180;
+
+    // Determine the off-axis distance. If curvature is very small, it's basically
+    // a plane so no need to shift y-coordinate
+    double x0 = 0; double y0 = 0;
+    if (fabs(cv) > 1E-10) {
+        y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
+        x0 = sin(beta) / ( cv * (1 + cos(beta)) );
+    }
+
+    *yc = -y0;
+
+    double sing = sin(gamma);
+    double sin3g = sin(3 * gamma);
+    double cosg = cos(gamma);
+    double cos2g = cos(2 * gamma);
+
+    if (k == -1) {
+        *xc1 = -x0 + ( sing*(5 + cv*cv*y0*y0) + sin3g*(1 + cv*cv*y0*y0) ) / (cosg*cosg*-8*cv);
+        *xc2 = NAN; // No second solution
+    }
+    else {
+        double arg1 = -sing / (cv*(1+k)*(-2-k+k*cos2g));
+        double arg2 = -2 - k + k*cos2g;
+        double arg3 = cosg*k* sqrt( (-2+2*cv*cv*(1+k)+y0*y0) * (-2-k+k*cos2g) );
+
+        *xc1 = arg1 * (arg2 - arg3) - x0;
+        *xc2 = arg1 * (arg2 + arg3) - x0;
+    }
+}
+
+
+double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p) {
+    // If x0, y0 are inside gaps then we don't need to go further
+    int in_xgap, in_ygap;
+    IsInsideSlicerGap(&in_xgap, &in_ygap, x0, y0, p);
+    if (in_xgap) return p.gx_depth;
+    if (in_ygap) return p.gy_depth;
+
+    // Not inside a gap. We need to compute the sag at the bounds and critical
+    // point(s) of the slice.
+    // First, compute the bounds of the current slice
+    int col_num, slice_num;
+    GetSlicerIndex(&col_num, &slice_num, x0, y0, p);
+    double xsize, ysize;
+    GetSlicerSize(&xsize, &ysize, p);
+    double alpha, beta, gamma;
+    GetSliceAngles(&alpha, &beta, &gamma, slice_num, col_num, p);
+
+    double xlo = col_num * (p.dx + p.gx_width) - xsize / 2;
+    double xhi = xlo + p.dx;
+    double ylo = slice_num * (p.dy + p.gy_width) - ysize / 2;
+    double yhi = ylo + p.dy;
+
+    // Compute critical points
+    double xc1, xc2, yc;
+    Conic3DCriticalXY(&xc1, &xc2, &yc, p.cv, p.k, alpha, beta, gamma);
+
+    // There are up to 6 points to compare depending on whether the critical points
+    // are within bounds. Get the edges first
+    double zsolns[6];
+    zsolns[0] = Conic3DSag(xlo, ylo, p.cv, p.k, alpha, beta, gamma);
+    zsolns[1] = Conic3DSag(xlo, yhi, p.cv, p.k, alpha, beta, gamma);
+    zsolns[2] = Conic3DSag(xhi, ylo, p.cv, p.k, alpha, beta, gamma);
+    zsolns[3] = Conic3DSag(xhi, yhi, p.cv, p.k, alpha, beta, gamma);
+
+    int n_compare = 4; // Number of elements to compare so far
+
+    // Check whether critical points are in bounds. If yes, compute the sag an
+    // add to the array of points to compare.
+    if (yc >= ylo && yc <= yhi) {
+        if (xc1 >= xlo && xc1 <= xhi) {
+            zsolns[4] = Conic3DSag(xc1, yc, p.cv, p.k, alpha, beta, gamma);
+            n_compare++;
+        }
+        if (!isnan(xc2)) {
+            if (xc2 >= xlo && xc2 <= xhi) {
+                zsolns[5] = Conic3DSag(xc2, yc, p.cv, p.k, alpha, beta, gamma);
+                n_compare++;
+            }
+        }
+    }
+
+    // Compare potential solutions to get the maximum or minimum
+    double result = zsolns[0];
+    for (int i = 1; i < n_compare; i++) {
+        if (mode) {
+            if (zsolns[i] > result) result = zsolns[i]; // max
+        } else {
+            if (zsolns[i] < result) result = zsolns[i]; // min
+        }
+    }
+    return result;
+}
+
+void FindGlobalExtremaSlicer(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p) {
+    // Determine which slice the global extrema are on by roughly sampling the
+    // entire image slicer
+    double xsize, ysize;
+    GetSlicerSize(&xsize, &ysize, p);
+    int nx = p.n_cols * 8;
+    int ny = p.n_rows * p.n_each * 8;
+
+    // Safeguard in case the user attemps to initialize an obscenely large number of slices
+    if (nx > 100000 || ny > 100000) {
+        nx = 100000; // Implies >12,500 slices per column which seems excessive...
+        ny = 100000;
+    }
+
+    // Generally the number of points shouldn't be a problem but dynamically allocate
+    // memory for xpts and ypts just in case
+    double *xpts = (double *)malloc(nx * sizeof(double));
+    double *ypts = (double *)malloc(ny * sizeof(double));
+    if (xpts == NULL || ypts == NULL) {
+        // If memory allocation fails, print an error and give up
+        fprintf(stderr, "Memory allocation failed for xpts or ypts!\n");
+        return;
+    }
+
+    for (int i = 0; i < nx; i++) {
+        xpts[i] = -xsize / 2 + (xsize * i) / nx;
+    }
+    for (int i = 0; i < ny; i++) {
+        ypts[i] = -ysize / 2 + (ysize * i) / ny;
+    }
+
+    // Evaluate the grid, keeping track of the maximum and minimum
+    double x0_max = 0, y0_max = 0, z0_max = -INFINITY;
+    double x0_min = 0, y0_min = 0, z0_min = INFINITY;
+    for (int i = 0; i < nx; i++) {
+        for (int j = 0; j < ny; j++) {
+            double z = make_image_slicer(xpts[i], ypts[j], p);
+            if (z > z0_max) {
+                x0_max = xpts[i];
+                y0_max = ypts[j];
+                z0_max = z;
+            } else if (z < z0_min) {
+                x0_min = xpts[i];
+                y0_min = ypts[j];
+                z0_min = z;
+            }
+        }
+    }
+
+    // Use the estimated maximum and minimum to find the exact values
+    *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p);
+    *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p);
 }

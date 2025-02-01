@@ -141,8 +141,18 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          y = UD->y;
          sag = 0.0;
          ImageSlicerSag(&sag, x, y, p);
-         UD->sag1 = sag;
-         UD->sag2 = sag;
+
+         // Set the sag to zero if it isn't defined at the given x, y. This is
+         // only used to draw the surface so it shouldn't matter. We will tell Zemax
+         // that the ray missed the surface when it is traced.
+         if (isnan(sag)) {
+            UD->sag1 = 0.0;
+            UD->sag2 = 0.0;
+         }
+         else {
+            UD->sag1 = sag;
+            UD->sag2 = sag;
+         }
          break;
 
       case 4:
