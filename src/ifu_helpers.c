@@ -29,14 +29,15 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     if (fabs(gamma) <= M_PI/2) {sgn = 1;}
     else {sgn = -1;}
 
-    // Determine the off-axis distance. If curvature is very small, it's basically
-    // a plane so no need to shift y-coordinate
-    if (fabs(cv) > 1E-10) {
-        double y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
-        double x0 = sin(beta) / ( cv * (1 + cos(beta)) );
-        y = y + y0;
-        x = x + x0;
-    }
+    // Determine the off-axis distance. If the curvature is near-zero, this is
+    // basically a plane. Set a limit to how small cv can be. In practice the
+    // user should not set a non-zero off-axis distance if the surface is a plane.
+    if (fabs(cv) < 1E-13) cv = 1E-13;
+
+    double y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
+    double x0 = sin(beta) / ( cv * (1 + cos(beta)) );
+    y = y + y0;
+    x = x + x0;
 
     // Rotate about the x-axis
     double cosg = cos(gamma);
@@ -180,13 +181,16 @@ void Conic3DCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
 
-    // Determine the off-axis distance. If curvature is very small, it's basically
-    // a plane so no need to shift y-coordinate
-    double x0 = 0; double y0 = 0;
-    if (fabs(cv) > 1E-10) {
-        y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
-        x0 = sin(beta) / ( cv * (1 + cos(beta)) );
+    // If the curvature is very small this is basically a plane. In this case
+    //  there are no critical points because the derivative is a constant.
+    if (fabs(cv) < 1E-13) {
+        *yc = NAN; *xc1 = NAN; *xc2 = NAN;
+        return;
     }
+
+    // Determine off axis distances
+    double y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
+    double x0 = sin(beta) / ( cv * (1 + cos(beta)) );
 
     *yc = -y0;
 
@@ -200,12 +204,12 @@ void Conic3DCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k
         *xc2 = NAN; // No second solution
     }
     else {
-        double arg1 = -sing / (cv*(1+k)*(-2-k+k*cos2g));
-        double arg2 = -2 - k + k*cos2g;
-        double arg3 = cosg*k* sqrt( (-2+2*cv*cv*(1+k)+y0*y0) * (-2-k+k*cos2g) );
+        double U = -sing / (cv*(1+k)*(-2-k+k*cos2g));
+        double V = -2 - k + k*cos2g;
+        double W = cosg*k* sqrt( (-2+2*cv*cv*y0*y0*(1+k)) * V );
 
-        *xc1 = arg1 * (arg2 - arg3) - x0;
-        *xc2 = arg1 * (arg2 + arg3) - x0;
+        *xc1 = U * (V - W) - x0;
+        *xc2 = U * (V + W) - x0;
     }
 }
 
@@ -248,18 +252,21 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 
     // Check whether critical points are in bounds. If yes, compute the sag an
     // add to the array of points to compare.
-    if (yc >= ylo && yc <= yhi) {
-        if (xc1 >= xlo && xc1 <= xhi) {
-            zsolns[4] = Conic3DSag(xc1, yc, p.cv, p.k, alpha, beta, gamma);
-            n_compare++;
-        }
-        if (!isnan(xc2)) {
-            if (xc2 >= xlo && xc2 <= xhi) {
-                zsolns[5] = Conic3DSag(xc2, yc, p.cv, p.k, alpha, beta, gamma);
+    if (!isnan(yc)) {
+        if (yc >= ylo && yc <= yhi) {
+            if (xc1 >= xlo && xc1 <= xhi) {
+                zsolns[4] = Conic3DSag(xc1, yc, p.cv, p.k, alpha, beta, gamma);
                 n_compare++;
+            }
+            if (!isnan(xc2)) {
+                if (xc2 >= xlo && xc2 <= xhi) {
+                    zsolns[5] = Conic3DSag(xc2, yc, p.cv, p.k, alpha, beta, gamma);
+                    n_compare++;
+                }
             }
         }
     }
+    
 
     // Compare potential solutions to get the maximum or minimum
     double result = zsolns[0];
@@ -273,18 +280,20 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     return result;
 }
 
-void FindGlobalExtremaSlicer(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p) {
+
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p) {
     // Determine which slice the global extrema are on by roughly sampling the
     // entire image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     int nx = p.n_cols * 8;
-    int ny = p.n_rows * p.n_each * 8;
+    int ny = p.n_rows * p.n_each * 10;
 
-    // Safeguard in case the user attemps to initialize an obscenely large number of slices
+    // Safeguard in case the user attempts to initialize an obscenely large number
+    // of slices
     if (nx > 100000 || ny > 100000) {
-        nx = 100000; // Implies >12,500 slices per column which seems excessive...
-        ny = 100000;
+        nx = 100000; 
+        ny = 100000; // Implies >10,000 slices per column which seems excessive...
     }
 
     // Generally the number of points shouldn't be a problem but dynamically allocate
@@ -293,7 +302,7 @@ void FindGlobalExtremaSlicer(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p) 
     double *ypts = (double *)malloc(ny * sizeof(double));
     if (xpts == NULL || ypts == NULL) {
         // If memory allocation fails, print an error and give up
-        fprintf(stderr, "Memory allocation failed for xpts or ypts!\n");
+        fprintf(stderr, "Memory allocation failed!\n");
         return;
     }
 

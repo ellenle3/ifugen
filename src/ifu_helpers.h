@@ -11,8 +11,8 @@
 *       Number of columns. n_cols > 0
 *   @var IMAGE_SLICER_PARAMS::mode
 *       Mode for switching angles between blocks.
-*   @var IMAGE_SLICER_PARAMS::trace_gaps
-*       If 0 do not ray trace gaps, if 1 attempt to ray trace gaps.
+*   @var IMAGE_SLICER_PARAMS::trace_walls
+*       If 0 do not ray trace walls, if 1 attempt to ray trace walls.
 *   @var IMAGE_SLICER_PARAMS::dalpha
 *       Change in angle between rows in degrees.
 *   @var IMAGE_SLICER_PARAMS::dbeta
@@ -48,7 +48,7 @@ typedef struct {
     int n_rows;
     int n_cols;      
     int mode;
-    int trace_gaps;
+    int trace_walls;
     int active_x;
     int active_y;
     double dalpha;
