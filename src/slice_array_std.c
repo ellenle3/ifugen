@@ -5,11 +5,12 @@
 #include <string.h>
 #include "usersurf.h"
 #include "ifu_helpers.h"
+
 /*
 Ellen Lee
 */
 
-int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA3 *FD);
+int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
@@ -19,13 +20,12 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
    return TRUE;
    }
 
-int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA3 *FD)
+int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
    int i;
    int n_each, n_rows, mode;
-   struct imageSlicerParams p;
-   double sag;
-   double* zptr;
+   IMAGE_SLICER_PARAMS p;
+   double sag, zmax, zmin;
 
    switch(FD->type)
    	{
@@ -36,7 +36,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             case 0:
             	/* ZEMAX wants to know the name of the surface */
 		         /* do not exceed 12 characters */
-		         strcpy(UD->string, "SubpupilMiro");
+		         strcpy(UD->string,"SliceArrStd");
                break;
             case 1:
             	/* ZEMAX wants to know if this surface is rotationally symmetric */
@@ -58,23 +58,62 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             default:
             	UD->string[0] = '\0';
             	break;
+            case 0:
+            	strcpy(UD->string,"n_each");
+               break;
             case 1:
-            	strcpy(UD->string,"dx");
+            	strcpy(UD->string,"n_rows");
                break;
             case 2:
-            	strcpy(UD->string,"dy");
+            	strcpy(UD->string,"n_cols");
                break;
             case 3:
-            	strcpy(UD->string,"Rx");
+            	strcpy(UD->string,"mode");
                break;
             case 4:
-            	strcpy(UD->string,"Ry");
+            	strcpy(UD->string,"trace_gaps");
                break;
             case 5:
-            	strcpy(UD->string,"kx");
+               strcpy(UD->string,"active_x");
                break;
             case 6:
-            	strcpy(UD->string,"ky");
+               strcpy(UD->string,"active_y");
+               break;
+            case 7:
+            	strcpy(UD->string,"dalpha");
+               break;
+            case 8:
+            	strcpy(UD->string,"dbeta");
+               break;
+            case 9:
+            	strcpy(UD->string,"dgamma");
+               break;
+            case 10:
+            	strcpy(UD->string,"alpha_cen");
+               break;
+            case 11:
+            	strcpy(UD->string,"beta_cen");
+               break;
+            case 12:
+            	strcpy(UD->string,"gamma_cen");
+               break;
+            case 13:
+            	strcpy(UD->string,"dx");
+               break;
+            case 14:
+            	strcpy(UD->string,"dy");
+               break;
+            case 15:
+            	strcpy(UD->string,"gax_width");
+               break;
+            case 16:
+            	strcpy(UD->string,"gx_depth");
+               break;
+            case 17:
+            	strcpy(UD->string,"gy_width");
+               break;
+            case 18:
+            	strcpy(UD->string,"gy_depth");
                break;
             }
       	break;
@@ -95,27 +134,25 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* if there is an alternate sag, return it as well */
          /* otherwise, set the alternate sag identical to the sag */
          /* The sag is sag1, alternate is sag2. */
-
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
-
-         c = FD->c;
-         k = FD->k;
-         n_each = FD->param[1];
-         n_rows = FD->param[2];
-         mode = FD->param[3];
-         dx = FD->param[4];
-         dy = FD->param[5];
-         gap_width = FD->param[6];
-         gap_depth =FD->param[7];
 
          x = UD->x;
          y = UD->y;
          sag = 0.0;
-         ImageSlicerSag(zptr, x, y, n_each, n_rows, mode, dalpha, dbeta, alpha_cen, beta_cen, dx, dy, c, k, gap_width, gap_depth);
-         double sag = *zptr;
-         UD->sag1 = sag;
-         UD->sag2 = sag;
+         ImageSlicerSag(&sag, x, y, p);
+
+         // Set the sag to zero if it isn't defined at the given x, y. This is
+         // only used to draw the surface so it shouldn't matter. We will tell Zemax
+         // that the ray missed the surface when it is traced.
+         if (isnan(sag)) {
+            UD->sag1 = 0.0;
+            UD->sag2 = 0.0;
+         }
+         else {
+            UD->sag1 = sag;
+            UD->sag2 = sag;
+         }
          break;
 
       case 4:
@@ -123,6 +160,11 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* x, y, z, and the path are unaffected, at least for this surface type */
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          /* paraxial surfaces are always planes with the following normals */
+
+         // Use active_x and active_y to get the central slice if there are an
+         // odd number of slices
+
+         // Calculate transfer distance based on these parameters
 
          UD->ln =  0.0;
          UD->mn =  0.0;
@@ -187,14 +229,58 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         for (i = 0; i <= FD->max_parameter; i++) FD->param[i] = 0.0;
-         for (i = 0; i <= FD->max_extradata; i++) FD->xdata[i] = 0.0;
+         p.n_each = 5;
+         p.n_rows = 3;
+         p.n_cols = 2;
+         p.mode = 0;
+         p.trace_walls = 0;
+         p.active_x = 0;
+         p.active_y = 0;
+         p.dalpha = 4;
+         p.dbeta = 4;
+         p.dgamma = 0.2;
+         p.alpha_cen = 0;
+         p.beta_cen = 0;
+         p.gamma_cen = 0;
+         p.dx = 10;
+         p.dy = 0.5;
+         p.gx_width = 0;
+         p.gx_depth = 0;
+         p.gy_width = 0;
+         p.gy_depth = 0;
          break;
       case 8:
       	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
+         // Initialize the parameter struct
+         p.n_each =     FD->param[0];
+         p.n_rows =     FD->param[1];
+         p.n_cols =     FD->param[2];
+         p.mode =       FD->param[3];
+         p.trace_gaps = FD->param[4];
+         p.active_x =   FD->param[5];
+         p.active_y =   FD->param[6];
+         p.dalpha =     FD->param[7];
+         p.dbeta =      FD->param[8];
+         p.dgamma =     FD->param[9];
+         p.alpha_cen =  FD->param[10];
+         p.beta_cen =   FD->param[11];
+         p.gamma_cen =  FD->param[12];
+         p.dx =         FD->param[13];
+         p.dy =         FD->param[14];
+         p.gx_width =   FD->param[15];
+         p.gx_depth =   FD->param[16];
+         p.gy_width =   FD->param[17];
+         p.gy_depth =   FD->param[18];
+         p.cv = FD->cv;
+         p.k = FD->k;
+         // Compute and store the global maxima
+         //zmax=0; zmin=0;
          break;
       case 9:
       	/* ZEMAX is calling the DLL for the last time, do any memory release here. */
+         break;
+      case 10;
+         /* Scaling of parameter and extra data values */
          break;
       }
    return 0;
