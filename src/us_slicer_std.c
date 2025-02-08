@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "usersurf.h"
-#include "ifu_helpers.h"
+#include "slicer_generation.h"
+#include "surface_solns.h"
 
 /*
 Ellen Lee
@@ -24,8 +25,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 	{
    int i;
    int n_each, n_rows, mode;
+   double zmax, zmin;
    IMAGE_SLICER_PARAMS p;
-   double sag, zmax, zmin;
+   SAG_FUNC sag_func;
+   CRITICAL_XY_FUNC critical_xy_func;
+   TRANSFER_DIST_FUNC transfer_dist_func;
+   SURF_NORMAL_FUNC surf_normal_func; 
 
    switch(FD->type)
    	{
@@ -71,7 +76,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             	strcpy(UD->string,"mode");
                break;
             case 4:
-            	strcpy(UD->string,"trace_gaps");
+            	strcpy(UD->string,"trace_walls");
                break;
             case 5:
                strcpy(UD->string,"active_x");
@@ -139,8 +144,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          x = UD->x;
          y = UD->y;
-         sag = 0.0;
-         ImageSlicerSag(&sag, x, y, p);
+         double sag = ImageSlicerSag(x, y, p, sag_func);
 
          // Set the sag to zero if it isn't defined at the given x, y. This is
          // only used to draw the surface so it shouldn't matter. We will tell Zemax
@@ -229,52 +233,66 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         p.n_each = 5;
-         p.n_rows = 3;
-         p.n_cols = 2;
+         p.n_each = 10;
+         p.n_rows = 2;
+         p.n_cols = 1;
          p.mode = 0;
          p.trace_walls = 0;
          p.active_x = 0;
          p.active_y = 0;
-         p.dalpha = 4;
-         p.dbeta = 4;
-         p.dgamma = 0.2;
+         p.dalpha = 4.0;
+         p.dbeta = 4.0;
+         p.dgamma = 0.5;
          p.alpha_cen = 0;
          p.beta_cen = 0;
          p.gamma_cen = 0;
-         p.dx = 10;
+         p.dx = 10.0;
          p.dy = 0.5;
-         p.gx_width = 0;
-         p.gx_depth = 0;
-         p.gy_width = 0;
-         p.gy_depth = 0;
+         p.gx_width = 0.0;
+         p.gx_depth = 0.0;
+         p.gy_width = 0.0;
+         p.gy_depth = 0.0;
          break;
       case 8:
       	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
          // Initialize the parameter struct
-         p.n_each =     FD->param[0];
-         p.n_rows =     FD->param[1];
-         p.n_cols =     FD->param[2];
-         p.mode =       FD->param[3];
-         p.trace_gaps = FD->param[4];
-         p.active_x =   FD->param[5];
-         p.active_y =   FD->param[6];
-         p.dalpha =     FD->param[7];
-         p.dbeta =      FD->param[8];
-         p.dgamma =     FD->param[9];
-         p.alpha_cen =  FD->param[10];
-         p.beta_cen =   FD->param[11];
-         p.gamma_cen =  FD->param[12];
-         p.dx =         FD->param[13];
-         p.dy =         FD->param[14];
-         p.gx_width =   FD->param[15];
-         p.gx_depth =   FD->param[16];
-         p.gy_width =   FD->param[17];
-         p.gy_depth =   FD->param[18];
+         p.n_each =      FD->param[0];
+         p.n_rows =      FD->param[1];
+         p.n_cols =      FD->param[2];
+         p.mode =        FD->param[3];
+         p.trace_walls = FD->param[4];
+         p.active_x =    FD->param[5];
+         p.active_y =    FD->param[6];
+         p.dalpha =      FD->param[7];
+         p.dbeta =       FD->param[8];
+         p.dgamma =      FD->param[9];
+         p.alpha_cen =   FD->param[10];
+         p.beta_cen =    FD->param[11];
+         p.gamma_cen =   FD->param[12];
+         p.dx =          FD->param[13];
+         p.dy =          FD->param[14];
+         p.gx_width =    FD->param[15];
+         p.gx_depth =    FD->param[16];
+         p.gy_width =    FD->param[17];
+         p.gy_depth =    FD->param[18];
          p.cv = FD->cv;
          p.k = FD->k;
          // Compute and store the global maxima
          //zmax=0; zmin=0;
+
+         // Set which functions we use to compute sag and ray tracing
+         if (p.cv == 0) {
+            sag_func = &TiltedPlaneSag;
+            critical_xy_func = &TiltedPlaneCriticalXY;
+            transfer_dist_func = &TiltedPlaneTransfer;
+            surf_normal_func = &TiltedPlaneSurfaceNormal;
+         }
+         else {
+            sag_func = &Conic3DSag;
+            critical_xy_func = &Conic3DCriticalXY;
+            transfer_dist_func = &Conic3DTransfer;
+            surf_normal_func = &Conic3DSurfaceNormal;
+         }
          break;
       case 9:
       	/* ZEMAX is calling the DLL for the last time, do any memory release here. */

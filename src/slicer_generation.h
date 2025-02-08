@@ -1,5 +1,5 @@
-#ifndef IFU_HELPERS_H
-#define IFU_HELPERS_H
+#ifndef SLICER_GENERATION_H
+#define SLICER_GENERATION_H
 
 /** @struct IMAGE_SLICER_PARAMS
 *   @brief Parameters that define the image slicer.
@@ -67,48 +67,21 @@ typedef struct {
     double k;
 } IMAGE_SLICER_PARAMS;
 
-/** @struct SUBPUPIL_MIRROR_PARAMS
-* 
-* 
-*/
-typedef struct {
-    float d_sp;
-    double c_sp;
-    double k_sp; 
-} SUBPUPIL_MIRROR_PARAMS;
+/** Function pointers */
+typedef double (*SAG_FUNC)(double, double, double, double, double, double, double);
+typedef void (*CRITICAL_XY_FUNC)(double*, double*, double*, double, double, double, double, double);
+typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, double, double, double, double);
+typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double);
 
+int CheckSlicerParams(IMAGE_SLICER_PARAMS);
 
-/** @brief Converts an angle to be between -180 and 180 degrees.
-*   @param t Angle in degrees.
-*   @return The converted angle.
-**/
-double ConvertAngle(double t);
+void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS p);
 
+void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS p);
 
-/**  @brief Computes a conic surface rotated about its apex at the origin.
-* 
-*     [1]  x' = x cos(t) + z sin(t)
-*     [2]  y' = y + y0
-*     [3]  z' = -x sin(t) + z cos(t)
-*     [4]  g  = y'^2 / (r_y + sqrt(r_y^2 - (k_y+1) y'^2))
-*     [5]  z' = x'^2 / (r_x + sqrt(r_x^2 - (k_x+1) x'^2)) + g 
-* 
-*   Substitute 1, 2, 3, and 4 into 5 to get a quadratic equation which can then
-*   be solved for z(x,y).
-* 
-*   @param z Sag of the image slicer.
-*   @param x x-value to evaluate. The x-axis is oriented along the slice length.
-*   @param y y-value to evaluate. The y-axis is oriented along the slice width.
-*   @param c Curvature.
-*   @param k Conic constant.
-*   @param alpha Off-axis angle about the vertex (how an OAP is defined). Describes
-*                a rotation in the direction of the x-axis.
-*   @param beta Angle of rotation about the global y-axis in degrees.
-*   
-*   @return Sag of the conic surface.
-**/
-double Conic3DSag(double x, double y, double c, double k, double alpha, double beta, double gamma);
+void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS p);
 
+void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p);
 
 /** @brief Computes the angles alpha and beta for the given slice number. Indexing
 *   of the slices starts at 0 from the bottom (negative y-direction) of the image
@@ -118,8 +91,7 @@ double Conic3DSag(double x, double y, double c, double k, double alpha, double b
 *   @param beta Pointer to angle about y.
 *   @param slice_num See ImageSlicerSag for remaining parameters.
 **/
-void SliceAngles (double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p);
-
+void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p);
 
 /** @brief Computes the sag of the image slicer.
 * 
@@ -130,6 +102,16 @@ void SliceAngles (double* alpha, double* beta, double* gamma, int slice_num, int
 * 
 *   @return 0 if success.
 **/
-int ImageSlicerSag(double *z, double x, double y, IMAGE_SLICER_PARAMS p);
+double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
+
+double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
+
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
+
+double TransferEquation(double t, double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
+
+void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, double* mn, double* nn,
+    double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p,
+    SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func)
 
 #endif
