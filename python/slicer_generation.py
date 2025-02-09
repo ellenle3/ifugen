@@ -251,7 +251,41 @@ def transfer_equation(t, xt, yt, l, m, n, p, sag_func):
     sag = make_image_slicer(xs, ys, p, sag_func)
     return sag - zs
 
-def is_ray_in_bounds
+def get_ray_bounds(ray_in, zmin, zmax, p):
+
+    if abs(ray_in.n) < 1e-13:
+        xsize, ysize = get_slicer_size(p)
+        # Ray is moving perpendicular to the z-axis! This is an unusual case.
+        # Set bounds on potential xs and ys to edges of the image slicer
+        xmin, xmax = -xsize/2, xsize/2
+        ymin, ymax = -ysize/2, ysize/2
+        if ray_in.l < 0: xmin *= -1; xmax *= -1  # propagate right to left
+        if ray_in.m < 0: ymin *= -1; ymax *= -1  # propagate bottom to top
+        
+    else:
+        # Get maximum and minimum possible values of xs and ys
+        tmin = zmin / ray_in.n
+        xmin, ymin = ray_in.xt + tmin*ray_in.l, ray_in.yt + tmin*ray_in.m
+        tmax = zmax / ray_in.n
+        xmax, ymax = ray_in.xt + tmax*ray_in.l, ray_in.yt + tmax*ray_in.m
+
+    # Get starting and ending rows and columns
+    nc_min, ns_min = get_slicer_index(xmin, ymin, p)
+    nc_max, ns_max = get_slicer_index(xmax, ymax, p)
+
+    return nc_min, ns_min, nc_max, ns_max
+
+def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
+    """Returns True if the ray is in bounds at least some of the time.
+    """
+    n_sperc = p.n_each * p.n_rows  # number of slices per column
+    if (nc_min < 0 and nc_max < 0) or (nc_min >= p.n_cols and nc_max >= p.n_cols):
+        # x-value of the ray is too high or low
+        return False
+    if (ns_min < 0 and ns_max < 0) or (ns_min >= n_sperc and ns_max >= n_sperc):
+        # y-value of the ray is too high or low
+        return False
+    return True
 
 def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_normal_func):
     """Computes ray trace.
@@ -262,45 +296,17 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
     """
     # Tolerance for accepting the transfer distance as valid
     tol = 1e-13
-
-    xt = ray_in.xt, yt = ray_in.yt
-    l = ray_in.l, m = ray_in.m, n = ray_in.n
-    xsize, ysize = get_slicer_size(p)
-
-    if abs(n) < 1e-13:
-        # Ray is moving perpendicular to the z-axis! This is an unusual case.
-        # Set bounds on potential xs and ys to edges of the image slicer
-        xmin, xmax = -xsize/2, xsize/2
-        ymin, ymax = -ysize/2, ysize/2
-        if l < 0: xmin *= -1; xmax *= -1  # propagate right to left
-        if m < 0: ymin *= -1; ymax *= -1  # propagate bottom to top
-        
-    else:
-        # Get maximum and minimum possible values of xs and ys
-        tmin = zmin / n
-        xmin, ymin = xt + tmin*l, yt + tmin*m
-        tmax = zmax / n
-        xmax, ymax = xt + tmax*l, yt + tmax*m
+    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
     # Get starting and ending rows and columns
-    nc_min, ns_min = get_slicer_index(xmin, ymin, p)
-    nc_max, ns_max = get_slicer_index(xmax, ymax, p)
-
-    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    nc_min, ns_min, nc_max, ns_max = get_ray_bounds(ray_in, zmin, zmax, p)
+    if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
+        return ray_out
     
-    # Check if the ray is always out of bounds
-    n_sperc = p.n_each * p.n_rows  # number of slices per column
-    if (nc_min < 0 and nc_max < 0) or (nc_min >= p.n_cols and nc_max >= p.n_cols):
-        # x-value of the ray is too high or low
-        return ray_out
-    if (ns_min < 0 and ns_max < 0) or (ns_min >= n_sperc and ns_max >= n_sperc):
-        # y-value of the ray is too high or low
-        return ray_out
-
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
     nc_test, ns_test = nc_min, ns_min
-    x_test, y_test = xt, yt
+    x_test, y_test = ray_in.xt, ray_in.yt
 
     dcol = abs(nc_max - nc_test)        # Number of col indices left to iterate
     dslice = abs(ns_max - ns_test)      # Number of slice (row) indices left to iterate
@@ -314,6 +320,10 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
         sgns = (ns_max - ns_min) / dslice 
     
     slice_iter = 0       # Keep track of whether we're on the first slice in a column to check walls
+
+    xsize, ysize = get_slicer_size(p)
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
     
     while dcol >= 0:
         
@@ -367,12 +377,12 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
 
                     # Going between columns. Skip if there are no columns left to iterate
                     if (slice_iter == 0 and abs(l) > 1e-13 and dcol > 0):
-                        xnear = (ns_test + 1) * p.dx - xsize / 2
+                        xnear = (nc_test + 1) * p.dx - xsize / 2
                         tnear = (xnear - xt) / l
                         ynear = yt + tnear*m
                         znear = tnear*n
                         
-                        xfar = (ns_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2
+                        xfar = (nc_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2
                         tfar = (xfar - xt) / l
                         yfar = yt + tfar*m
                         zfar = tfar*n

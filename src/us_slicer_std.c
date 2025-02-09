@@ -31,7 +31,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    SAG_FUNC sag_func;
    CRITICAL_XY_FUNC critical_xy_func;
    TRANSFER_DIST_FUNC transfer_dist_func;
-   SURF_NORMAL_FUNC surf_normal_func; 
+   SURF_NORMAL_FUNC surf_normal_func;
+   RAY_IN ray_in; RAY_OUT ray_out;
 
    switch(FD->type)
    	{
@@ -186,14 +187,16 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
-         RayTraceSlicer(&xs, &ys, &zs, &t, &ln, &mn, &nn,
-            UD->x, UD->y, UD->l, UD->m, UD->n, zmin, zmax,
+         ray_in.x = (UD->x); ray_in.y = (UD->y);
+         ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
+
+         RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
             p, sag_func, critical_xy_func, transfer_dist_func, surf_normal_func);
 
          if (isnan(t)) return (FD->surf);  // Ray missed
-         (UD->x) = xs; (UD->y) = ys; (UD->z) = zs;
-         (UD->path) = t;
-         (UD->ln) = ln; (UD->mn) = mn; (UD->nn) = nn;
+         (UD->x) = ray_out.xs; (UD->y) = ray_out.ys; (UD->z) = ray_out.zs;
+         (UD->path) = ray_out.t;
+         (UD->ln) = ray_out.ln; (UD->mn) = ray_out.mn; (UD->nn) = ray_out.nn;
 
          if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
          break;

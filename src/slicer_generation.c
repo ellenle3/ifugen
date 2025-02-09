@@ -267,62 +267,65 @@ double TransferEquation(double t, double xt, double yt, double l, double m, doub
     return sag - zs;
 }
 
+void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p) {
+    double xmin, xmax, ymin, ymax;
+    double xsize, ysize;
+    GetSlicerSize(&xsize, &ysize, p);
+    
+    if (fabs(ray_in.n) < 1e-13) {
+        // Ray is moving perpendicular to the z-axis! This is an unusual case.
+        // Set bounds on potential xs and ys to edges of the image slicer
+        xmin = -xsize / 2; xmax = xsize / 2;
+        ymin = -ysize / 2; ymax = ysize / 2;
+        
+        if (ray_in.l < 0) {xmin *= -1; xmax *= -1;}  // propagate right to left
+        if (ray_in.m < 0) {ymin *= -1; ymax *= -1;}  // propagate bottom to top
+    }
+        
+    else {
+        // Get maximum and minimum possible values of xs and ys
+        double tmin = zmin / ray_in.n;
+        xmin = ray_in.xt + tmin*ray_in.l; ymin = ray_in.yt + tmin*ray_in.m;
+        double tmax = zmax / ray_in.n;
+        xmax = ray_in.xt + tmax*ray_in.l; ymax = ray_in.yt + tmax*ray_in.m;
+    }
+        
+
+    // Get starting and ending rows and columns
+    GetSlicerIndex(nc_min, ns_min, xmin, ymin, p);
+    GetSlicerIndex(nc_max, ns_max, xmax, ymax, p);
+}
+
+int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_PARAMS p) {
+    int n_sperc = p.n_each * p.n_rows;  // number of slices per column
+    if ( (nc_min < 0 && nc_max < 0) || (nc_min >= p.n_cols && nc_max >= p.n_cols)) {
+        return 1;  // x-value of the ray is too high or low
+    }
+    if ( (ns_min < 0 && ns_max < 0) || (ns_min >= n_sperc && ns_max >= n_sperc) ) {
+        return 1;  // y-value of the ray is too high or low
+    }
+    return 0;
+}
+
 
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
 
     // Tolerance for accepting the transfer distance as valid
     double tol = 1e-13;
+    ray_out->xs = ray_out->ys = ray_out->zs = NAN;
+    ray_out->t = ray_out->ln = ray_out->mn = ray_out->nn = NAN;
 
-    double xt = ray_in.xt, yt = ray_in.yt;
-    double l = ray_in.l, m = ray_in.m, n = ray_in.n;
-
-    double xmin, xmax, ymin, ymax;
-    double xsize, ysize;
-    GetSlicerSize(&xsize, &ysize, p);
-    
-    if (fabs(n) < 1e-13) {
-        // Ray is moving perpendicular to the z-axis! This is an unusual case.
-        // Set bounds on potential xs and ys to edges of the image slicer
-        xmin = -xsize / 2; xmax = xsize / 2;
-        ymin = -ysize / 2; ymax = ysize / 2;
-        
-        if (l < 0) {xmin *= -1; xmax *= -1;}  // propagate right to left
-        if (m < 0) {ymin *= -1; ymax *= -1;}  // propagate bottom to top
-    }
-        
-    else {
-        // Get maximum and minimum possible values of xs and ys
-        double tmin = zmin / n;
-        xmin = xt + tmin*l; ymin = yt + tmin*m;
-        double tmax = zmax / n;
-        xmax =  xt + tmax*l; ymax = yt + tmax*m;
-    }
-        
-
-    // Get starting and ending rows and columns
     int nc_min, ns_min, nc_max, ns_max;
-    GetSlicerIndex(&nc_min, &ns_min, xmin, ymin, p);
-    GetSlicerIndex(&nc_max, &ns_max, xmax, ymax, p);
+    GetRayBounds(&nc_min, &ns_min, &nc_max, &ns_max, ray_in, zmin, zmax, p);
 
-    // Default return values if the ray missed
-    double xs, ys, zs, t, ln, mn, nn;
-    xs = ys = zs = t = ln = mn = nn = NAN;
-
-    // Check if the ray is always out of bounds
-    int n_sperc = p.n_each * p.n_rows;  // number of slices per column
-    if ( (nc_min < 0 && nc_max < 0) || (nc_min >= p.n_cols && nc_max >= p.n_cols)) {
-        return;  // x-value of the ray is too high or low
-    }
-        
-    if ( (ns_min < 0 && ns_max < 0) || (ns_min >= n_sperc && ns_max >= n_sperc) ) {
-        return;  // y-value of the ray is too high or low
-    }
+    // Ray missed
+    if (!IsRayInBounds(nc_min, ns_min, nc_max, ns_max, p)) return;
 
     // Ray is in bounds at least some of the time. Start from the min col and slice
-    // indices and check solutions until we hit the max
+    // indices and check solutions until we hit the max. Initialize the loop parameters...
     int nc_test = nc_min; int ns_test = ns_min;
-    double x_test = xt; double y_test = yt;
+    double x_test = ray_in.xt; double y_test = ray_in.yt;
 
     int dcol = abs(nc_max - nc_test);        // Number of col indices left to iterate
     int dslice = abs(ns_max - ns_test);      // Number of slice (row) indices left to iterate
@@ -334,10 +337,18 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
     int sgns = (dslice > 0) ? (ns_max - ns_min) / dslice : 0;
         
     int slice_iter = 0;       // Keep track of whether we're on the first slice in a column to check walls
+    
+    double xsize, ysize;
+    GetSlicerSize(&xsize, &ysize, p);
+    double xt = ray_in.xt, yt = ray_in.yt;
+    double l = ray_in.l, m = ray_in.m, n = ray_in.n;
+
     int n_sforc, in_xgap, in_ygap;
     double x_cross, y_cross, alpha, beta, gamma, t_test, result;
     double xs, ys, zs, t, ln, mn, nn;
     double xnear, ynear, znear, tnear, xfar, yfar, zfar, tfar, znear_slice, zfar_slice, zcompare;
+
+    // Begin iterating through slices
 
     while (dcol >= 0) {
         
@@ -395,12 +406,12 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                     // Going between columns. Skip if there are no columns left to iterate
                     if (slice_iter == 0 && fabs(l) > 1E-13 && dcol > 0) {
                         
-                        xnear = (ns_test + 1) * p.dx - xsize / 2;
+                        xnear = (nc_test + 1) * p.dx - xsize / 2;
                         tnear = (xnear - xt) / l;
                         ynear = yt + tnear*m;
                         znear = tnear*n;
                         
-                        xfar = (ns_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2;
+                        xfar = (nc_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2;
                         tfar = (xfar - xt) / l;
                         yfar = yt + tfar*m;
                         zfar = tfar*n;
