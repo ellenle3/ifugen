@@ -67,11 +67,31 @@ typedef struct {
     double k;
 } IMAGE_SLICER_PARAMS;
 
+typedef struct {
+    double xt;
+    double yt;
+    double l;
+    double m;
+    double n;
+} RAY_IN;
+
+typedef struct {
+    double xs;
+    double ys;
+    double zs;
+    double t;
+    double ln;
+    double mn;
+    double nn;
+} RAY_OUT;
+
 /** Function pointers */
 typedef double (*SAG_FUNC)(double, double, double, double, double, double, double);
 typedef void (*CRITICAL_XY_FUNC)(double*, double*, double*, double, double, double, double, double);
 typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, double, double, double, double);
 typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double);
+
+void linspace(double *array, double start, double end, int n);
 
 int CheckSlicerParams(IMAGE_SLICER_PARAMS);
 
@@ -110,8 +130,11 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
 
 double TransferEquation(double t, double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
 
-void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, double* mn, double* nn,
-    double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p,
-    SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func)
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
+    SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
+
+// void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, double* mn, double* nn,
+//     double xt, double yt, double l, double m, double n, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
+//     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
 
 #endif

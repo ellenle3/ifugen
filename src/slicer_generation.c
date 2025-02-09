@@ -9,12 +9,21 @@ Slicer generation and ray tracing algorithm.
 Ellen Lee
 */
 
+void linspace(double *array, double start, double end, int n) {
+    if (n <= 1) {
+        array[0] = start;
+        return;
+    }
+    double step = (end - start) / (n - 1);
+    for (int i = 0; i < n; i++) {
+        array[i] = start + i * step;
+    }
+}
 
 int CheckSlicerParams(IMAGE_SLICER_PARAMS p) {
     // Check that the parameters are valid.
     return 0;
 }
-
 
 // Sag generation and helpers for determining the parameters of individual slices
 
@@ -23,7 +32,6 @@ void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS p) {
     *ysize = n_slices * p.dy + (n_slices - 1) * p.gy_width;
     *xsize = p.n_cols * p.dx + (p.n_cols - 1) * p.gx_width;
 }
-
 
 void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS p) {
     double xsize, ysize;
@@ -52,11 +60,10 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
 
 void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p) {
     *col_num = p.n_cols / 2;
-    if (p.n_cols % 2 == 0 && p.active_x) *col_num++;
-
+    if (p.n_cols % 2 == 0 && p.active_x) (*col_num)++;
     int n_slices = p.n_each * p.n_rows;
     *slice_num = n_slices / 2;
-    if (n_slices % 2 == 0 && p.active_y) *slice_num++;
+    if (n_slices % 2 == 0 && p.active_y) (*slice_num)++;
 }
 
 void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
@@ -178,22 +185,17 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 
     // Check whether critical points are in bounds. If yes, compute the sag an
     // add to the array of points to compare.
-    if (!isnan(yc)) {
-        if (yc >= ylo && yc <= yhi) {
-            if (xc1 >= xlo && xc1 <= xhi) {
-                zsolns[4] = sag_func(xc1, yc, p.cv, p.k, alpha, beta, gamma);
-                n_compare++;
-            }
-            if (!isnan(xc2)) {
-                if (xc2 >= xlo && xc2 <= xhi) {
-                    zsolns[5] = sag_func(xc2, yc, p.cv, p.k, alpha, beta, gamma);
-                    n_compare++;
-                }
-            }
+    if (yc >= ylo && yc <= yhi) {
+        if (xc1 >= xlo && xc1 <= xhi) {
+            zsolns[4] = sag_func(xc1, yc, p.cv, p.k, alpha, beta, gamma);
+            n_compare++;
+        }
+        if (xc2 >= xlo && xc2 <= xhi) {
+            zsolns[5] = sag_func(xc2, yc, p.cv, p.k, alpha, beta, gamma);
+            n_compare++;
         }
     }
     
-
     // Compare potential solutions to get the maximum or minimum
     double result = zsolns[0];
     for (int i = 1; i < n_compare; i++) {
@@ -231,13 +233,8 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
         fprintf(stderr, "Memory allocation failed!\n");
         return;
     }
-
-    for (int i = 0; i < nx; i++) {
-        xpts[i] = -xsize / 2 + (xsize * i) / nx;
-    }
-    for (int i = 0; i < ny; i++) {
-        ypts[i] = -ysize / 2 + (ysize * i) / ny;
-    }
+    linspace(xpts, -xsize/2, xsize/2, nx);
+    linspace(ypts, -ysize/2, ysize/2, ny);
 
     // Evaluate the grid, keeping track of the maximum and minimum
     double x0_max = 0, y0_max = 0, z0_max = -INFINITY;
@@ -270,12 +267,15 @@ double TransferEquation(double t, double xt, double yt, double l, double m, doub
     return sag - zs;
 }
 
-void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, double* mn, double* nn,
-    double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p,
-    SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
-    
+
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
+    SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
+
     // Tolerance for accepting the transfer distance as valid
     double tol = 1e-13;
+
+    double xt = ray_in.xt, yt = ray_in.yt;
+    double l = ray_in.l, m = ray_in.m, n = ray_in.n;
 
     double xmin, xmax, ymin, ymax;
     double xsize, ysize;
@@ -293,8 +293,6 @@ void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, d
         
     else {
         // Get maximum and minimum possible values of xs and ys
-        double zmin, zmax;
-        FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
         double tmin = zmin / n;
         xmin = xt + tmin*l; ymin = yt + tmin*m;
         double tmax = zmax / n;
@@ -308,7 +306,8 @@ void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, d
     GetSlicerIndex(&nc_max, &ns_max, xmax, ymax, p);
 
     // Default return values if the ray missed
-    *xs = NAN; *ys = NAN; *zs = NAN; *t = NAN; *ln = NAN; *mn = NAN; *nn = NAN;
+    double xs, ys, zs, t, ln, mn, nn;
+    xs = ys = zs = t = ln = mn = nn = NAN;
 
     // Check if the ray is always out of bounds
     int n_sperc = p.n_each * p.n_rows;  // number of slices per column
@@ -337,6 +336,7 @@ void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, d
     int slice_iter = 0;       // Keep track of whether we're on the first slice in a column to check walls
     int n_sforc, in_xgap, in_ygap;
     double x_cross, y_cross, alpha, beta, gamma, t_test, result;
+    double xs, ys, zs, t, ln, mn, nn;
     double xnear, ynear, znear, tnear, xfar, yfar, zfar, tfar, znear_slice, zfar_slice, zcompare;
 
     while (dcol >= 0) {
@@ -364,96 +364,97 @@ void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, d
                 // Check if out of bounds
                 GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test, p);
                 t_test = transfer_dist_func(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
-                result = transfer_equation(t_test, xt, yt, l, m, n, p, sag_func);
+                result = TransferEquation(t_test, xt, yt, l, m, n, p, sag_func);
                 
-                if (!isnan(result)) {
-                    // Check whether the transfer distance of the current slice is a valid
-                    // zero of the transfer equation.
-                    if (fabs(result) < tol) {
-                        // Yes - found a solution!
-                        *t = t_test;
-                        *xs = xt + t_test*l;
-                        *ys = yt + t_test*m;
-                        *zs = t_test*n;
-                        surf_normal_func(ln, mn, nn, *xs, *ys, p.cv, p.k, alpha, beta, gamma);
-    
-                        // WAIT - Is the solution inside of a gap? If we're unlucky and zs is
-                        // equal to the gap depth then this may be the case.
-                        IsInsideSlicerGap(&in_xgap, &in_ygap, *xs, *ys, p);
-                        if (in_xgap || in_ygap) {
-                            dslice = -1; dcol = -1;
-                            break;
-                        }
-                        return;
+                // Check whether the transfer distance of the current slice is a valid
+                // zero of the transfer equation.
+                if (fabs(result) < tol) {
+                    // Yes - found a solution!
+                    t = t_test;
+                    xs = xt + t_test*l;
+                    ys = yt + t_test*m;
+                    zs = t_test*n;
+                    surf_normal_func(&ln, &mn, &nn, xs, ys, p.cv, p.k, alpha, beta, gamma);
+
+                    // WAIT - Is the solution inside of a gap? If we're unlucky and zs is
+                    // equal to the gap depth then this may be the case.
+                    IsInsideSlicerGap(&in_xgap, &in_ygap, xs, ys, p);
+                    if (in_xgap || in_ygap) {
+                        dslice = -1; dcol = -1;
+                        break;
                     }
 
-                    // Check if the ray is hitting a wall after this slice
-                    if (p.trace_walls) {
+                    ray_out->xs = xs; ray_out->ys = ys; ray_out->zs = zs; ray_out->t = t;
+                    ray_out->ln = ln; ray_out->mn = mn; ray_out->nn = nn;
+                    return;
+                }
 
-                        // Going between columns. Skip if there are no columns left to iterate
-                        if (slice_iter == 0 && fabs(l) > 1E-13 && dcol > 0) {
-                            
-                            xnear = (ns_test + 1) * p.dx - xsize / 2;
-                            tnear = (xnear - xt) / l;
-                            ynear = yt + tnear*m;
+                // Check if the ray is hitting a wall after this slice
+                if (p.trace_walls) {
+
+                    // Going between columns. Skip if there are no columns left to iterate
+                    if (slice_iter == 0 && fabs(l) > 1E-13 && dcol > 0) {
+                        
+                        xnear = (ns_test + 1) * p.dx - xsize / 2;
+                        tnear = (xnear - xt) / l;
+                        ynear = yt + tnear*m;
+                        znear = tnear*n;
+                        
+                        xfar = (ns_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2;
+                        tfar = (xfar - xt) / l;
+                        yfar = yt + tfar*m;
+                        zfar = tfar*n;
+
+                        znear_slice = sag_func(xnear, ynear, p.cv, p.k, alpha, beta, gamma);
+                        GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test + 1*sgnc, p);
+                        zfar_slice = sag_func(xfar, yfar, p.cv, p.k, alpha, beta, gamma);
+
+                        // Did it hit a near wall? This is only possible if the gap depth
+                        // protrudes further in -z than the near edge
+                        if ( (znear_slice > p.gx_depth && p.gx_width > 0) && (znear < znear_slice && znear > p.gx_depth) ) {
+                            ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear; ray_out->t = tnear;
+                            ray_out->ln = -1*sgnc; ray_out->mn = 0; ray_out->nn = 0;
+                            return;
+                        }
+
+                        // Did it hit a far wall?
+                        zcompare = (p.gx_width == 0) ? znear_slice : p.gx_depth;
+                        if ( (zfar > zfar_slice && zfar < zcompare) || (zfar < zfar_slice && zfar > zcompare) ) {
+                            ray_out->xs = xfar; ray_out->ys = yfar; ray_out->zs = zfar; ray_out->t = tfar;
+                            ray_out->ln = -1*sgnc; ray_out->mn = 0; ray_out->nn = 0;
+                            return;
+                        }
+                    }
+                
+                    // Not going between columns, check walls along y-axis instead. Same as above...
+                    else {
+                        if (fabs(m) > 1E-13 && dslice > 0) {
+                            ynear = (ns_test + 1) * p.dy - ysize / 2;
+                            tnear = (ynear - yt) / m;
+                            xnear = xt + tnear*l;
                             znear = tnear*n;
                             
-                            xfar = (ns_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2;
-                            tfar = (xfar - xt) / l;
-                            yfar = yt + tfar*m;
+                            yfar = (ns_test + 1) * p.dy + sgns * p.gy_width - ysize / 2;
+                            tfar = (yfar - yt) / m;
+                            xfar = xt + tfar*l;
                             zfar = tfar*n;
-
+                            
                             znear_slice = sag_func(xnear, ynear, p.cv, p.k, alpha, beta, gamma);
-                            GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test + 1*sgnc, p);
+                            GetSliceAngles(&alpha, &beta, &gamma, ns_test + 1*sgns, nc_test, p);
                             zfar_slice = sag_func(xfar, yfar, p.cv, p.k, alpha, beta, gamma);
 
-                            // Did it hit a near wall? This is only possible if the gap depth
-                            // protrudes further in -z than the near edge
-                            if ( (znear_slice > p.gx_depth && p.gx_width > 0) && (znear < znear_slice && znear > p.gx_depth) ) {
-                                *xs = xnear; *ys = ynear; *zs = znear; *t = tnear;
-                                *ln = -1*sgnc; *mn = 0; *nn = 0;
+                            if ( (znear_slice > p.gy_depth && p.gy_width > 0) && (znear < znear_slice && znear > p.gy_depth) ) {
+                                ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear; ray_out->t = tnear;
+                                ray_out->ln = 0; ray_out->mn = -1*sgns; ray_out->nn = 0;
                                 return;
                             }
 
                             // Did it hit a far wall?
-                            zcompare = (p.gx_width == 0) ? znear_slice : p.gx_depth;
+                            zcompare = (p.gy_width == 0) ? znear_slice : p.gy_depth;
                             if ( (zfar > zfar_slice && zfar < zcompare) || (zfar < zfar_slice && zfar > zcompare) ) {
-                                *xs = xfar; *ys = yfar; *zs = zfar; *t = tfar;
-                                *ln = -1*sgnc; *mn = 0; *nn = 0;
+                                ray_out->xs = xfar; ray_out->ys = yfar; ray_out->zs = zfar; ray_out->t = tfar;
+                                ray_out->ln = 0; ray_out->mn = -1*sgns; ray_out->nn = 0;
                                 return;
-                            }
-                        }
-                    
-                        // Not going between columns, check walls along y-axis instead. Same as above...
-                        else {
-                            if (fabs(m) > 1E-13 && dslice > 0) {
-                                ynear = (ns_test + 1) * p.dy - ysize / 2;
-                                tnear = (ynear - yt) / m;
-                                xnear = xt + tnear*l;
-                                znear = tnear*n;
-                                
-                                yfar = (ns_test + 1) * p.dy + sgns * p.gy_width - ysize / 2;
-                                tfar = (yfar - yt) / m;
-                                xfar = xt + tfar*l;
-                                zfar = tfar*n;
-                                
-                                znear_slice = sag_func(xnear, ynear, p.cv, p.k, alpha, beta, gamma);
-                                GetSliceAngles(&alpha, &beta, &gamma, ns_test + 1*sgns, nc_test, p);
-                                zfar_slice = sag_func(xfar, yfar, p.cv, p.k, alpha, beta, gamma);
-
-                                if ( (znear_slice > p.gy_depth && p.gy_width > 0) && (znear < znear_slice && znear > p.gy_depth) ) {
-                                    *xs = xnear; *ys = ynear; *zs = znear; *t = tnear;
-                                    *ln = 0; *mn = -1*sgns; *nn = 0;
-                                    return;
-                                }
-
-                                // Did it hit a far wall?
-                                zcompare = (p.gy_width == 0) ? znear_slice : p.gy_depth;
-                                if ( (zfar > zfar_slice && zfar < zcompare) || (zfar < zfar_slice && zfar > zcompare) ) {
-                                    *xs = xfar; *ys = yfar; *zs = zfar; *t = tfar;
-                                    *ln = 0; *mn = -1*sgns; *nn = 0;
-                                    return;
-                                }
                             }
                         }
                     }
@@ -476,19 +477,19 @@ void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, d
     }
 
     // If none of the above worked then we probably hit a gap
-    if (!p.trace_walls || abs(n) < 1e-13) {return;}
+    if (!p.trace_walls || fabs(n) < 1e-13) return;
 
     // Gaps between columns take precedence over gaps between slices in rows
     t_test = p.gx_depth / n;
-    if ( fabs(transfer_equation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
-        *xs = xt + t_test*l; *ys = yt + t_test*m; *zs = p.gx_depth; *t = t_test;
-        *ln = 0; *mn = 0; *nn = -1;
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
+        ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gx_depth; ray_out->t = t;
+        ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;
     }
     t_test = p.gy_depth / n;
-    if ( abs(transfer_equation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
-        *xs = xt + t_test*l; *ys = yt + t_test*m; *zs = p.gy_depth; *t = t_test;
-        *ln = 0; *mn = 0; *nn = -1;
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
+        ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gy_depth; ray_out->t = t;
+        ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;
     }
 

@@ -1,9 +1,7 @@
 # Python notebook for testing
 #*.ipynb
-*.py
-*out.txt
 *.ipynb_checkpoints*
-*test.c
+test.c
 
 src/usersurf.h
 

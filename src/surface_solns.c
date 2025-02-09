@@ -41,8 +41,8 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     x = x + x0;
 
     // Rotate about the x-axis
-    double cosg = cos(gamma); double cosg2 = cosg*cosg;
-    double sing = sin(gamma); double sing2 = sing*sing;
+    double cosg = cos(gamma), cosg2 = cosg*cosg;
+    double sing = sin(gamma), sing2 = sing*sing;
 
     double asol = cv*(sing2 + (k+1)*cosg2);
     double bsol = -2*cosg*(x*k*cv*sing + 1);
@@ -75,8 +75,8 @@ void Conic3DCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k
 
     *yc = -y0;
 
-    double sing = sin(gamma); double sin3g = sin(3 * gamma);
-    double cosg = cos(gamma); double cos2g = cos(2 * gamma);
+    double sing = sin(gamma), sin3g = sin(3 * gamma);
+    double cosg = cos(gamma), cos2g = cos(2 * gamma);
 
     if (k == -1) {
         *xc1 = -x0 + ( sing*(5 + cv*cv*y0*y0) + sin3g*(1 + cv*cv*y0*y0) ) / (cosg*cosg*-8*cv);
@@ -101,15 +101,15 @@ double Conic3DTransfer(double xt, double yt, double l, double m, double n, doubl
     else {sgn = -1;}
         
     // Determine the off-axis distance.
-    if (fabs(cv) < 1E-13) {c = 1E-13;}
+    if (fabs(cv) < 1E-13) {cv = 1E-13;}
         
     double y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );
     double x0 = sin(beta) / ( cv * (1 + cos(beta)) );
     yt = yt + y0;
     xt = xt + x0;
 
-    double cosg = cos(gamma); double cosg2 = cosg*cosg;
-    double sing = sin(gamma); double sing2 = sing*sing;
+    double cosg = cos(gamma), cosg2 = cosg*cosg;
+    double sing = sin(gamma), sing2 = sing*sing;
     
     double xi = cosg2 + (1+k)*sing2;
     double asol = cv*(sing2 + (1+k)*cosg2);
@@ -140,8 +140,8 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     x = x + x0;
     
     double sq2 = sqrt(2);
-    double cosg = cos(gamma); double cos2g = cos(2*gamma);
-    double sing = sin(gamma); double sin2g = sin(2*gamma);
+    double cosg = cos(gamma), cos2g = cos(2*gamma);
+    double sing = sin(gamma), sin2g = sin(2*gamma);
     double arg0 = 1 - cv*cv*( 2*(1+k)*x*x + (2+k)*y*y ) + (1-cv*cv*k*y*y)*cos2g - 4*cv*x*sing;
 
     // Surface is not defined here
@@ -187,8 +187,8 @@ double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, dou
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
     
-    double sina = sin(alpha); double cosa = cos(alpha);
-    double sinbg = sin(beta + gamma); double cosbg = cos(beta + gamma);
+    double sina = sin(alpha), cosa = cos(alpha);
+    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
     if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
     if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}
@@ -206,8 +206,8 @@ double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, d
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
     
-    double sina = sin(alpha); double cosa = cos(alpha);
-    double sinbg = sin(beta + gamma); double cosbg = cos(beta + gamma);
+    double sina = sin(alpha), cosa = cos(alpha);
+    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
     if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
     if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}
@@ -224,8 +224,8 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
     
-    double sina = sin(alpha); double cosa = cos(alpha);
-    double sinbg = sin(beta + gamma); double cosbg = cos(beta + gamma);
+    double sina = sin(alpha), cosa = cos(alpha);
+    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
     if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
     if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}

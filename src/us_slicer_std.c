@@ -26,6 +26,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int i;
    int n_each, n_rows, mode;
    double zmax, zmin;
+   double xs, ys, zs, t, ln, mn, nn;
    IMAGE_SLICER_PARAMS p;
    SAG_FUNC sag_func;
    CRITICAL_XY_FUNC critical_xy_func;
@@ -41,7 +42,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             case 0:
             	/* ZEMAX wants to know the name of the surface */
 		         /* do not exceed 12 characters */
-		         strcpy(UD->string,"SliceArrStd");
+		         strcpy(UD->string,"SlicerStd");
                break;
             case 1:
             	/* ZEMAX wants to know if this surface is rotationally symmetric */
@@ -55,6 +56,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             	break;
             }
          break;
+
       case 1:
       	/* ZEMAX is requesting the names of the parameter columns */
          /* the value FD->numb will indicate which value ZEMAX wants. */
@@ -122,18 +124,16 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
                break;
             }
       	break;
+
       case 2:
-      	/* ZEMAX is requesting the names of the extra data columns */
-         /* the value FD->numb will indicate which value ZEMAX wants. */
-         /* they are all "Unused" for this surface type */
-         /* returning a null string indicates that the extradata value is unused. */
-         switch(FD->numb)
-         	{
-            default:
-            	UD->string[0] = '\0';
-            	break;
-            }
-      	break;
+      	/*
+         This case is now deprecated. It used to be necessary when inputs for a surface
+         needed to be separately defined as "parameter" data and "extra" data. This is no
+         longer the case, as OpticStudio now supports the ability to define all inputs as
+         "parameter" data, as long as the FIXED_DATA5 structure is being used by the DLL.
+         */
+         break;
+
       case 3:
       	/* ZEMAX wants to know the sag of the surface */
          /* if there is an alternate sag, return it as well */
@@ -146,13 +146,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          y = UD->y;
          double sag = ImageSlicerSag(x, y, p, sag_func);
 
-         // Set the sag to zero if it isn't defined at the given x, y. This is
-         // only used to draw the surface so it shouldn't matter. We will tell Zemax
-         // that the ray missed the surface when it is traced.
-         if (isnan(sag)) {
-            UD->sag1 = 0.0;
-            UD->sag2 = 0.0;
-         }
+         if (isnan(sag)) return -1;    // Out of bounds
          else {
             UD->sag1 = sag;
             UD->sag2 = sag;
@@ -189,36 +183,21 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             (UD->m) = (UD->m)*(UD->n);
             }
          break;
+
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
-         if (FD->cv == 0.0)
-         	{
-	         UD->ln =  0.0;
-   	      UD->mn =  0.0;
-      	   UD->nn = -1.0;
-			   if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
-            return(0);
-            }
-         /* okay, not a plane. */
-			a = (UD->n) * (UD->n) * FD->k + 1;
-			b = ((UD->n)/FD->cv) - (UD->x) * (UD->l) - (UD->y) * (UD->m);
-			c = (UD->x) * (UD->x) + (UD->y) * (UD->y);
-			rad = b * b - a * c;
-			if (rad < 0) return(FD->surf);  /* ray missed this surface */
-			if (FD->cv > 0) t = c / (b + sqrt(rad));
-			else           t = c / (b - sqrt(rad));
-			(UD->x) = (UD->l) * t + (UD->x);
-			(UD->y) = (UD->m) * t + (UD->y);
-			(UD->z) = (UD->n) * t + (UD->z);
-			UD->path = t;
-			zc = (UD->z) * FD->cv;
-			rad = zc * FD->k * (zc * (FD->k + 1) - 2) + 1;
-			casp = FD->cv / sqrt(rad);
-			UD->ln = (UD->x) * casp;
-			UD->mn = (UD->y) * casp;
-			UD->nn = ((UD->z) - ((1/FD->cv) - (UD->z) * FD->k)) * casp;
+         RayTraceSlicer(&xs, &ys, &zs, &t, &ln, &mn, &nn,
+            UD->x, UD->y, UD->l, UD->m, UD->n, zmin, zmax,
+            p, sag_func, critical_xy_func, transfer_dist_func, surf_normal_func);
+
+         if (isnan(t)) return (FD->surf);  // Ray missed
+         (UD->x) = xs; (UD->y) = ys; (UD->z) = zs;
+         (UD->path) = t;
+         (UD->ln) = ln; (UD->mn) = mn; (UD->nn) = nn;
+
          if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
          break;
+
       case 6:
       	/* ZEMAX wants the index, dn/dx, dn/dy, and dn/dz at the given x, y, z. */
 
@@ -228,12 +207,13 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->dndy = 0.0;
          UD->dndz = 0.0;
       	break;
+
       case 7:
       	/* ZEMAX wants the "safe" data. */
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         p.n_each = 10;
+         p.n_each = 8;
          p.n_rows = 2;
          p.n_cols = 1;
          p.mode = 0;
@@ -253,6 +233,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          p.gy_width = 0.0;
          p.gy_depth = 0.0;
          break;
+
       case 8:
       	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
          // Initialize the parameter struct
@@ -277,8 +258,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          p.gy_depth =    FD->param[18];
          p.cv = FD->cv;
          p.k = FD->k;
-         // Compute and store the global maxima
-         //zmax=0; zmin=0;
 
          // Set which functions we use to compute sag and ray tracing
          if (p.cv == 0) {
@@ -293,10 +272,15 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             transfer_dist_func = &Conic3DTransfer;
             surf_normal_func = &Conic3DSurfaceNormal;
          }
+
+         // Compute and store the global maxima
+         FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
          break;
+
       case 9:
       	/* ZEMAX is calling the DLL for the last time, do any memory release here. */
          break;
+
       case 10;
          /* Scaling of parameter and extra data values */
          break;
