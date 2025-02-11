@@ -278,13 +278,15 @@ def get_ray_bounds(ray_in, zmin, zmax, p):
 def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
     """Returns True if the ray is in bounds at least some of the time.
     """
-    n_sperc = p.n_each * p.n_rows  # number of slices per column
     if (nc_min < 0 and nc_max < 0) or (nc_min >= p.n_cols and nc_max >= p.n_cols):
         # x-value of the ray is too high or low
         return False
+    
+    n_sperc = p.n_each * p.n_rows  # number of slices per column
     if (ns_min < 0 and ns_max < 0) or (ns_min >= n_sperc and ns_max >= n_sperc):
         # y-value of the ray is too high or low
         return False
+    
     return True
 
 def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_normal_func):
@@ -350,6 +352,10 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
                 alpha, beta, gamma = get_slice_angles(ns_test, nc_test, p)
                 t = transfer_dist_func(xt, yt, l, m, n, p.c, p.k, alpha, beta, gamma)
                 result = transfer_equation(t, xt, yt, l, m, n, p, sag_func)
+
+                print("checking " + str((nc_test, ns_test)))
+                print("t is " + str(t))
+                print("result is " + str(result))
                 
                 # Check whether the transfer distance of the current slice is a valid
                 # zero of the transfer equation.

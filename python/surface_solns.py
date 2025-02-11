@@ -15,8 +15,6 @@ def convert_angle(t):
     return t
 
 def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
-    """
-    """
     # Keep track of the angle, which determines which solution of
     # the quadratic is valid
     alpha = convert_angle(alpha) * np.pi/180
@@ -32,22 +30,20 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
         
     y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
     x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
-    y = y + y0
-    x = x + x0
 
     # Rotate about the y-axis
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
     sing = np.sin(gamma)
     sing2 = sing*sing
+
     asol = c*(sing2 + (k+1)*cosg2)
-    bsol = -2*cosg*(x*k*c*sing + 1)
-    csol = 2*x*sing + c*(x*x*cosg2 + y*y + (k+1)*x*x*sing2)
+    bsol = 2*c*sing*(x*k*cosg - x0) - 2*cosg
+    csol = c*k*x*x*sing2 - 2*x*sing + 2*c*x0*x*cosg + c*(x*x + x0*x0 + (y-y0)*(y-y0))
 
     # In regions where the roots are undefined, set the sag to 0 for drawing
     # purposes. We will not ray trace these regions
     return np.where(bsol**2-4*asol*csol < 0, 0, 2*csol/(-bsol + sgn*np.sqrt(bsol*bsol - 4*asol*csol)))
-
 
 def conic_3d_critical_xy(c, k, alpha, beta, gamma):
     """Computes where the d/dx and d/dy of the sag equals 0.
@@ -97,6 +93,8 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     there are two possible solutions. We almost always want the solution that
     corresponds to a smaller value of t (+ )
 
+    Direction cosines must be normalized: l^2 + m^2 + n^2 = 1
+
     See Cheatham 1980.
     """
     alpha = convert_angle(alpha) * np.pi/180
@@ -112,23 +110,21 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         
     y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
     x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
-    yt = yt + y0
-    xt = xt + x0
 
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
     sing = np.sin(gamma)
     sing2 = sing*sing
-    
-    xi = cosg2 + (1+k)*sing2
-    asol = c*(sing2 + (1+k)*cosg2)
-    dsol = asol*n*n - 2*l*n*k*c*sing*cosg + c*l*l*xi + m*m*c
-    fsol = -xt*n*k*c*sing*cosg - n*cosg + l*sing + c*xt*l*xi + yt*m*c
-    gsol = 2*xt*sing + c*xt*xt*xi + c*yt*yt
+
+    dsol = c + c*k*(n*n*cosg2 + l*l*sing2 + 2*l*n*sing*cosg)
+    fsol = c*l*(xt*(1+k*sing2)+x0*cosg) - l*sing + c*m*(yt-y0) + c*n*sing*(k*xt*cosg-x0) - n*cosg
+    gsol = c*(xt*xt + x0*x0 + (yt-y0)*(yt-y0)) + 2*c*x0*xt*cosg + xt*sing*(c*k*xt*sing-2)
 
     # Ray missed this surface
     if fsol**2-dsol*gsol < 0:
         return np.nan
+    
+    print(dsol, fsol, gsol)
         
     return gsol/(-fsol + sgn*np.sqrt(fsol*fsol - dsol*gsol))
 
@@ -151,37 +147,35 @@ def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma):
     if (abs(c) < 1e-13): c = 1e-13
     y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
     x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
-    y = y + y0
-    x = x + x0
 
-    sq2 = np.sqrt(2)
     cosg = np.cos(gamma)
-    cos2g = np.cos(2*gamma)
+    cosg2 = cosg*cosg
     sing = np.sin(gamma)
-    sin2g = np.sin(2*gamma)
-    arg0 = 1 - c*c*( 2*(1+k)*x*x + (2+k)*y*y ) + (1-c*c*k*y*y)*cos2g - 4*c*x*sing
+    sing2 = sing*sing
+    asol = c*(sing2 + (k+1)*cosg2)
+    bsol = 2*c*sing*(x*k*cosg - x0) - 2*cosg
+    csol = c*k*x*x*sing2 - 2*x*sing + 2*c*x0*x*cosg + c*(x*x + x0*x0 + (y-y0)*(y-y0))
+    
+    arg0 = bsol*bsol - 4*asol*csol
 
-    if arg0 <= 0:
+    # Sag is undefined
+    if arg0 < 0:
         return np.nan, np.nan, np.nan
 
     eta = np.sqrt(arg0)
-    psi = 2 * c / ( eta*sq2 + sgn*2*cosg*(1+c*k*x*sing) )**2
+    denom = -bsol + sgn*eta
     
     # Partial derivative with respect to x
-    arg1 = c*y*y + c*x*x*(2+k-k*cos2g)/2 + 2*x*sing
-    arg2 = k*sin2g - sgn*2*sq2*( c*(1+k)*x + sing )/eta
-    arg3 = 2*c*(2+k)*x - 2*c*k*x*cos2g + 4*sing
-    arg4 = 2*cosg + c*k*x*sin2g + sgn*eta*sq2
-    dervx = -psi * arg1 * arg2 + arg3 / arg4
+    arg1 = 4 * (c*x*(1+k*sing2) + c*x0*cosg - sing) / denom
+    arg2 = 4 * csol / (denom*denom)
+    arg3 = -c*k*sing*cosg
+    arg4 = c*k*bsol*sing*cosg - 2*asol*(c*x*(1+k*sing2) + c*x0*cosg - sing)
+    dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta)
 
     # ...with respect to y
-    if sgn == -1:
-        dervy = -sq2 * c * y / eta    
-    else:
-        arg1 = 2*eta*sq2 + 4*cosg*(1+c*k*x*sing)
-        arg2 = c*sq2*(2+k+k*cos2g) / eta
-        arg3 = c*y*y + c*x*x*cosg*cosg + x*sing*(2+c*(1+k)*x*sing)
-        dervy = y * psi * ( arg1 + arg2 * arg3 )
+    arg1 = 4*c*(y-y0) / denom
+    arg2 = 2*asol*csol / (eta*denom)
+    dervy = arg1 * (1 + sgn*arg2)
 
     norm = np.sqrt(dervx**2 + dervy**2 + 1)
 

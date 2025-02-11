@@ -297,13 +297,15 @@ void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, RAY_IN ray
 }
 
 int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_PARAMS p) {
-    int n_sperc = p.n_each * p.n_rows;  // number of slices per column
     if ( (nc_min < 0 && nc_max < 0) || (nc_min >= p.n_cols && nc_max >= p.n_cols)) {
         return 1;  // x-value of the ray is too high or low
     }
+
+    int n_sperc = p.n_each * p.n_rows;  // number of slices per column
     if ( (ns_min < 0 && ns_max < 0) || (ns_min >= n_sperc && ns_max >= n_sperc) ) {
         return 1;  // y-value of the ray is too high or low
     }
+    
     return 0;
 }
 
