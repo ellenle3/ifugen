@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "usersurf.h"
 #include "slicer_generation.h"
 
 /*
@@ -21,6 +22,30 @@ void linspace(double *array, double start, double end, int n) {
     for (int i = 0; i < n; i++) {
         array[i] = start + i * step;
     }
+}
+
+void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5* FD) {
+    p->n_each =      FD->param[0];
+    p->n_rows =      FD->param[1];
+    p->n_cols =      FD->param[2];
+    p->mode =        FD->param[3];
+    p->trace_walls = FD->param[4];
+    p->active_x =    FD->param[5];
+    p->active_y =    FD->param[6];
+    p->dalpha =      FD->param[7];
+    p->dbeta =       FD->param[8];
+    p->dgamma =      FD->param[9];
+    p->alpha_cen =   FD->param[10];
+    p->beta_cen =    FD->param[11];
+    p->gamma_cen =   FD->param[12];
+    p->dx =          FD->param[13];
+    p->dy =          FD->param[14];
+    p->gx_width =    FD->param[15];
+    p->gx_depth =    FD->param[16];
+    p->gy_width =    FD->param[17];
+    p->gy_depth =    FD->param[18];
+    p->cv = FD->cv;
+    p->k =  FD->k;
 }
 
 // Validate image slicer parameters, modifying illegal parameters as needed.

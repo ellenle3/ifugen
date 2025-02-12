@@ -301,51 +301,35 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         p.n_each = 8;
-         p.n_rows = 2;
-         p.n_cols = 1;
-         p.mode = 0;
-         p.trace_walls = 0;
-         p.active_x = 0;
-         p.active_y = 0;
-         p.dalpha = 4.0;
-         p.dbeta = 4.0;
-         p.dgamma = 0.5;
-         p.alpha_cen = 0;
-         p.beta_cen = 0;
-         p.gamma_cen = 0;
-         p.dx = 10.0;
-         p.dy = 0.5;
-         p.gx_width = 0.0;
-         p.gx_depth = 0.0;
-         p.gy_width = 0.0;
-         p.gy_depth = 0.0;
+         FD->param[0] = 8;      // n_each
+         FD->param[1] = 2;      // n_rows
+         FD->param[2] = 1;      // n_cols
+         FD->param[3] = 0;      // mode
+         FD->param[4] = 0;      // trace_walls
+         FD->param[5] = 0;      // active_x
+         FD->param[6] = 4.0;    // active_y
+         FD->param[7] = 4.0;    // dalpha
+         FD->param[8] = 4.0;    // dbeta
+         FD->param[9] = 0.5;    // dgamma
+         FD->param[10] = 0.0;   // alpha_cen
+         FD->param[11] = 0.0;   // beta_cen
+         FD->param[12] = 0.0;   // gamma_cen
+         FD->param[13] = 10.0;  // dx
+         FD->param[14] = 0.5;   // dy
+         FD->param[15] = 0.0;   // gx_width
+         FD->param[16] = 0.0;   // gx_depth
+         FD->param[17] = 0.0;   // gy_width
+         FD->param[18] = 0.0;   // gy_depth
+         FD->cv = -0.01;
+         FD->k = 0;
+
+         SetSlicerParamsFromFD(&p, FD);
          break;
 
       case 8:
       	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
          // Initialize the parameter struct
-         p.n_each =      FD->param[0];
-         p.n_rows =      FD->param[1];
-         p.n_cols =      FD->param[2];
-         p.mode =        FD->param[3];
-         p.trace_walls = FD->param[4];
-         p.active_x =    FD->param[5];
-         p.active_y =    FD->param[6];
-         p.dalpha =      FD->param[7];
-         p.dbeta =       FD->param[8];
-         p.dgamma =      FD->param[9];
-         p.alpha_cen =   FD->param[10];
-         p.beta_cen =    FD->param[11];
-         p.gamma_cen =   FD->param[12];
-         p.dx =          FD->param[13];
-         p.dy =          FD->param[14];
-         p.gx_width =    FD->param[15];
-         p.gx_depth =    FD->param[16];
-         p.gy_width =    FD->param[17];
-         p.gy_depth =    FD->param[18];
-         p.cv = FD->cv;
-         p.k = FD->k;
+         SetSlicerParamsFromFD(&p, FD);
 
          // Validate the parameters. Technically we shouldn't change the 
          //CheckSlicerParams(&p);
