@@ -224,7 +224,7 @@ def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     arg2 = n - l * sinbg / (cosa * cosbg) + m * sina / cosa
     
     if abs(arg2) < 1e-13:
-        return np.nan
+        return np.nanß
     return arg1 / arg2
 
 def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):

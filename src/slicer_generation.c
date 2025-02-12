@@ -32,35 +32,55 @@ int CheckSlicerParams(IMAGE_SLICER_PARAMS *p) {
     if (p->n_each < 1) { p->n_each = 1; flag = 1; }
     if (!(p->mode==0 || p->mode==1)) { p->mode = 0; flag = 1; }
     if (!(p->trace_walls==0 || p->trace_walls==1)) { p->trace_walls = 0; flag = 1; }
+
     // No need to check angles because we will convert them to be between -180
     // and 180 degrees...
+
     if (p->dx <= 0) { p->dx = 1; flag = 1; }
     if (p->dy <= 0) { p->dy = 1; flag = 1; }
     if (p->gx_width < 0) { p->gx_width = 0; flag = 1; }
     if (p->gy_width < 0) { p->gy_width = 0; flag = 1; }
+
     // Gap depths can be whatever
     // There are also no limitations on cv and k
+
     if (flag) return 1;
     return 0;
 }
 
 // Sag generation and helpers for determining the parameters of individual slices
 
+// The size of the image slicer along x is determined by the number of columns and
+// the width of the gaps between them. Ditto for y except with the total number
+// of slices within a column.
 void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS p) {
     int n_slices = p.n_each * p.n_rows;
     *ysize = n_slices * p.dy + (n_slices - 1) * p.gy_width;
     *xsize = p.n_cols * p.dx + (p.n_cols - 1) * p.gx_width;
 }
 
+
+// Column, slices indices of the slice determine its angle gamma. The indices are
+// determined by the given x, y values for the image slicer parameters.
+//
+// Indexing for columns goes in the +x direction and slices goes in the +y direction.
+// Looking at the image slicer face-on (facing the +z direction), indices (0, 0)
+// correspond to the bottom left of the image slicer.
+// 
+// Gaps in the +x, +y directions are included as part of the index, e.g., slice 0
+// includes the gap above the slice and column 0 includes the gap to the left of
+// the column. The computation for the sag is cut off before the topmost and leftmost
+// gaps, so in practice gaps can only appear between slices.
 void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS p) {
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-
     // Calculate the column and slice number based on x, y position
     *col_num = (x + xsize / 2) / (p.dx + p.gx_width);
     *slice_num = (y + ysize / 2) / (p.dy + p.gy_width);
 }
 
+// Checks whether a point (x, y) is inside a gap. This is useful for sag and ray
+// tracing computations.
 void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS p) {
     double xsize, ysize;
     int col_num, slice_num;
@@ -77,6 +97,11 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
     *in_xgap = (x > xgap_left && x <= xgap_right);
 }
 
+// If there are an even number of slices in a column, the "central" slice used
+// for the paraxial ray trace is ambiguous. In this case we should allow the user
+// to specify whether they want to slice above or below the center line. Same
+// goes for the columns. The parameters p.active_x and p.active_y exist for this
+// purpose.
 void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p) {
     *col_num = p.n_cols / 2;
     if (p.n_cols % 2 == 0 && p.active_x) (*col_num)++;
@@ -85,6 +110,16 @@ void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p) 
     if (n_slices % 2 == 0 && p.active_y) (*slice_num)++;
 }
 
+// For a given column, row indices determine the angles alpha, beta, and gamma.
+// alpha and beta determine the behavior of one "section" of the image slicer.
+// gamma defines the rotation of each slice within that section. Essentially,
+// alpha results in rows of pupil images (e.g., IRTF/SPECTRE) and beta gives
+// different columns (e.g., VLT/MUSE).
+// 
+// The p.mode parameter allows the user to specify how the angles gamma switch
+// between rows. If the mode is 1, then gamma is incremented the same way in every
+// section. If 0, then sign of dgamma is flipped so that pattern is alternated
+// like a staircase.
 void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
     // Get row number as well as the subindex of the slice on that row
     int row_num = slice_num / p.n_each;
@@ -134,6 +169,7 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
     }
 }
 
+// The sag of the image slicer can be found by
 double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
     // Get dimensions of the image slicer
     double xsize, ysize;

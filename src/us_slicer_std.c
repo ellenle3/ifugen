@@ -23,16 +23,14 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   int i;
-   int n_each, n_rows, mode;
-   double zmax, zmin;
-   double xs, ys, zs, t, ln, mn, nn;
-   IMAGE_SLICER_PARAMS p;
-   SAG_FUNC sag_func;
-   TRANSFER_DIST_FUNC transfer_dist_func;
-   CRITICAL_XY_FUNC critical_xy_func;
-   SURF_NORMAL_FUNC surf_normal_func;
+   double zmax, zmin, sag = 0.0;
    RAY_IN ray_in; RAY_OUT ray_out;
+
+   IMAGE_SLICER_PARAMS p;
+   SAG_FUNC sag_func = &Conic3DSag;
+   TRANSFER_DIST_FUNC transfer_dist_func = &Conic3DTransfer;
+   CRITICAL_XY_FUNC critical_xy_func = &Conic3DCriticalXY;
+   SURF_NORMAL_FUNC surf_normal_func = &Conic3DSurfaceNormal;
 
    switch(FD->type)
    	{
@@ -143,9 +141,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         x = UD->x;
-         y = UD->y;
-         double sag = ImageSlicerSag(x, y, p, sag_func);
+         sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
 
          if (isnan(sag)) return -1;    // Out of bounds
          else {
@@ -269,18 +265,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          // Validate the parameters. Technically we shouldn't change the 
          //CheckSlicerParams(&p);
 
-         // Set which functions we use to compute sag and ray tracing
+         // If plane, use different solutions
          if (p.cv == 0) {
             sag_func = &TiltedPlaneSag;
             critical_xy_func = &TiltedPlaneCriticalXY;
             transfer_dist_func = &TiltedPlaneTransfer;
             surf_normal_func = &TiltedPlaneSurfaceNormal;
-         }
-         else {
-            sag_func = &Conic3DSag;
-            critical_xy_func = &Conic3DCriticalXY;
-            transfer_dist_func = &Conic3DTransfer;
-            surf_normal_func = &Conic3DSurfaceNormal;
          }
 
          // Compute and store the global maxima
