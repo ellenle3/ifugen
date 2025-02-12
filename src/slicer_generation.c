@@ -24,7 +24,7 @@ void linspace(double *array, double start, double end, int n) {
     }
 }
 
-void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5* FD) {
+void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
     p->n_each =      FD->param[0];
     p->n_rows =      FD->param[1];
     p->n_cols =      FD->param[2];

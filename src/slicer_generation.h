@@ -77,7 +77,7 @@ void linspace(double *array, double start, double end, int n);
  * @param p Pointer for image slicer parameters.
  * @param FD Pointer for Zemax FIXED_DATA5 object.
  */
-void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5* FD);
+void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 
 /**
  * @brief Validates image slicer parameters. If parameters are illegal, they
