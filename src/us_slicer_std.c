@@ -27,7 +27,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 	{
    int i;
    double p2, alpha, power, a, b, c, rad, casp, t, zc;
-   double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
+   //double power;
+   double zmax = 1E13, zmin = -1E13, sag = 0.0;
    // RAY_IN ray_in = {
    //    .xt = 0,
    //    .yt = 0,
@@ -335,7 +336,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          // Validate the parameters. Technically we shouldn't change the 
          //CheckSlicerParams(&p);
 
-         If plane, use different solutions
+         // If plane, use different solutions
          if (p.cv == 0) {
             sag_func = &TiltedPlaneSag;
             critical_xy_func = &TiltedPlaneCriticalXY;
