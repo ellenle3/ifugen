@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,8 +136,8 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     double dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta);
 
     // ...with respect to y
-    double arg1 = 4*cv*(y-y0) / denom;
-    double arg2 = 2*asol*csol / (eta*denom);
+    arg1 = 4*cv*(y-y0) / denom;
+    arg2 = 2*asol*csol / (eta*denom);
     double dervy = arg1 * (1 + sgn*arg2);
     
     // Surface normals should be normalized. But if we do this, we lose the magnitude
