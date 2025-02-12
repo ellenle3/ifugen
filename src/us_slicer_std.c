@@ -11,9 +11,7 @@
 Ellen Lee
 */
 
-extern "C" {
-   int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
-}
+int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
