@@ -185,13 +185,13 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
-         ray_in.x = (UD->x); ray_in.y = (UD->y);
+         ray_in.xt = (UD->x); ray_in.yt = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
          RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
-            p, sag_func, critical_xy_func, transfer_dist_func, surf_normal_func);
+            p, sag_func, transfer_dist_func, surf_normal_func);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -283,7 +283,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       	/* ZEMAX is calling the DLL for the last time, do any memory release here. */
          break;
 
-      case 10;
+      case 10:
          /* Scaling of parameter and extra data values */
          break;
       }
