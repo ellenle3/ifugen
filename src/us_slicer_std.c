@@ -27,7 +27,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 	{
    int i;
    double p2, alpha, power, a, b, c, rad, casp, t, zc;
-   // double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
+   double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
    // RAY_IN ray_in = {
    //    .xt = 0,
    //    .yt = 0,
