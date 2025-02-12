@@ -23,7 +23,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   double zmax, zmin, sag = 0.0;
+   double power, zmax, zmin, sag = 0.0;
    RAY_IN ray_in; RAY_OUT ray_out;
 
    IMAGE_SLICER_PARAMS p;
@@ -192,7 +192,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             p, sag_func, critical_xy_func, transfer_dist_func, surf_normal_func);
 
          // Ray missed if transfer distance or normal vector could not be computed
-         if (isnan(t) || isnan(ln)) return (FD->surf);
+         if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
 
          (UD->x) = ray_out.xs; (UD->y) = ray_out.ys; (UD->z) = ray_out.zs;
          (UD->path) = ray_out.t;
