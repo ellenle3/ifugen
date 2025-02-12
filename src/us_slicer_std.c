@@ -24,10 +24,47 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   double power, zmax, zmin, sag = 0.0;
-   RAY_IN ray_in; RAY_OUT ray_out;
+   double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
+   RAY_IN ray_in = {
+      .xt = 0,
+      .yt = 0,
+      .l = 0,
+      .m = 0,
+      .n = 1
+   };
+   RAY_OUT ray_out = {
+      .xs = NAN,
+      .ys = NAN,
+      .zs = NAN,
+      .t = NAN,
+      .ln = NAN,
+      .mn = NAN,
+      .nn = NAN
+   };
 
-   IMAGE_SLICER_PARAMS p;
+   IMAGE_SLICER_PARAMS p = {
+      .n_each = 1,
+      .n_rows = 1,
+      .n_cols = 1,
+      .mode = 0,
+      .trace_walls = 0,
+      .active_x = 0,
+      .active_y = 0,
+      .dalpha = 0,
+      .dbeta = 0,
+      .dgamma = 0,
+      .alpha_cen = 0,
+      .beta_cen = 0,
+      .gamma_cen = 0,
+      .dx = 5,
+      .dy = 5,
+      .gx_width = 0,
+      .gx_depth = 0,
+      .gy_width = 0,
+      .gy_depth = 0,
+      .cv = -0.01,
+      .k = 0
+   };
    SAG_FUNC sag_func = &Conic3DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = &Conic3DTransfer;
    CRITICAL_XY_FUNC critical_xy_func = &Conic3DCriticalXY;

@@ -196,8 +196,9 @@ void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
     // first secant line.
     double xc0 = x0 + 0.1 * 1/cv;
     double xc1 = x0 - 0.1 * 1/cv;
-    double xc2, dervx0, dervx1, err;
-    int i;
+    double xc2, dervx0, dervx1;
+    double err = 1;
+    int i = 1;
     while (err < tol && i < niter_max) {
         dervx0 = Conic3DDervX(xc0, -y0, cv, k, alpha, beta, gamma);
         dervx1 = Conic3DDervX(xc1, -y0, cv, k, alpha, beta, gamma);
