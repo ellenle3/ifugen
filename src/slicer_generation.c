@@ -169,13 +169,13 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     double ylo = slice_num * (p.dy + p.gy_width) - ysize / 2;
     double yhi = ylo + p.dy;
 
-    // Compute critical points
-    double xc1, xc2, yc;
-    critical_xy_func(&xc1, &xc2, &yc, p.cv, p.k, alpha, beta, gamma);
+    // Compute critical point
+    double xc, yc;
+    critical_xy_func(&xc, &yc, p.cv, p.k, alpha, beta, gamma);
 
-    // There are up to 6 points to compare depending on whether the critical points
-    // are within bounds. Get the edges first
-    double zsolns[6];
+    // There are up to 5 points to compare depending on whether the critical point
+    // is within bounds.
+    double zsolns[5];
     zsolns[0] = sag_func(xlo, ylo, p.cv, p.k, alpha, beta, gamma);
     zsolns[1] = sag_func(xlo, yhi, p.cv, p.k, alpha, beta, gamma);
     zsolns[2] = sag_func(xhi, ylo, p.cv, p.k, alpha, beta, gamma);
@@ -185,15 +185,9 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 
     // Check whether critical points are in bounds. If yes, compute the sag an
     // add to the array of points to compare.
-    if (yc >= ylo && yc <= yhi) {
-        if (xc1 >= xlo && xc1 <= xhi) {
-            zsolns[4] = sag_func(xc1, yc, p.cv, p.k, alpha, beta, gamma);
-            n_compare++;
-        }
-        if (xc2 >= xlo && xc2 <= xhi) {
-            zsolns[5] = sag_func(xc2, yc, p.cv, p.k, alpha, beta, gamma);
-            n_compare++;
-        }
+    if (yc >= ylo && yc <= yhi && xc >= xlo && xc <= xhi) {
+        zsolns[4] = sag_func(xc, yc, p.cv, p.k, alpha, beta, gamma);
+        n_compare++;
     }
     
     // Compare potential solutions to get the maximum or minimum
@@ -387,7 +381,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                     xs = xt + t_test*l;
                     ys = yt + t_test*m;
                     zs = t_test*n;
-                    surf_normal_func(&ln, &mn, &nn, xs, ys, p.cv, p.k, alpha, beta, gamma);
+                    surf_normal_func(&ln, &mn, &nn, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
 
                     // WAIT - Is the solution inside of a gap? If we're unlucky and zs is
                     // equal to the gap depth then this may be the case.

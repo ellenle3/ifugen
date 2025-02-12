@@ -87,9 +87,9 @@ typedef struct {
 
 /** Function pointers */
 typedef double (*SAG_FUNC)(double, double, double, double, double, double, double);
-typedef void (*CRITICAL_XY_FUNC)(double*, double*, double*, double, double, double, double, double);
 typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, double, double, double, double);
-typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double);
+typedef void (*CRITICAL_XY_FUNC)(double*, double*, double, double, double, double, double);
+typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double, int);
 
 void linspace(double *array, double start, double end, int n);
 

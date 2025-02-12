@@ -29,8 +29,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    double xs, ys, zs, t, ln, mn, nn;
    IMAGE_SLICER_PARAMS p;
    SAG_FUNC sag_func;
-   CRITICAL_XY_FUNC critical_xy_func;
    TRANSFER_DIST_FUNC transfer_dist_func;
+   CRITICAL_XY_FUNC critical_xy_func;
    SURF_NORMAL_FUNC surf_normal_func;
    RAY_IN ray_in; RAY_OUT ray_out;
 
@@ -190,10 +190,14 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          ray_in.x = (UD->x); ray_in.y = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
+         // The first thing this function does is reset the members of ray_out
+         // to be all NANs
          RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
             p, sag_func, critical_xy_func, transfer_dist_func, surf_normal_func);
 
-         if (isnan(t)) return (FD->surf);  // Ray missed
+         // Ray missed if transfer distance or normal vector could not be computed
+         if (isnan(t) || isnan(ln)) return (FD->surf);
+
          (UD->x) = ray_out.xs; (UD->y) = ray_out.ys; (UD->z) = ray_out.zs;
          (UD->path) = ray_out.t;
          (UD->ln) = ray_out.ln; (UD->mn) = ray_out.mn; (UD->nn) = ray_out.nn;

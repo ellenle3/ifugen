@@ -31,13 +31,18 @@ double ConvertAngle(double t);
 *   
 *   @return Sag of the conic surface.
 **/
-double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta);
 
-void Conic3DCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k, double alpha, double beta, double gamma);
+double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
 
 double Conic3DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
 
-void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma);
+void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
+
+double Conic3DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+
+void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma);
+
 
 double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
 
@@ -45,7 +50,7 @@ void TiltedPlaneCriticalXY(double *xc1, double *xc2, double *yc, double cv, doub
 
 double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
 
-void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma);
+void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
 
 
 #endif

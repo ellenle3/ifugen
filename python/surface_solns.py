@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import newton
 
 
 def convert_angle(t):
@@ -14,6 +15,28 @@ def convert_angle(t):
         return t - 360
     return t
 
+# Solutions for 3D conic
+
+def conic_3d_off_axis_distance(c, alpha, beta):
+    """Off-axis distances.
+
+    Parameters
+    ----------
+    c: float
+        Curvature of the surface.
+    alpha: float
+        Angle in radians.
+    beta: float
+        Angle in radians.
+    """
+    # Put a minimum on the curvature to prevent x0, y0 from going to infinity.
+    # In practice if c is close to 0, the user should be using the tilted plane
+    # solutions instead.
+    if (abs(c) < 1e-13): c = 1e-13
+    y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
+    x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
+    return x0, y0
+    
 def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
     # Keep track of the angle, which determines which solution of
     # the quadratic is valid
@@ -25,11 +48,7 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
     else:
         sgn = -1
         
-    # Determine the off-axis distance
-    if (abs(c) < 1e-13): c = 1e-13
-        
-    y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
-    x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
+    x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
     # Rotate about the y-axis
     cosg = np.cos(gamma)
@@ -44,49 +63,6 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
     # In regions where the roots are undefined, set the sag to 0 for drawing
     # purposes. We will not ray trace these regions
     return np.where(bsol**2-4*asol*csol < 0, 0, 2*csol/(-bsol + sgn*np.sqrt(bsol*bsol - 4*asol*csol)))
-
-def conic_3d_critical_xy(c, k, alpha, beta, gamma):
-    """Computes where the d/dx and d/dy of the sag equals 0.
-
-    Check where this is undefined!
-    """
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-
-    if abs(c) < 1e-13:
-        # Curvature is very small, so this is basically a plane. In that case
-        # there are no critical points because the derivative is a constant.
-        return None, None, None
-
-    # Determine the off-axis distance
-    if (abs(c) < 1e-13): c = 1e-13
-        
-    y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
-    x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
-
-    yc = -1*y0
-
-    sing = np.sin(gamma)
-    sin3g = np.sin(3*gamma)
-    cosg = np.cos(gamma)
-    cos2g = np.cos(2*gamma)
-
-    if k == -1:
-        xc1 = -x0 + ( sing*(5 + c*c*yc*yc) + sin3g*(1 + c*c*yc*yc) ) / (cosg*cosg*-8*c)
-        xc2 = None
-
-    else:
-        U = -1*sing / (c*(1+k)*(-2-k+k*cos2g))
-        V = -2 - k + k*cos2g
-        W = cosg*k*np.sqrt( V*(-2+2*c*c*yc*yc*(1+k)) )
-        #W = cosg*k*np.sqrt( V*(-2+2*c*c*(1+k)+yc*yc) )
-        
-        xc1 = U * (V - W) - x0
-        xc2 = U * (V + W) - x0
-
-    return xc1, xc2, yc
-
 
 def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     """Returns the transfer distance. Because the equation for t is a quadratic,
@@ -105,11 +81,7 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     else:
         sgn = -1
         
-    # Determine the off-axis distance.
-    if (abs(c) < 1e-13): c = 1e-13
-        
-    y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
-    x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
+    x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
@@ -128,8 +100,7 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         
     return gsol/(-fsol + sgn*np.sqrt(fsol*fsol - dsol*gsol))
 
-
-def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma):
+def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     """Returns the surface normal vector components (the gradient).
     """
     # Check where the derivative is undefined!!!
@@ -143,10 +114,7 @@ def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma):
     else:
         sgn = -1
     
-    # Determine the off-axis distance
-    if (abs(c) < 1e-13): c = 1e-13
-    y0 = np.sin(alpha) / ( c * (1+np.cos(alpha)) )
-    x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
+    x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
@@ -157,31 +125,56 @@ def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma):
     csol = c*k*x*x*sing2 - 2*x*sing + 2*c*x0*x*cosg + c*(x*x + x0*x0 + (y-y0)*(y-y0))
     
     arg0 = bsol*bsol - 4*asol*csol
-
-    # Sag is undefined
-    if arg0 < 0:
+    # Partial derivatves are undefined - no surface normal
+    if arg0 <= 0:
         return np.nan, np.nan, np.nan
-
     eta = np.sqrt(arg0)
     denom = -bsol + sgn*eta
-    
-    # Partial derivative with respect to x
+
     arg1 = 4 * (c*x*(1+k*sing2) + c*x0*cosg - sing) / denom
     arg2 = 4 * csol / (denom*denom)
     arg3 = -c*k*sing*cosg
     arg4 = c*k*bsol*sing*cosg - 2*asol*(c*x*(1+k*sing2) + c*x0*cosg - sing)
     dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta)
 
-    # ...with respect to y
     arg1 = 4*c*(y-y0) / denom
     arg2 = 2*asol*csol / (eta*denom)
     dervy = arg1 * (1 + sgn*arg2)
 
-    norm = np.sqrt(dervx**2 + dervy**2 + 1)
+    norm = 1
+    if normalize:
+        norm = np.sqrt(dervx**2 + dervy**2 + 1)
 
     # d/dz is always equal to -1, no need to calculate it
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...
     return dervx / norm, dervy / norm, -1 / norm
+
+def conic_3d_critical_xy(c, k, alpha, beta, gamma):
+    """Computes where the d/dx and d/dy of the sag equals 0.
+
+    Check where this is undefined!
+    """
+    # Tolerance for accepting root from secant method
+    tol = 1e-13
+
+    if abs(c) < 1e-13:
+        # Curvature is very small, so this is basically a plane. In that case
+        # there is no critical point because the derivative is a constant.
+        return np.nan, np.nan
+    
+    alpha = convert_angle(alpha) * np.pi/180
+    beta = convert_angle(beta) * np.pi/180
+    gamma = convert_angle(gamma) * np.pi/180
+
+    x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
+    xc = newton(conic_3d_dervx, x0, tol=tol, args=(-y0,  c, k, alpha, beta, gamma))
+    return xc, -y0
+
+def conic_3d_dervx(x, y, c, k, alpha, beta, gamma):
+    """Returns the partial derivative along x.
+    """
+    dervx, dervy, _ = conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize=False)
+    return dervx
 
 
 # Solutions for planar surfaces
@@ -209,7 +202,8 @@ def tilted_plane_critical_xy(c, k, alpha, beta, gamma):
     """Computes where the d/dx and d/dy of the sag equals 0.
     Planes do not have critical points.
     """
-    return np.nan, np.nan, np.nan
+    # xc, yc
+    return np.nan, np.nan
 
 def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     """Returns the transfer distance.
@@ -233,7 +227,7 @@ def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         return np.nan
     return arg1 / arg2
 
-def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma):
+def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     """Returns the surface normal vector components (the gradient).
     """
     alpha = convert_angle(alpha) * np.pi/180
@@ -250,7 +244,10 @@ def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma):
 
     dervx = sinbg / (cosa * cosbg)
     dervy = -sina / cosa
-    norm = np.sqrt(dervx**2 + dervy**2 + 1)
+    
+    norm = 1
+    if normalize:
+        norm = np.sqrt(dervx**2 + dervy**2 + 1)
 
     # d/dz is always equal to -1, no need to calculate it
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...

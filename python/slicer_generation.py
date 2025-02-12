@@ -188,12 +188,12 @@ def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     ylo = slice_num * (p.dy + p.gy_width) - ysize/2
     yhi = ylo + p.dy
 
-    # Compute critical points
-    xc1, xc2, yc = critical_xy_func(p.c, p.k, alpha, beta, gamma)
+    # Compute critical point
+    xc, yc = critical_xy_func(p.c, p.k, alpha, beta, gamma)
 
-    # There are up to 6 points to compare depending on whether the
-    # critical points are within bounds
-    zsolns = np.zeros(6)
+    # There are up to 5 points to compare depending on whether the critical
+    # point is within bounds
+    zsolns = np.zeros(5)
     zsolns[0] = sag_func(xlo, ylo, p.c, p.k, alpha, beta, gamma)
     zsolns[1] = sag_func(xlo, yhi, p.c, p.k, alpha, beta, gamma)
     zsolns[2] = sag_func(xhi, ylo, p.c, p.k, alpha, beta, gamma)
@@ -202,15 +202,11 @@ def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     # Number of elements to compare so far
     n_compare = 4
 
-    # Check whether critical points are in bounds. If yes, compute the
-    # sag and add to array of points to compare.
-    if yc >= ylo and yc <= yhi:
-        if xc1 >= xlo and xc1 <= xhi:
-            zsolns[4] = sag_func(xc1, yc, p.c, p.k, alpha, beta, gamma)
-            n_compare += 1
-        if xc2 >= xlo and xc2 <= xhi:
-            zsolns[5] = sag_func(xc2, yc, p.c, p.k, alpha, beta, gamma)
-            n_compare += 1
+    # Check whether critical point is in bounds. If yes, compute the sag and
+    # add to the array of points to compare.
+    if (yc >= ylo and yc <= yhi and xc >= xlo and xc <= xhi):
+        zsolns[4] = sag_func(xc, yc, p.c, p.k, alpha, beta, gamma)
+        n_compare += 1
 
     # Compare potential solutions to get the maximum or minimum
     if mode:
@@ -239,7 +235,7 @@ def find_global_extrema_slicer(p, sag_func, critical_xy_func):
 
     zmin = find_bounded_extremum(x0_min, y0_min, p, False, sag_func, critical_xy_func)
     zmax = find_bounded_extremum(x0_max, y0_max, p, True, sag_func, critical_xy_func)
-        
+    
     return zmin, zmax
 
 def transfer_equation(t, xt, yt, l, m, n, p, sag_func):
@@ -364,7 +360,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
                     xs = xt + t*l
                     ys = yt + t*m
                     zs = t*n
-                    ln, mn, nn = surf_normal_func(xs, ys, p.c, p.k, alpha, beta, gamma)
+                    ln, mn, nn = surf_normal_func(xs, ys, p.c, p.k, alpha, beta, gamma, True)
 
                     # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
                     # equal to the gap depth then this may be the case.
