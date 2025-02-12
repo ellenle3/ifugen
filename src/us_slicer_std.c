@@ -335,13 +335,13 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          // Validate the parameters. Technically we shouldn't change the 
          //CheckSlicerParams(&p);
 
-         // If plane, use different solutions
-         // if (p.cv == 0) {
-         //    sag_func = &TiltedPlaneSag;
-         //    critical_xy_func = &TiltedPlaneCriticalXY;
-         //    transfer_dist_func = &TiltedPlaneTransfer;
-         //    surf_normal_func = &TiltedPlaneSurfaceNormal;
-         // }
+         If plane, use different solutions
+         if (p.cv == 0) {
+            sag_func = &TiltedPlaneSag;
+            critical_xy_func = &TiltedPlaneCriticalXY;
+            transfer_dist_func = &TiltedPlaneTransfer;
+            surf_normal_func = &TiltedPlaneSurfaceNormal;
+         }
 
          // Compute and store the global maxima
          //FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
