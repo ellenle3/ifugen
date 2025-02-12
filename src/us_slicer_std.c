@@ -24,23 +24,25 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
-   RAY_IN ray_in = {
-      .xt = 0,
-      .yt = 0,
-      .l = 0,
-      .m = 0,
-      .n = 1
-   };
-   RAY_OUT ray_out = {
-      .xs = NAN,
-      .ys = NAN,
-      .zs = NAN,
-      .t = NAN,
-      .ln = NAN,
-      .mn = NAN,
-      .nn = NAN
-   };
+   int i;
+   double p2, alpha, power, a, b, c, rad, casp, t, zc;
+   // double power = 1, zmax = 1E13, zmin = -1E13, sag = 0.0;
+   // RAY_IN ray_in = {
+   //    .xt = 0,
+   //    .yt = 0,
+   //    .l = 0,
+   //    .m = 0,
+   //    .n = 1
+   // };
+   // RAY_OUT ray_out = {
+   //    .xs = NAN,
+   //    .ys = NAN,
+   //    .zs = NAN,
+   //    .t = NAN,
+   //    .ln = NAN,
+   //    .mn = NAN,
+   //    .nn = NAN
+   // };
 
    IMAGE_SLICER_PARAMS p = {
       .n_each = 1,
