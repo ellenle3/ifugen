@@ -102,9 +102,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* the value FD->numb will indicate which value ZEMAX wants. */
          switch(FD->numb)
          	{
-            default:
-            	UD->string[0] = '\0';
-            	break;
             case 0:
             	strcpy(UD->string,"n_each");
                break;
@@ -162,6 +159,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             case 18:
             	strcpy(UD->string,"gy_depth");
                break;
+            default:
+            	UD->string[0] = '\0';
+            	break;
             }
       	break;
 
@@ -179,34 +179,34 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* if there is an alternate sag, return it as well */
          /* otherwise, set the alternate sag identical to the sag */
          /* The sag is sag1, alternate is sag2. */
-         // UD->sag1 = 0.0;
-         // UD->sag2 = 0.0;
-
-         // sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
-
-         // if (isnan(sag)) return -1;    // Out of bounds
-         // else {
-         //    UD->sag1 = sag;
-         //    UD->sag2 = sag;
-         // }
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-			/* if a plane, just return */
-			if (FD->cv == 0) return(0);
-         p2 = UD->x * UD->x + UD->y * UD->y;
-         alpha = 1 - (1+FD->k)*FD->cv*FD->cv*p2;
+         sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
 
-		 // If the absolute value of alpha is smaller than 1e-13, we're going to assume this instead means zero
-		 // This assumption is based on the fact that floating point numbers on computers cannot be
-		 // represented 100% accurately
-		 if (fabs(alpha) < 1e-13)
-			 alpha = 0;
+         if (isnan(sag)) return -1;    // Out of bounds
+         else {
+            UD->sag1 = sag;
+            UD->sag2 = sag;
+         }
+      //    UD->sag1 = 0.0;
+      //    UD->sag2 = 0.0;
 
-         if (alpha < 0) return(-1);
-         UD->sag1 = (FD->cv*p2)/(1 + sqrt(alpha));
-         if (alpha != 1.0) UD->sag2 = (FD->cv*p2)/(1 - sqrt(alpha));
-         break;
+		// 	/* if a plane, just return */
+		// 	if (FD->cv == 0) return(0);
+      //    p2 = UD->x * UD->x + UD->y * UD->y;
+      //    alpha = 1 - (1+FD->k)*FD->cv*FD->cv*p2;
+
+		//  // If the absolute value of alpha is smaller than 1e-13, we're going to assume this instead means zero
+		//  // This assumption is based on the fact that floating point numbers on computers cannot be
+		//  // represented 100% accurately
+		//  if (fabs(alpha) < 1e-13)
+		// 	 alpha = 0;
+
+      //    if (alpha < 0) return(-1);
+      //    UD->sag1 = (FD->cv*p2)/(1 + sqrt(alpha));
+      //    if (alpha != 1.0) UD->sag2 = (FD->cv*p2)/(1 - sqrt(alpha));
+      //    break;
 
       case 4:
       	/* ZEMAX wants a paraxial ray trace to this surface */
