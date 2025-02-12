@@ -266,6 +266,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          p.cv = FD->cv;
          p.k = FD->k;
 
+         // Validate the parameters. Technically we shouldn't change the 
+         //CheckSlicerParams(&p);
+
          // Set which functions we use to compute sag and ray tracing
          if (p.cv == 0) {
             sag_func = &TiltedPlaneSag;

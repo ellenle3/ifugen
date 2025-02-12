@@ -10,7 +10,7 @@ for different surface types.
 Ellen Lee
 */
 
-
+// Bounds the angle to be between -180 and 180 degrees.
 double ConvertAngle(double t) {
     t = fmod(t, 360);
     if (t > 180) {
@@ -21,23 +21,29 @@ double ConvertAngle(double t) {
 
 // 3D conic solutions - planes (cv -> 0) are handled differently, see next section
 
+// Determine the off-axis distance. If the curvature is near-zero, this is
+// basically a plane. Set a limit to how small cv can be. In practice the
+// user should not set a non-zero off-axis distance if the surface is a plane.
 void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta) {
-    // Determine the off-axis distance. If the curvature is near-zero, this is
-    // basically a plane. Set a limit to how small cv can be. In practice the
-    // user should not set a non-zero off-axis distance if the surface is a plane.
     if (fabs(cv) < 1E-13) cv = 1E-13;
     *y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );  // Angles must be in radians
     *x0 = sin(beta) / ( cv * (1 + cos(beta)) );
 }
 
+// This is the sag for a conic surface translated by x0 and y0, and then rotated
+// about the global y-axis. The sag for this surface is solved by doing the
+// transformations backward, i.e., undoing the rotation and then the translation.
+// The reason for this is that the sag is easier to solve for this way, but it
+// is equivalent. Refer to the derivation for more informaiton.
 double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
-    // The value of gamma determines which solution of the quadratic to use
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
+
+    // The value of gamma determines which solution of the quadratic to use
     int sgn;
-    if (fabs(gamma) <= M_PI/2) {sgn = 1;}
-    else {sgn = -1;}
+    if (fabs(gamma) <= M_PI/2) sgn = 1;
+    else sgn = -1;
 
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
@@ -56,13 +62,24 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     return (2*csol) / (-bsol + sgn*sqrt(bsol*bsol - 4*asol*csol));
 }
 
+// The transfer distance is obtained by solving the system of equations
+//     x_s = x_t + t*l
+//     y_s = y_t + t*m
+//     z_s = t*n
+// where the ray starts at (x_t, y_t, 0) with direction cosines (l, m, n) and is 
+// propagated to the surface at (x_s, y_s, z_s). This function computes an analytic
+// expression for t.
 double Conic3DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
+
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
+
+    // The value of gamma determines which solution of the quadratic to use, as
+    // with the sag
     int sgn;
-    if (fabs(gamma) <= M_PI/2) {sgn = 1;}
-    else {sgn = -1;}
+    if (fabs(gamma) <= M_PI/2) sgn = 1;
+    else sgn = -1;
         
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
@@ -80,14 +97,18 @@ double Conic3DTransfer(double xt, double yt, double l, double m, double n, doubl
     return gsol/(-fsol + sgn*sqrt(fsol*fsol - dsol*gsol));
 }
 
+
+// The normal vectors are obtained by taking the gradient of the sag function.
+// We need these along with the transfer distance to perform the ray refraction.
 void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
-    // The value of gamma determines which solution of the quadratic to use
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
+
+    // The sag depends on the value of gamma, so preseve the sign here
     int sgn;
-    if (fabs(gamma) <= M_PI/2) {sgn = 1;}
-    else {sgn = -1;}
+    if (fabs(gamma) <= M_PI/2) sgn = 1;
+    else sgn = -1;
 
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
@@ -97,7 +118,6 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     double asol = cv*(sing2 + (k+1)*cosg2);
     double bsol = 2*cv*sing*(x*k*cosg - x0) - 2*cosg;
     double csol = cv*k*x*x*sing2 - 2*x*sing + 2*cv*x0*x*cosg + cv*(x*x + x0*x0 + (y-y0)*(y-y0));
-
 
     double arg0 = bsol*bsol - 4*asol*csol;
     if (arg0 <= 0) {
@@ -118,7 +138,9 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     double arg1 = 4*cv*(y-y0) / denom;
     double arg2 = 2*asol*csol / (eta*denom);
     double dervy = arg1 * (1 + sgn*arg2);
-        
+    
+    // Surface normals should be normalized. But if we do this, we lose the magnitude
+    // of the derivatives. So we can choose to normalize or not.
     double norm = 1;
     if (normalize) norm = sqrt(dervx*dervx + dervy*dervy + 1);
 
@@ -129,20 +151,33 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     *nn = -1 / norm;
 }
 
+// Wrapper function to make accessing the partial derivative about x easier. This
+// is only used for the critical point calculation. 
 double Conic3DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
     double dervx, dervy, dervz;
     Conic3DSurfaceNormal(&dervx, &dervy, &dervz, x, y, cv, k, alpha, beta, gamma, 0);
     return dervx;
 }
 
+// The critical points are used to find the bounded extrema within a slice. By
+// symmetry, the y-coordinate of the critical point *must* be equal to the amount
+// we shifted the conic (y0).
+//
+// The x-coordinate is less obvious because there is a rotation by gamma on top of the
+// shift x0. Solving for dz/dx = 0 analytically is not feasible, so I use a secant
+// method to find the root. This should be fast because the derivative is monotonic
+// and well-behaved.
+// 
+// Also, we know that there can only be one critical point because an unrotated
+// conic has only one critical point. For there to be two, the sag would not be
+// a function anymore (multiple values of the sag for the same (x, y)).
 void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
-    
     double tol = 1E-13;    // Tolerance for accepting root
     int niter_max = 50;    // Max number of iterations - under normal circumstances
-                           // should converge very quickly (10 iterations or less)
+                           // should converge quickly (10 iterations or less)
 
     // If the curvature is very small this is basically a plane. In this case
-    //  there are no critical points because the derivative is a constant.
+    // do not attempt to find critical points because the derivative is constant.
     if (fabs(cv) < 1E-13) {
         *yc = NAN; *xc = NAN;
         return;
@@ -155,9 +190,9 @@ void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
-    // Perform secant method to find xc
-    // Should be around x0 if gamma is not huge. Use 10% the radius of curvature
-    // as initial guesses to compute the first secant line.
+    // Perform secant method to find xc; it should be around x0 if gamma is not
+    // huge. Use 10% the radius of curvature as initial guesses to compute the
+    // first secant line.
     double xc0 = x0 + 0.1 * 1/cv;
     double xc1 = x0 - 0.1 * 1/cv;
     double xc2, dervx0, dervx1, err;
@@ -169,13 +204,24 @@ void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
         err = fabs(xc2 - xc1);
         xc0 = xc1; xc1 = xc2;
     }
-
+    // If it was unable to converge for some reason set xc to NAN...
     *xc = (err < tol) ? xc2 : NAN;
     *yc = -y0;
 }
 
-// Tilted plane solutions (cv = 0)
+// Tilted plane solutions (cv = 0). The functions below match the call signatures
+// of the functions for the conic surface. This allows us to pass these functions
+// as arguments to other functions that are used to define the behavior of
+// the entire image slicer (see slicer_generation.c).
 
+// alpha, beta, and gamma are implemented a bit differently here because we cannot
+// use the previous definition of the off-axis distance. Instead, we set alpha to
+// be an rotation about the global y-axis, and then beta + gamma to be about the
+// global x-axis. These are extrinsic rotations.
+//
+// The reason why beta and gamma are kept separate is that alpha and beta are
+// used to define the behavior of a given "section" of the image slicer. gamma
+// defines the tilt of each individual slice within that section.
 double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
@@ -184,12 +230,13 @@ double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, dou
     double sina = sin(alpha), cosa = cos(alpha);
     double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
-    if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}
+    if (fabs(cosa) < 1E-13) cosa = 1E-13;
+    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
 
     return x * sinbg / (cosa*cosbg) - y * sina / cosa;
 }
 
+// See explanation for the transfer distance for the conic surface.
 double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
@@ -198,8 +245,8 @@ double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, d
     double sina = sin(alpha), cosa = cos(alpha);
     double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
-    if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}
+    if (fabs(cosa) < 1E-13) cosa = 1E-13;
+    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
 
     double arg1 = xt * sinbg / (cosa * cosbg) - yt * sina / cosa;
     double arg2 = n - l * sinbg / (cosa * cosbg) + m * sina / cosa;
@@ -208,6 +255,7 @@ double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, d
     return arg1 / arg2;
 }
 
+// See explanation for the surface normal for the conic surface.
 void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
@@ -216,8 +264,8 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
     double sina = sin(alpha), cosa = cos(alpha);
     double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
     // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) {cosa = 1E-13;}
-    if (fabs(cosbg) < 1E-13) {cosbg = 1E-13;}
+    if (fabs(cosa) < 1E-13) cosa = 1E-13;
+    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
 
     double dervx = sinbg / (cosa * cosbg);
     double dervy = -sina / cosa;
@@ -230,7 +278,7 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
     *nn = -1 / norm;
 }
 
-void TiltedPlaneCriticalXY(double *xc1, double *xc2, double *yc, double cv, double k, double alpha, double beta, double gamma) {
-    // Planes have no critical points
-    *yc = NAN; *xc1 = NAN; *xc2 = NAN;
+// Planes have no critical points, so this does nothing.
+void TiltedPlaneCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
+     *xc = NAN; *yc = NAN;
 }

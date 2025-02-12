@@ -9,6 +9,8 @@ Slicer generation and ray tracing algorithm.
 Ellen Lee
 */
 
+// TODO: This function does not check that array is large enough to store n
+// values! This could lead to unexpected behavior...
 void linspace(double *array, double start, double end, int n) {
     if (n <= 1) {
         array[0] = start;
@@ -20,8 +22,25 @@ void linspace(double *array, double start, double end, int n) {
     }
 }
 
-int CheckSlicerParams(IMAGE_SLICER_PARAMS p) {
-    // Check that the parameters are valid.
+// Validate image slicer parameters, modifying illegal parameters as needed.
+int CheckSlicerParams(IMAGE_SLICER_PARAMS *p) {
+    // Keep track of whether we had to change any parameters
+    int flag = 0;
+    
+    if (p->n_cols < 1) { p->n_cols = 1; flag = 1; }
+    if (p->n_rows < 1) { p->n_rows = 1; flag = 1; }
+    if (p->n_each < 1) { p->n_each = 1; flag = 1; }
+    if (!(p->mode==0 || p->mode==1)) { p->mode = 0; flag = 1; }
+    if (!(p->trace_walls==0 || p->trace_walls==1)) { p->trace_walls = 0; flag = 1; }
+    // No need to check angles because we will convert them to be between -180
+    // and 180 degrees...
+    if (p->dx <= 0) { p->dx = 1; flag = 1; }
+    if (p->dy <= 0) { p->dy = 1; flag = 1; }
+    if (p->gx_width < 0) { p->gx_width = 0; flag = 1; }
+    if (p->gy_width < 0) { p->gy_width = 0; flag = 1; }
+    // Gap depths can be whatever
+    // There are also no limitations on cv and k
+    if (flag) return 1;
     return 0;
 }
 
@@ -145,7 +164,6 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_fu
 
 
 // Ray tracing
-
 
 double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     // If x0, y0 are inside gaps then we don't need to go further
@@ -373,8 +391,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                 t_test = transfer_dist_func(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
                 result = TransferEquation(t_test, xt, yt, l, m, n, p, sag_func);
                 
-                // Check whether the transfer distance of the current slice is a valid
-                // zero of the transfer equation.
+                // Check whether the transfer distance of the current slice is a
+                // valid zero of the transfer equation.
                 if (fabs(result) < tol) {
                     // Yes - found a solution!
                     t = t_test;
@@ -383,8 +401,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                     zs = t_test*n;
                     surf_normal_func(&ln, &mn, &nn, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
 
-                    // WAIT - Is the solution inside of a gap? If we're unlucky and zs is
-                    // equal to the gap depth then this may be the case.
+                    // WAIT - Is the solution inside of a gap? If we're unlucky
+                    // and zs is equal to the gap depth then this may be the case.
                     IsInsideSlicerGap(&in_xgap, &in_ygap, xs, ys, p);
                     if (in_xgap || in_ygap) {
                         dslice = -1; dcol = -1;
@@ -399,7 +417,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                 // Check if the ray is hitting a wall after this slice
                 if (p.trace_walls) {
 
-                    // Going between columns. Skip if there are no columns left to iterate
+                    // Going between columns since slice_iter==0. Skip if there
+                    // are no columns left to iterate
                     if (slice_iter == 0 && fabs(l) > 1E-13 && dcol > 0) {
                         
                         xnear = (nc_test + 1) * p.dx - xsize / 2;
@@ -433,7 +452,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                         }
                     }
                 
-                    // Not going between columns, check walls along y-axis instead. Same as above...
+                    // Not going between columns, check walls along y-axis instead.
+                    // Same as above...
                     else {
                         if (fabs(m) > 1E-13 && dslice > 0) {
                             ynear = (ns_test + 1) * p.dy - ysize / 2;
@@ -474,7 +494,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
             dslice -= 1;
         }
 
-        // The last slice index needs to be checked again when crossing over to the next column
+        // The last slice index needs to be checked again when crossing over to
+        // the next column
         slice_iter = 0;
         ns_test -= sgns;
         dslice++;
@@ -500,7 +521,9 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
         return;
     }
 
-    // If none of that worked then this is a bizarre edge case, e.g., the direction cosine is less than 1E-13
-    // but it grazed off of a wall somehow. Sweep this ray under the rug and say that it missed...
+    // If none of that worked then this is a bizarre edge case, e.g., the direction
+    // cosine is less than 1E-13 but it grazed off of a wall somehow. Sweep this
+    // ray under the rug and say that it missed...
+    
     return;  // *5 tumbleweeds roll along in front of you*
 }

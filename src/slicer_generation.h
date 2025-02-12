@@ -1,88 +1,55 @@
 #ifndef SLICER_GENERATION_H
 #define SLICER_GENERATION_H
 
-/** @struct IMAGE_SLICER_PARAMS
-*   @brief Parameters that define the image slicer.
-*   @var IMAGE_SLICER_PARAMS::n_each
-*       Number of slices per block. n_each > 0
-*   @var IMAGE_SLICER_PARAMS::n_rows
-*       Number of rows. n_rows > 0
-*   @var IMAGE_SLICER_PARAMS::n_cols
-*       Number of columns. n_cols > 0
-*   @var IMAGE_SLICER_PARAMS::mode
-*       Mode for switching angles between blocks.
-*   @var IMAGE_SLICER_PARAMS::trace_walls
-*       If 0 do not ray trace walls, if 1 attempt to ray trace walls.
-*   @var IMAGE_SLICER_PARAMS::dalpha
-*       Change in angle between rows in degrees.
-*   @var IMAGE_SLICER_PARAMS::dbeta
-*       Change in angle between columns in degrees.
-*   @var IMAGE_SLICER_PARAMS::dgamma
-*       Change in angle between slices in degrees.
-*   @var IMAGE_SLICER_PARAMS::alpha_cen
-*       If n_each is odd, angle of central row in degrees. If even, mean of angle
-*       between two center-most rows.
-*   @var IMAGE_SLICER_PARAMS::beta_cen
-*       Angle of central column; analagous to alpha_cen for columns.
-*   @var IMAGE_SLICER_PARAMS::gamma_cen
-*       Angle of central slice; analagous to alpha_cen for slices in each block.
-*   @var IMAGE_SLICER_PARAMS::dx
-*       Length of each slice. dx > 0
-*   @var IMAGE_SLICER_PARAMS::dy
-*       Width of each slice. dy > 0
-*   @var IMAGE_SLICER_PARAMS::gx_width
-*       Width of gaps between slices along x-direction. gx_width >= 0
-*   @var IMAGE_SLICER_PARAMS::gx_depth
-*       Depth of gaps between slices along x-direction. gx_depth >= 0
-*   @var IMAGE_SLICER_PARAMS::gy_width
-*       Width of gaps between columns. gy_width >= 0
-*   @var IMAGE_SLICER_PARAMS::gy_depth
-*       Depth of gaps between columns. gy_depth >= 0
-*   @var IMAGE_SLICER_PARAMS::cv
-*       Curvature. cv > 0
-*   @var IMAGE_SLICER_PARAMS::k
-*       Conic constant.
-*/
+/**
+ * @brief A struct to store the parameters of the image slicer.
+ */
 typedef struct {
-    int n_each;
-    int n_rows;
-    int n_cols;      
-    int mode;
-    int trace_walls;
-    int active_x;
-    int active_y;
-    double dalpha;
-    double dbeta;
-    double dgamma;
-    double alpha_cen;
-    double beta_cen;
-    double gamma_cen;
-    double dx;
-    double dy;
-    double gx_width;
-    double gx_depth;
-    double gy_width;
-    double gy_depth;
-    double cv;
-    double k;
+    int n_each; // Number of slices in a single row
+    int n_rows; // Number of rows
+    int n_cols; // Number of columns
+    int mode;   // Mode for alternating angles between rows
+    int trace_walls; // Flag to trace the walls of the image slicer
+    int active_x;    // Flag for central slice in x for an even number of slices
+    int active_y;    // Flag for central slice in y for an even number of slices
+    double dalpha;   // Difference in off-axis y-angle between rows in degrees
+    double dbeta;    // Difference in off-axis x-angle between columns in degrees
+    double dgamma;   // Difference in rotation angle between slices in degrees
+    double alpha_cen;  // Central off-axis angle along y in degrees
+    double beta_cen;   // Central off-axis angle along x in degrees
+    double gamma_cen;  // Central rotation angle about global y-axis in degrees
+    double dx;  // Slice width
+    double dy;  // Slice height
+    double gx_width;  // Gap width between columns
+    double gx_depth;  // Gap depth betwen column
+    double gy_width;  // Gap depth between slices along y
+    double gy_depth;  // Gap depth between slices along y
+    double cv; // Curvature - equal to 1/R where R is the ROC
+    double k;  // Conic constant
 } IMAGE_SLICER_PARAMS;
 
+/**
+ * @brief A struct to store the input ray parameters.
+ */
 typedef struct {
-    double xt;
-    double yt;
-    double l;
-    double m;
-    double n;
+    double xt;  // Starting x-coordinate of the ray
+    double yt;  // Starting y-coordinate of the ray
+    double l;   // Direction cosine along x
+    double m;   // Direction cosine along y
+    double n;   // Direction cosine along z
 } RAY_IN;
 
+/**
+ * @brief A structure to store the output ray parameters.
+ */
 typedef struct {
-    double xs;
-    double ys;
-    double zs;
-    double t;
-    double ln;
-    double mn;
-    double nn;
+    double xs;  // x-coordinate at the surface
+    double ys;  // y-coordinate at the surface
+    double zs;  // z-coordinate at the surface
+    double t;   // Transfer distance
+    double ln;  // Surface normal along x
+    double mn;  // Surface normal along y
+    double nn;  // Surface normal along z
 } RAY_OUT;
 
 /** Function pointers */
@@ -91,12 +58,45 @@ typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, dou
 typedef void (*CRITICAL_XY_FUNC)(double*, double*, double, double, double, double, double);
 typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double, int);
 
+/**
+ * @brief Creates a linearly spaced array. This is akin to the numpy linspace
+ * function in Python.
+ * 
+ * @param array Pointer to the array to store the values.
+ * @param start Start value, inclusive.
+ * @param end End value, exclusive.
+ * @param n Number of points.
+ */
 void linspace(double *array, double start, double end, int n);
 
-int CheckSlicerParams(IMAGE_SLICER_PARAMS);
+/**
+ * @brief Validates image slicer parameters. If parameters are illegal, they
+ * are modified to safe values.
+ * 
+ * @param p Pointer for image slicer parameters.
+ * @return int 0 if the parameters are okay. 1 if the parameters were not okay
+ *          and were modified.
+ */
+int CheckSlicerParams(IMAGE_SLICER_PARAMS *p);
 
+/**
+ * @brief Computes the size of the image slicer.
+ * 
+ * @param xsize Pointer for size of the image slicer along the x-axis.
+ * @param ysize Pointer for size of the image slicer along the y-axis.
+ * @param p Image slicer parameters.
+ */
 void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS p);
 
+/**
+ * @brief Computes column, slice indices for a given set of x, y.
+ * 
+ * @param col_num Pointer for the column number.
+ * @param slice_num Pointer for the slice number.
+ * @param x x-coordinate.
+ * @param y y-coordinate.
+ * @param p Image slicer parameters.
+ */
 void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS p);
 
 void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS p);
@@ -124,17 +124,60 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
 **/
 double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
 
+/**
+ * @brief Finds an extremum of a slice within the bounds that it is defined for
+ * this image slicer. An initial guess is used to determine which slice to check.
+ * 
+ * @param x0 Initial guess for the x-coordinate.
+ * @param y0 Initial guess for the y-coordinate.
+ * @param mode 0 for maximum, 1 for minimum.
+ * @param p Image slicer parameters.
+ * @param sag_func Function to compute the sag of a slice.
+ * @param critical_xy_func Function to compute the critical point of a slice.
+ * @return double Bounded maximum or minimum for a slice.
+ */
 double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
 
+/**
+ * @brief Computes global extrema for the image slicer.
+ * 
+ * @param zmin Pointer to store the global minimum.
+ * @param zmax Pointer to store the global maximum.
+ * @param p Image slicer parameters.
+ * @param sag_func Function to compute the sag of a slice.
+ * @param critical_xy_func Function to compute the critical point of a slice.
+ */
 void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
 
+/**
+ * @brief Transfer equation for the entire image slicer. The roots of this function
+ * give the transfer distance t.
+ * 
+ * @param t Transfer distance.
+ * @param xt Starting x-coordinate of the ray.
+ * @param yt Starting y-coordinate of the ray.
+ * @param l Direction cosine along x.
+ * @param m Direction cosine along y.
+ * @param n Direction cosine along z.
+ * @param p Image slicer parameters.
+ * @param sag_func Function to compute the sag of a slice.
+ * @return double The image slicer sag minus the computed z-coordinate at the surface (zs).
+ */
 double TransferEquation(double t, double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
 
+/**
+ * @brief Computes the transfered ray and surface normals for the image slicer.
+ * 
+ * @param ray_out Pointer for the output ray parameters.
+ * @param ray_in Input ray parameters.
+ * @param zmin Global minimum of the image slicer.
+ * @param zmax Global maximum of the image slicer.
+ * @param p Image slicer parameters.
+ * @param sag_func Function to compute the sag of a slice.
+ * @param transfer_dist_func Function to compute the transfer distance for a slice.
+ * @param surf_normal_func Function to compute the surface normal of a slice.
+ */
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
-
-// void RayTraceSlicer(double* xs, double* ys, double* zs, double* t, double* ln, double* mn, double* nn,
-//     double xt, double yt, double l, double m, double n, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
-//     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
 
 #endif
