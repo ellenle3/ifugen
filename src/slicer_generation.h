@@ -1,4 +1,3 @@
-#include "usersurf.h"
 #ifndef SLICER_GENERATION_H
 #define SLICER_GENERATION_H
 
@@ -69,15 +68,6 @@ typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, doub
  * @param n Number of points.
  */
 void linspace(double *array, double start, double end, int n);
-
-/**
- * @brief Sets the members of the slicer parameters struct from the Zemax fixed
- * data struct.
- * 
- * @param p Pointer for image slicer parameters.
- * @param FD Pointer for Zemax FIXED_DATA5 object.
- */
-void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 
 /**
  * @brief Validates image slicer parameters. If parameters are illegal, they

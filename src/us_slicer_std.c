@@ -16,6 +16,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
+void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 
 BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	{
@@ -375,4 +376,28 @@ if (thisn != nextn)
 	(*n) = (nr * (*n)) + (gamma * nn);
 	}
 return 0;
+}
+
+void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
+    p->n_each =      FD->param[0];
+    p->n_rows =      FD->param[1];
+    p->n_cols =      FD->param[2];
+    p->mode =        FD->param[3];
+    p->trace_walls = FD->param[4];
+    p->active_x =    FD->param[5];
+    p->active_y =    FD->param[6];
+    p->dalpha =      FD->param[7];
+    p->dbeta =       FD->param[8];
+    p->dgamma =      FD->param[9];
+    p->alpha_cen =   FD->param[10];
+    p->beta_cen =    FD->param[11];
+    p->gamma_cen =   FD->param[12];
+    p->dx =          FD->param[13];
+    p->dy =          FD->param[14];
+    p->gx_width =    FD->param[15];
+    p->gx_depth =    FD->param[16];
+    p->gy_width =    FD->param[17];
+    p->gy_depth =    FD->param[18];
+    p->cv = FD->cv;
+    p->k =  FD->k;
 }
