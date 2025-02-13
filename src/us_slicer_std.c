@@ -25,7 +25,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   //FILE* fptr;
+   FILE* fptr;
    int i;
    double p2, alpha, a, b, c, rad, casp, t, zc;
    double power;
@@ -47,7 +47,14 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
+   // Update the struct and global extrema if the FD have been changed
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
+
+   // DON'T WANT TO RECALCULATE THIS EVERYTIME THE DLL IS CALLED
+   // only when the parameters are updated... need a function to check this.
+   // maybe make zmax and zmin part of p?
+   FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+
    SAG_FUNC sag_func = &Conic3DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = &Conic3DTransfer;
    CRITICAL_XY_FUNC critical_xy_func = &Conic3DCriticalXY;
@@ -163,9 +170,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag2 = 0.0;
 
          sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
-         //fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
-         //fprintf(fptr, "%.10f %.10f %.10f\n", UD->x, UD->y, sag);
-         //fclose(fptr);
 
          if (isnan(sag)) return -1;    // Out of bounds
          else {
@@ -275,7 +279,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[3] = 0;      // mode
          FD->param[4] = 0;      // trace_walls
          FD->param[5] = 0;      // active_x
-         FD->param[6] = 4.0;    // active_y
+         FD->param[6] = 0;      // active_y
          FD->param[7] = 4.0;    // dalpha
          FD->param[8] = 4.0;    // dbeta
          FD->param[9] = 1.0;    // dgamma
@@ -300,7 +304,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          SetSlicerParamsFromFD(&p, FD);
 
          // Validate the parameters. Technically we shouldn't change the 
-         //CheckSlicerParams(&p);
+         CheckSlicerParams(&p);
 
          // If plane, use different solutions
          if (p.cv == 0) {
@@ -311,8 +315,10 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          }
 
          // Compute and store the global extrema
-         //FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
-         zmin = -5, zmax = 5;
+         FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+         fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
+         fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
+         fclose(fptr);
          break;
 
       case 9:

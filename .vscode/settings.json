@@ -2,6 +2,7 @@
     "files.associations": {
         "queue": "c",
         "stack": "c",
-        "random": "c"
+        "random": "c",
+        "numeric": "c"
     }
 }

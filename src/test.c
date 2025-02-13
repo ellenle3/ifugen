@@ -4,6 +4,7 @@
 #include "surface_solns.h"
 
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
 
 int main() {
     FILE* fptr = fopen("test_output.txt", "w+");
@@ -17,25 +18,25 @@ int main() {
 
     IMAGE_SLICER_PARAMS p = {
         .n_each = 5,
-        .n_rows = 3,
-        .n_cols = 2,
+        .n_rows = 1,
+        .n_cols = 1,
         .mode = 0,
         .trace_walls = 0,
         .active_x = 0,
         .active_y = 0,
-        .dalpha = 8,
-        .dbeta = -5,
-        .dgamma = 1.5,
-        .alpha_cen = -10,
-        .beta_cen = 11,
+        .dalpha = 4,
+        .dbeta = 4,
+        .dgamma = 1,
+        .alpha_cen = 0,
+        .beta_cen = 0,
         .gamma_cen = 0,
-        .dx = 9,
-        .dy = 0.8,
+        .dx = 10,
+        .dy = 2,
         .gx_width = 0,
         .gx_depth = 0,
         .gy_width = 0,
         .gy_depth = 0,
-        .cv = 0.0,
+        .cv = -0.01,
         .k = 0
     };
 
@@ -57,11 +58,11 @@ int main() {
             surf_normal_func = &Conic3DSurfaceNormal;
          }
     
-    TestImageSlicerSag(fptr, p, sag_func);
+    //TestImageSlicerSag(fptr, p, sag_func);
+    TestGlobalExtrema(fptr, p, sag_func, critical_xy_func);
 
     fclose(fptr);
 }
-
 
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
     
@@ -80,4 +81,12 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
             fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ypts[j], output);
         }
     }
+}
+
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+    
+    double zmin, zmax;
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+    fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
+
 }
