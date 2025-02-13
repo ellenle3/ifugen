@@ -333,7 +333,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          }
 
          // Compute and store the global extrema
-         FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+         //FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+         zmin = -5, zmax = 5;
          break;
 
       case 9:
