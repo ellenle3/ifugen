@@ -10,12 +10,49 @@
 
 /*
 Ellen Lee
+Feb 2025
 */
+
+// Normally having global variables that can change is bad practice, but this is
+// necessary for us to store the global extrema without having to recalculate them
+// every time we trace rays. Because each analysis window in Zemax gets its own
+// copy of the DLL, we shouldn't have to worry about locks or race conditions.
+double zmin_GLOBAL, zmax_GLOBAL;
+// Need to keep track of whether parameters changed
+IMAGE_SLICER_PARAMS pold_GLOBAL = {
+        .n_each = -1,
+        .n_rows = -1,
+        .n_cols = -1,
+        .mode = -1,
+        .trace_walls = -1,
+        .active_x = -1,
+        .active_y = -1,
+        .dalpha = -1,
+        .dbeta = -1,
+        .dgamma = -1,
+        .alpha_cen = -1,
+        .beta_cen = -1,
+        .gamma_cen = -1,
+        .dx = -1,
+        .dy = -1,
+        .gx_width = -1,
+        .gx_depth = -1,
+        .gy_width = -1,
+        .gy_depth = -1,
+        .cv = -1,
+        .k = -1
+    };
+// Do not check until after the DLL has been called for the first time
+int is_initialized_GLOBAL = 0;
+
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
+void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
+   CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SLICER_PARAMS p);
+void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 
 BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
@@ -49,16 +86,18 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
    // Update the struct and global extrema if the FD have been changed
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
+   //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
+   ValidateSlicerParams(&p);
+   if ( !IsParametersEqual(p, pold_GLOBAL) && is_initialized_GLOBAL) {
+      FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
+      pold_GLOBAL = p;
+   };
 
-   // DON'T WANT TO RECALCULATE THIS EVERYTIME THE DLL IS CALLED
-   // only when the parameters are updated... need a function to check this.
-   // maybe make zmax and zmin part of p?
-   FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
-
-   SAG_FUNC sag_func = &Conic3DSag;
-   TRANSFER_DIST_FUNC transfer_dist_func = &Conic3DTransfer;
-   CRITICAL_XY_FUNC critical_xy_func = &Conic3DCriticalXY;
-   SURF_NORMAL_FUNC surf_normal_func = &Conic3DSurfaceNormal;
+   SAG_FUNC sag_func;
+   TRANSFER_DIST_FUNC transfer_dist_func;
+   CRITICAL_XY_FUNC critical_xy_func;
+   SURF_NORMAL_FUNC surf_normal_func;
+   GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
 
    switch(FD->type)
    	{
@@ -171,7 +210,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
 
-         if (isnan(sag)) return -1;    // Out of bounds
+         if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
             UD->sag1 = sag;
             UD->sag2 = sag;
@@ -215,7 +254,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // // The first thing this function does is reset the members of ray_out
          // // to be all NANs
-         // RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
+         // RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL,
          //    p, sag_func, transfer_dist_func, surf_normal_func);
 
          // // Ray missed if transfer distance or normal vector could not be computed
@@ -286,8 +325,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[10] = 0.0;   // alpha_cen
          FD->param[11] = 0.0;   // beta_cen
          FD->param[12] = 0.0;   // gamma_cen
-         FD->param[13] = 10.0;  // dx
-         FD->param[14] = 2;     // dy
+         FD->param[13] = 8.0;   // dx
+         FD->param[14] = 1;     // dy
          FD->param[15] = 0.0;   // gx_width
          FD->param[16] = 0.0;   // gx_depth
          FD->param[17] = 0.0;   // gy_width
@@ -299,25 +338,11 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          break;
 
       case 8:
-      	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
-         // Initialize the parameter struct
          SetSlicerParamsFromFD(&p, FD);
-
-         // Validate the parameters. Technically we shouldn't change the 
-         CheckSlicerParams(&p);
-
-         // If plane, use different solutions
-         if (p.cv == 0) {
-            sag_func = &TiltedPlaneSag;
-            critical_xy_func = &TiltedPlaneCriticalXY;
-            transfer_dist_func = &TiltedPlaneTransfer;
-            surf_normal_func = &TiltedPlaneSurfaceNormal;
-         }
-
-         // Compute and store the global extrema
-         FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+      	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
+         FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
          fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
-         fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
+         fprintf(fptr, "%.10f %.10f\n", zmin_GLOBAL, zmax_GLOBAL);
          fclose(fptr);
          break;
 
@@ -352,26 +377,52 @@ if (thisn != nextn)
 return 0;
 }
 
+
+// Functions to convert between Zemax FIXED_DATA and image slicer params struct
+void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
+   FD->param[0] = p->n_each;
+   FD->param[1] = p->n_rows;
+   FD->param[2] = p->n_cols;
+   FD->param[3] = p->mode;
+   FD->param[4] = p->trace_walls;
+   FD->param[5] = p->active_x;
+   FD->param[6] = p->active_y;
+   FD->param[7] = p->dalpha;
+   FD->param[8] = p->dbeta;
+   FD->param[9] = p->dgamma;
+   FD->param[10] = p->alpha_cen;
+   FD->param[11] = p->beta_cen;
+   FD->param[12] = p->gamma_cen;
+   FD->param[13] = p->dx;
+   FD->param[14] = p->dy;
+   FD->param[15] = p->gx_width;
+   FD->param[16] = p->gx_depth;
+   FD->param[17] = p->gy_width;
+   FD->param[18] = p->gy_depth;
+   FD->cv = p->cv;
+   FD->k = p->k;
+}
+
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-    p->n_each =      FD->param[0];
-    p->n_rows =      FD->param[1];
-    p->n_cols =      FD->param[2];
-    p->mode =        FD->param[3];
-    p->trace_walls = FD->param[4];
-    p->active_x =    FD->param[5];
-    p->active_y =    FD->param[6];
-    p->dalpha =      FD->param[7];
-    p->dbeta =       FD->param[8];
-    p->dgamma =      FD->param[9];
-    p->alpha_cen =   FD->param[10];
-    p->beta_cen =    FD->param[11];
-    p->gamma_cen =   FD->param[12];
-    p->dx =          FD->param[13];
-    p->dy =          FD->param[14];
-    p->gx_width =    FD->param[15];
-    p->gx_depth =    FD->param[16];
-    p->gy_width =    FD->param[17];
-    p->gy_depth =    FD->param[18];
-    p->cv = FD->cv;
-    p->k =  FD->k;
+   p->n_each =      FD->param[0];
+   p->n_rows =      FD->param[1];
+   p->n_cols =      FD->param[2];
+   p->mode =        FD->param[3];
+   p->trace_walls = FD->param[4];
+   p->active_x =    FD->param[5];
+   p->active_y =    FD->param[6];
+   p->dalpha =      FD->param[7];
+   p->dbeta =       FD->param[8];
+   p->dgamma =      FD->param[9];
+   p->alpha_cen =   FD->param[10];
+   p->beta_cen =    FD->param[11];
+   p->gamma_cen =   FD->param[12];
+   p->dx =          FD->param[13];
+   p->dy =          FD->param[14];
+   p->gx_width =    FD->param[15];
+   p->gx_depth =    FD->param[16];
+   p->gy_width =    FD->param[17];
+   p->gy_depth =    FD->param[18];
+   p->cv = FD->cv;
+   p->k =  FD->k;
 }

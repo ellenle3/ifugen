@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "slicer_generation.h"
+#include "surface_solns.h"
 
 /*
 Slicer generation and ray tracing algorithm.
@@ -24,7 +25,7 @@ void linspace(double *array, double start, double end, int n) {
 }
 
 // Validate image slicer parameters, modifying illegal parameters as needed.
-int CheckSlicerParams(IMAGE_SLICER_PARAMS *p) {
+int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
     // Keep track of whether we had to change any parameters
     int flag = 0;
     
@@ -49,6 +50,54 @@ int CheckSlicerParams(IMAGE_SLICER_PARAMS *p) {
     return 0;
 }
 
+// Checks whether every member in each of the IMAGER_SLICER_PARAMS structs are
+// equivalent
+int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
+   if (
+      p1.n_each == p2.n_each &&
+      p1.n_rows == p2.n_rows &&
+      p1.n_cols == p2.n_cols &&
+      p1.mode == p2.mode &&
+      p1.trace_walls == p2.trace_walls &&
+      p1.active_x == p2.active_x &&
+      p1.active_y == p2.active_y &&
+      p1.dalpha == p2.dalpha &&
+      p1.dbeta == p2.dbeta &&
+      p1.dgamma == p2.dgamma &&
+      p1.alpha_cen == p2.alpha_cen &&
+      p1.beta_cen == p2.beta_cen &&
+      p1.gamma_cen == p2.gamma_cen &&
+      p1.dx == p2.dx &&
+      p1.dy == p2.dy &&
+      p1.gx_width == p2.gx_width &&
+      p1.gx_depth == p2.gx_depth &&
+      p1.gy_width == p2.gy_width &&
+      p1.gy_depth == p2.gy_depth &&
+      p1.cv == p2.cv &&
+      p1.k == p2.k
+   ) return 1;
+   return 0;
+}
+
+void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
+CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SLICER_PARAMS p) {
+    // If the curvature is 0, then the image slicer is a plane
+    if (p.cv == 0) {
+        *sag_func = &TiltedPlaneSag;
+        *critical_xy_func = &TiltedPlaneCriticalXY;
+        *transfer_dist_func = &TiltedPlaneTransfer;
+        *surf_normal_func = &TiltedPlaneSurfaceNormal;
+    }
+    else {
+        *sag_func = &Conic3DSag;
+        *critical_xy_func = &Conic3DCriticalXY;
+        *transfer_dist_func = &Conic3DTransfer;
+        *surf_normal_func = &Conic3DSurfaceNormal;
+    }
+
+}
+
+
 // Sag generation and helpers for determining the parameters of individual slices
 
 // The size of the image slicer along x is determined by the number of columns and
@@ -59,7 +108,6 @@ void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS p) {
     *ysize = n_slices * p.dy + (n_slices - 1) * p.gy_width;
     *xsize = p.n_cols * p.dx + (p.n_cols - 1) * p.gx_width;
 }
-
 
 // Column, slices indices of the slice determine its angle gamma. The indices are
 // determined by the given x, y values for the image slicer parameters.
@@ -263,8 +311,8 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
     // entire image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-    int nx = p.n_cols * 8;
-    int ny = p.n_rows * p.n_each * 10;
+    int nx = p.n_cols * 6;
+    int ny = p.n_rows * p.n_each * 8;
 
     // Safeguard in case the user attempts to initialize an obscenely large number
     // of slices
@@ -474,6 +522,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
 
                         // Did it hit a near wall? This is only possible if the gap depth
                         // protrudes further in -z than the near edge
+                        // THIS IS ALSO POSSIBLE IF THE RAY APPROACHES FROM THE WRONG SIDE
+                        // OF THE IMAGE SLICER! But this should never happen under normal circumstances.
                         if ( (znear_slice > p.gx_depth && p.gx_width > 0) && (znear < znear_slice && znear > p.gx_depth) ) {
                             ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear; ray_out->t = tnear;
                             ray_out->ln = -1*sgnc; ray_out->mn = 0; ray_out->nn = 0;

@@ -77,7 +77,28 @@ void linspace(double *array, double start, double end, int n);
  * @return int 0 if the parameters are okay. 1 if the parameters were not okay
  *          and were modified.
  */
-int CheckSlicerParams(IMAGE_SLICER_PARAMS *p);
+int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p);
+
+/**
+ * @brief Checks whether the image slicer parameters are equal, member by member.
+ * 
+ * @param p1 First IMAGE_SLICER_PARAMS struct to compare.
+ * @param p2 Second IMAGE_SLICER_PARAMS struct to compare.
+ * @return int 1 if all members are equal, 0 otherwise.
+ */
+int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2);
+
+/**
+ * @brief Get the appropriate functions for the surface type indicated by p.
+ * 
+ * @param sag_func Pointer to function that computes the sag of a single slice.
+ * @param transfer_dist_func Pointer to function that computes the ray transfer distance of a slice.
+ * @param critical_xy_func Pointer to function that computes the critical point of a slice.
+ * @param surf_normal_func Pointer to function that computes the surface normal of a slice.
+ * @param p 
+ */
+void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
+CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SLICER_PARAMS p);
 
 /**
  * @brief Computes the size of the image slicer.

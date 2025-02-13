@@ -219,7 +219,7 @@ def find_global_extrema_slicer(p, sag_func, critical_xy_func):
     # Determine which slice the global extrema are on. To do this, roughly sample
     # the entire image slicer.
     xsize, ysize = get_slicer_size(p)
-    nx = p.n_cols * 8
+    nx = p.n_cols * 6
     ny = p.n_rows * p.n_each * 8
     xpts = np.linspace(-xsize/2, xsize/2, nx)
     ypts = np.linspace(-ysize/2, ysize/2, ny)
@@ -395,6 +395,8 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
 
                         # Did it hit a near wall? This is only possible if the gap depth
                         # protrudes further in -z than the near edge
+                        # THIS IS ALSO POSSIBLE IF THE RAY APPROACHES FROM THE WRONG SIDE
+                        # OF THE IMAGE SLICER! But this should never happen under normal circumstances.
                         if (znear_slice > p.gx_depth and p.gx_width > 0) and (znear < znear_slice and znear > p.gx_depth):
                             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
                             ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0

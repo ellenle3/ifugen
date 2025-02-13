@@ -1,22 +1,22 @@
+#define _USE_MATH_DEFINES
 #include <windows.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include "slicer_generation.h"
+#include "surface_solns.h"
 
 /*
-Written by Kenneth E. Moore
-January 17, 2003
-Modified December 16, 2003 to support the "diffractive flag" on data[12].
-Modified July 29, 2005 to support the "safe values" code = 3.
+Ellen Lee
+Feb 2025
 */
-
-// modified KEM 4-12-2006 to include coating placeholders, safe data moved to code = 4
 
 
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list);
 int __declspec(dllexport) APIENTRY UserParamNames(char *data);
+void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data);
+void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data);
 
-#define PI 3.14159265358979323846
 
 BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	{
@@ -46,18 +46,31 @@ The number of facets to use in approximating the curve of the cylinder is also a
 
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list)
 	{
-	int Nx, Ny, code;
-    double R, L;
+	int col_num = 0, slice_num = 0;
+	int i = 0, j = 0;
+	double xstart, xend, xstep;
+	double ystart, yend, ystep;
+	double pt1, pt2, pt3, pt4;
 
-    R = data[101];
-	L = data[102];
-    Nx = (int) data[103];
-    Nx = (int) data[103];
+	IMAGE_SLICER_PARAMS p;
+	SetSlicerParamsFromData(&p, data);
+    Nx = (int) data[120];
+    Ny = (int) data[121];
 
-	/* do some basic error trapping and handling */
-	if (R <= 0.0) R = 1.0;
-	if (L <= 0.0) L = 1.0;
-	if (N < 6) N = 6;
+	// For computing how many triangles we need
+	int num_slices_total = 2;
+	int num_gaps_x = 0, num_gaps_y = 0;
+	int num_walls_x = 0, num_walls_y = 0;
+	int num_triangles_surface = 2, num_triangles_sides = 2;
+
+	// Validate parameters
+	ValidateSlicerParams(&p);
+
+	SAG_FUNC sag_func;
+	TRANSFER_DIST_FUNC transfer_dist_func;
+	CRITICAL_XY_FUNC critical_xy_func;
+	SURF_NORMAL_FUNC surf_normal_func;
+	GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
 
 	/* what we do now depends upon what was requested */
 	code = (int) data[1];
@@ -68,9 +81,24 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		/* basic data */
 		case 0:
 			/* Compute the total number of triangular facets used to render and trace this object */
-			/* we need N on each end cap, 2N along the face, and 2 on the flat back */
 			/* put this value in data[10] */
-			data[10] = 4*N+2;
+
+			num_slices_total = p.n_each * p.n_rows * p.n_cols;
+			if (p.gx_width > 0) {
+				num_gaps_x = p.n_cols - 1;
+				num_walls_x = num_gaps_x * 2;
+			}
+			else { num_gaps_x = 0; num_walls_x = 0; }
+			if (p.gy_width > 0) {
+				num_gaps_y = p.n_each * p.n_rows - 1;
+				num_walls_y = num_gaps_y * 2;
+			}
+			else { num_gaps_y = 0; num_walls_y = 0; }
+			// Number of triangles for just the surface
+			num_triangles_surface = 2*Nx*Ny*num_slices_total + Nx*num_walls_x + Ny*num_walls_y + 2*(num_gaps_x + num_gaps_y)
+			// Need to do 5 more panels - 4 for the sides and one for the back
+			num_triangles_sides = 2 + 2 * (Nx*num_slices_total + num_gaps_x) + 2 * (Ny*num_slices_total + num_gaps_y)
+			data[10] = num_triangles_surface + num_triangles_sides;
 			
 			/* is this object a solid? put 1 in data[11], use 0 if shell */
 			data[11] = 1;
@@ -122,122 +150,69 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 			num_triangles = 0;
 
-			/* first do the bottom face 2 triangles */
-			/* note we use the visible flag to hide the diagonal line across the face */
-			tri_list[num_triangles*10 + 0] = R;   // x1
-			tri_list[num_triangles*10 + 1] = 0.0; // y1
-			tri_list[num_triangles*10 + 2] = 0.0; // z1
-			tri_list[num_triangles*10 + 3] = R;   // x2
-			tri_list[num_triangles*10 + 4] = 0.0; // y2
-			tri_list[num_triangles*10 + 5] = L;   // z2
-			tri_list[num_triangles*10 + 6] = -R;  // x3
-			tri_list[num_triangles*10 + 7] = 0.0; // y3
-			tri_list[num_triangles*10 + 8] = L;   // z3
-			tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
-			num_triangles++;
+			xstep = p.dx / (Nx - 1); ystep = p.dy / (Ny - 1);
+			// First, do the surfaces of all of the slices
+			for (col_num = 0, col_num < p.n_cols, col_num++) {
 
-			tri_list[num_triangles*10 + 0] = R;   // x1
-			tri_list[num_triangles*10 + 1] = 0.0; // y1
-			tri_list[num_triangles*10 + 2] = 0.0; // z1
-			tri_list[num_triangles*10 + 3] = -R;  // x2
-			tri_list[num_triangles*10 + 4] = 0.0; // y2
-			tri_list[num_triangles*10 + 5] = 0.0; // z2
-			tri_list[num_triangles*10 + 6] = -R;  // x3
-			tri_list[num_triangles*10 + 7] = 0.0; // y3
-			tri_list[num_triangles*10 + 8] = L;   // z3
-			tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
-			num_triangles++;
+				for (slice_num = 0, slice_num < p.n_each * p.n_rows, slice_num++) {
 
-			/* now do the end panel at z = 0 */
-			for (t = 1; t <= N; t++)
-				{
-				a1 = PI * (double) (t - 1) / (double) N;
-				a2 = PI * (double) (t    ) / (double) N;
+					// Iterate x facets
+					xstart = col_num * (p.dx + p.gx_width);
+					xend = xstart + p.dx;
+					for (i = 0; i < Nx; i++) {
+						
+						// Iterate y facets
+						ystart = slice_num * (p.dy + p.gy_width);
+						yend = yend + p.dy;
+						for (j = 0; j < Ny; j++) {
+							x1 = xstart + xstep*i  // you don't need to recompute these!
+							x2 = xstart + xstep*(i+1) // only needs to be computed if i=0, j=0
+							y1 = ystart + ystep*j  // recycle somehow...
+							y2 = ystart + ystep*(j+1)
+							pt1 = ImageSlicerSag(x1, y1, p, sag_func);
+							pt2 = ImageSlicerSag(x2, y1, p, sag_func);
+							pt3 = ImageSlicerSag(x1, y2, p, sag_func);
+							pt4 = ImageSlicerSag(x2, y2, p, sag_func);
 
-				tri_list[num_triangles*10 + 0] = 0.0; // x1
-				tri_list[num_triangles*10 + 1] = 0.0; // y1
-				tri_list[num_triangles*10 + 2] = 0.0; // z1
-				tri_list[num_triangles*10 + 3] = R*cos(a1);  // x2
-				tri_list[num_triangles*10 + 4] = R*sin(a1);  // y2
-				tri_list[num_triangles*10 + 5] = 0.0; // z2
-				tri_list[num_triangles*10 + 6] = R*cos(a2);  // x3
-				tri_list[num_triangles*10 + 7] = R*sin(a2);  // y3
-				tri_list[num_triangles*10 + 8] = 0.0;  // z3
-				if (t == 1)
-					{
-					tri_list[num_triangles*10 + 9] = 000204.0;   // exact 0, CSG 2, refractive, 3-1 invisible
+							tri_list[num_triangles*10 + 0] = x1;   // x1
+							tri_list[num_triangles*10 + 1] = y1; // y1
+							tri_list[num_triangles*10 + 2] = pt1; // z1
+							tri_list[num_triangles*10 + 3] = x2;   // x2
+							tri_list[num_triangles*10 + 4] = y1; // y2
+							tri_list[num_triangles*10 + 5] = pt2;   // z2
+							tri_list[num_triangles*10 + 6] = x1;  // x3
+							tri_list[num_triangles*10 + 7] = y2; // y3
+							tri_list[num_triangles*10 + 8] = pt3;   // z3
+							tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+							num_triangles++;
+
+							// check visibility flags...
+
+							tri_list[num_triangles*10 + 0] = x2;   // x1
+							tri_list[num_triangles*10 + 1] = y1; // y1
+							tri_list[num_triangles*10 + 2] = pt2; // z1
+							tri_list[num_triangles*10 + 3] = x1;  // x2
+							tri_list[num_triangles*10 + 4] = y2; // y2
+							tri_list[num_triangles*10 + 5] = pt3; // z2
+							tri_list[num_triangles*10 + 6] = x2;  // x3
+							tri_list[num_triangles*10 + 7] = y2; // y3
+							tri_list[num_triangles*10 + 8] = pt4;   // z3
+							tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+							num_triangles++;
+						}
 					}
-				if (t > 1 && t < N)
-					{
-					tri_list[num_triangles*10 + 9] = 000205.0;   // exact 0, CSG 2, refractive, 1-2 and 3-1 invisible
-					}
-				if (t == N)
-					{
-					tri_list[num_triangles*10 + 9] = 000201.0;   // exact 0, CSG 2, refractive, 1-2 invisible
-					}
-				num_triangles++;
 				}
+			}
 
-			/* now do the end panel at z = L, almost identical to code above */
-			for (t = 1; t <= N; t++)
-				{
-				a1 = PI * (double) (t - 1) / (double) N;
-				a2 = PI * (double) (t    ) / (double) N;
+			// Now do x-walls
 
-				tri_list[num_triangles*10 + 0] = 0.0; // x1
-				tri_list[num_triangles*10 + 1] = 0.0; // y1
-				tri_list[num_triangles*10 + 2] = L; // z1
-				tri_list[num_triangles*10 + 3] = R*cos(a1);  // x2
-				tri_list[num_triangles*10 + 4] = R*sin(a1);  // y2
-				tri_list[num_triangles*10 + 5] = L; // z2
-				tri_list[num_triangles*10 + 6] = R*cos(a2);  // x3
-				tri_list[num_triangles*10 + 7] = R*sin(a2);  // y3
-				tri_list[num_triangles*10 + 8] = L;  // z3
-				if (t == 1)
-					{
-					tri_list[num_triangles*10 + 9] = 000304.0;   // exact 0, CSG 3, refractive, 3-1 invisible
-					}
-				if (t > 1 && t < N)
-					{
-					tri_list[num_triangles*10 + 9] = 000305.0;   // exact 0, CSG 3, refractive, 1-2 and 3-1 invisible
-					}
-				if (t == N)
-					{
-					tri_list[num_triangles*10 + 9] = 000301.0;   // exact 0, CSG 3, refractive, 1-2 invisible
-					}
-				num_triangles++;
-				}
+			// ...y-walls
 
-			/* finally, do the triangles that make up the cylinder face, note these are in pairs */
-			for (t = 1; t <= N; t++)
-				{
-				a1 = PI * (double) (t - 1) / (double) N;
-				a2 = PI * (double) (t    ) / (double) N;
+			// Do any x-gaps
 
-				tri_list[num_triangles*10 + 0] = R*cos(a1); // x1
-				tri_list[num_triangles*10 + 1] = R*sin(a1); // y1
-				tri_list[num_triangles*10 + 2] = 0.0; // z1
-				tri_list[num_triangles*10 + 3] = R*cos(a1);  // x2
-				tri_list[num_triangles*10 + 4] = R*sin(a1);  // y2
-				tri_list[num_triangles*10 + 5] = L; // z2
-				tri_list[num_triangles*10 + 6] = R*cos(a2);  // x3
-				tri_list[num_triangles*10 + 7] = R*sin(a2);  // y3
-				tri_list[num_triangles*10 + 8] = L;  // z3
-				tri_list[num_triangles*10 + 9] = 010004.0;   // exact 1, CSG 0, refractive, 3-1 invisible
-				num_triangles++;
+			// ...y-gaps
 
-				tri_list[num_triangles*10 + 0] = R*cos(a1); // x1
-				tri_list[num_triangles*10 + 1] = R*sin(a1); // y1
-				tri_list[num_triangles*10 + 2] = 0.0; // z1
-				tri_list[num_triangles*10 + 3] = R*cos(a2);  // x2
-				tri_list[num_triangles*10 + 4] = R*sin(a2);  // y2
-				tri_list[num_triangles*10 + 5] = 0.0; // z2
-				tri_list[num_triangles*10 + 6] = R*cos(a2);  // x3
-				tri_list[num_triangles*10 + 7] = R*sin(a2);  // y3
-				tri_list[num_triangles*10 + 8] = L;  // z3
-				tri_list[num_triangles*10 + 9] = 010004.0;   // exact 1, CSG 0, refractive, 3-1 invisible
-				num_triangles++;
-				}
+			// Finish by doing the side + back panels
 
 			data[10] = num_triangles; /* how many we actually wrote out */
 			return 0;
@@ -373,15 +348,80 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	strcpy(data,""); // blank means unused
 
 	/* negative numbers or zero mean names for coat/scatter groups */
-	if (i ==  0) strcpy(data,"Cylinder Face");
-	if (i == -1) strcpy(data,"Bottom Flat");
-	if (i == -2) strcpy(data,"Front Face");
-	if (i == -3) strcpy(data,"Back Face");
+	if (i ==  0) strcpy(data,"Slicer Face");
+	if (i == -1) strcpy(data,"Wall -x Face");
+	if (i == -2) strcpy(data,"Wall +x Face");
+	if (i == -3) strcpy(data,"Wall -y Face");
+	if (i == -4) strcpy(data,"Wall -y Face");
+	if (i == -5) strcpy(data,"Gap x Face");
+	if (i == -6) strcpy(data,"Gap y Face");
 
-
-	if (i == 1) strcpy(data,"Radius");
-	if (i == 2) strcpy(data,"Length");
-	if (i == 3) strcpy(data,"# Facets");
+	if (i == 1) strcpy(data,"n_each");
+	if (i == 2) strcpy(data,"n_rows");
+	if (i == 3) strcpy(data,"n_cols");
+	if (i == 4) strcpy(data,"mode");
+	if (i == 5) strcpy(data,"trace_walls");
+	if (i == 6) strcpy(data,"active_x");
+	if (i == 7) strcpy(data,"active_y");
+	if (i == 8) strcpy(data,"dalpha");
+	if (i == 9) strcpy(data,"dbeta");
+	if (i == 10) strcpy(data,"dgamma");
+	if (i == 11) strcpy(data,"alpha_cen");
+	if (i == 12) strcpy(data,"beta_cen");
+	if (i == 13) strcpy(data,"gamma_cen");
+	if (i == 14) strcpy(data,"dx");
+	if (i == 15) strcpy(data,"dy");
+	if (i == 16) strcpy(data,"gx_width");
+	if (i == 17) strcpy(data,"gx_depth");
+	if (i == 18) strcpy(data,"gy_width");
+	if (i == 19) strcpy(data,"gy_depth");
+	if (i == 20) strcpy(data,"# Facets x");
+	if (i == 21) strcpy(data,"# Facets y");
+	
 	return 0;
 	}
 
+// Functions to convert between Zemax data and image slicer params struct
+void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
+	data[101] = p->n_each;
+	data[102] = p->n_rows;
+	data[103] = p->n_cols;
+	data[104] = p->mode;
+	data[105] = p->trace_walls;
+	data[106] = p->active_x;
+	data[107] = p->active_y;
+	data[108] = p->dalpha;
+	data[109] = p->dbeta;
+	data[110] = p->dgamma;
+	data[111] = p->alpha_cen;
+	data[112] = p->beta_cen;
+	data[113] = p->gamma_cen;
+	data[114] = p->dx;
+	data[115] = p->dy;
+	data[116] = p->gx_width;
+	data[117] = p->gx_depth;
+	data[118] = p->gy_width;
+	data[119] = p->gy_depth;
+}
+
+void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
+	p->n_each = (int) data[101];
+	p->n_rows = (int) data[102];
+	p->n_cols = (int) data[103];
+	p->mode = (int) data[104];
+	p->trace_walls = (int) data[105];
+	p->active_x = (int) data[106];
+	p->active_y = (int) data[107];
+	p->dalpha = data[108];
+	p->dbeta = data[109];
+	p->dgamma = data[110];
+	p->alpha_cen = data[111];
+	p->beta_cen = data[112];
+	p->gamma_cen = data[113];
+	p->dx = data[114];
+	p->dy = data[115];
+	p->gx_width = data[116];
+	p->gx_depth = data[117];
+	p->gy_width = data[118];
+	p->gy_depth = data[119];
+}

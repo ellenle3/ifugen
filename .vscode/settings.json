@@ -3,6 +3,7 @@
         "queue": "c",
         "stack": "c",
         "random": "c",
-        "numeric": "c"
+        "numeric": "c",
+        "surface_solns.h": "c"
     }
 }
