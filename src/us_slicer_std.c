@@ -47,29 +47,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
-   IMAGE_SLICER_PARAMS p = {
-      .n_each = 5,
-      .n_rows = 1,
-      .n_cols = 1,
-      .mode = 0,
-      .trace_walls = 0,
-      .active_x = 0,
-      .active_y = 0,
-      .dalpha = 4,
-      .dbeta = 4,
-      .dgamma = 1,
-      .alpha_cen = 0,
-      .beta_cen = 0,
-      .gamma_cen = 0,
-      .dx = 10,
-      .dy = 2,
-      .gx_width = 0,
-      .gx_depth = 0,
-      .gy_width = 0,
-      .gy_depth = 0,
-      .cv = -0.01,
-      .k = 0
-   };
+   IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
    SAG_FUNC sag_func = &Conic3DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = &Conic3DTransfer;
    CRITICAL_XY_FUNC critical_xy_func = &Conic3DCriticalXY;
