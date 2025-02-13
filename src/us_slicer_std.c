@@ -64,6 +64,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int i;
    double p2, alpha, a, b, c, rad, casp, t, zc;
    double power;
+
+   double sag;
    RAY_IN ray_in = {
       .xt = 0,
       .yt = 0,
@@ -83,10 +85,10 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
 
-   SAG_FUNC sag_func;
-   TRANSFER_DIST_FUNC transfer_dist_func;
-   CRITICAL_XY_FUNC critical_xy_func;
-   SURF_NORMAL_FUNC surf_normal_func;
+   SAG_FUNC sag_func = Conic3DSag;
+   TRANSFER_DIST_FUNC transfer_dist_func = Conic3DTransfer;
+   CRITICAL_XY_FUNC critical_xy_func = Conic3DCriticalXY;
+   SURF_NORMAL_FUNC surf_normal_func = Conic3DSurfaceNormal;
 
    switch(FD->type)
    	{
@@ -332,6 +334,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
          ValidateSlicerParams(&p);
 
+         // Set functions for sag generation and ray tracing
+         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
+
          if ( !IsParametersEqual(p, pold_GLOBAL) ) {
             // Update global extrema
             FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
@@ -340,9 +345,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             fprintf(fptr, "%.10f %.10f\n", zmin_GLOBAL, zmax_GLOBAL);
             fclose(fptr);
          };
-
-         // Set functions for sag generation and ray tracing
-         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
          break;
 
       case 9:
