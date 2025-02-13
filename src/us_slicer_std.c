@@ -25,7 +25,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   FILE* fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "w+");
+   FILE* fptr;
    int i;
    double p2, alpha, power, a, b, c, rad, casp, t, zc;
    //double power;
@@ -185,7 +185,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag2 = 0.0;
 
          sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
-         fprintf(fptr, "%.10f %.10f %.10f\n", UD->x, UD->y, sag)
+         fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
+         fprintf(fptr, "%.10f %.10f %.10f\n", UD->x, UD->y, sag);
+         fclose(fpts);
 
          if (isnan(sag)) return -1;    // Out of bounds
          else {
@@ -226,50 +228,22 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
-         // ray_in.xt = (UD->x); ray_in.yt = (UD->y);
-         // ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
+         ray_in.xt = (UD->x); ray_in.yt = (UD->y);
+         ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
-         // // The first thing this function does is reset the members of ray_out
-         // // to be all NANs
-         // RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
-         //    p, sag_func, transfer_dist_func, surf_normal_func);
+         // The first thing this function does is reset the members of ray_out
+         // to be all NANs
+         RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
+            p, sag_func, transfer_dist_func, surf_normal_func);
 
-         // // Ray missed if transfer distance or normal vector could not be computed
-         // if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
+         // Ray missed if transfer distance or normal vector could not be computed
+         if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
 
-         // (UD->x) = ray_out.xs; (UD->y) = ray_out.ys; (UD->z) = ray_out.zs;
-         // (UD->path) = ray_out.t;
-         // (UD->ln) = ray_out.ln; (UD->mn) = ray_out.mn; (UD->nn) = ray_out.nn;
+         (UD->x) = ray_out.xs; (UD->y) = ray_out.ys; (UD->z) = ray_out.zs;
+         (UD->path) = ray_out.t;
+         (UD->ln) = ray_out.ln; (UD->mn) = ray_out.mn; (UD->nn) = ray_out.nn;
 
-         // if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
-         if (FD->cv == 0.0)
-         	{
-	         UD->ln =  0.0;
-   	      UD->mn =  0.0;
-      	   UD->nn = -1.0;
-			   if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
-            return(0);
-            }
-         /* okay, not a plane. */
-			a = (UD->n) * (UD->n) * FD->k + 1;
-			b = ((UD->n)/FD->cv) - (UD->x) * (UD->l) - (UD->y) * (UD->m);
-			c = (UD->x) * (UD->x) + (UD->y) * (UD->y);
-			rad = b * b - a * c;
-			if (rad < 0) return(FD->surf);  /* ray missed this surface */
-			if (FD->cv > 0) t = c / (b + sqrt(rad));
-			else           t = c / (b - sqrt(rad));
-			(UD->x) = (UD->l) * t + (UD->x);
-			(UD->y) = (UD->m) * t + (UD->y);
-			(UD->z) = (UD->n) * t + (UD->z);
-			UD->path = t;
-			zc = (UD->z) * FD->cv;
-			rad = zc * FD->k * (zc * (FD->k + 1) - 2) + 1;
-			casp = FD->cv / sqrt(rad);
-			UD->ln = (UD->x) * casp;
-			UD->mn = (UD->y) * casp;
-			UD->nn = ((UD->z) - ((1/FD->cv) - (UD->z) * FD->k)) * casp;
          if (Refract(FD->n1, FD->n2, &UD->l, &UD->m, &UD->n, UD->ln, UD->mn, UD->nn)) return(-FD->surf);
-
          break;
 
       case 6:
@@ -329,7 +303,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          }
 
          // Compute and store the global maxima
-         //FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+         FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
          break;
 
       case 9:
