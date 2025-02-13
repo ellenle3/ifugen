@@ -48,8 +48,6 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	{
 	IMAGE_SLICER_PARAMS p;
 	SetSlicerParamsFromData(&p, data);
-    Nx = (int) data[120];
-    Ny = (int) data[121];
 
 	// For computing how many triangles we need
 	int num_slices_total = 2;
@@ -83,9 +81,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			}
 			else { num_gaps_y = 0; num_walls_y = 0; }
 			// Number of triangles for just the surface
-			num_triangles_surface = 2*Nx*Ny*num_slices_total + 2*Nx*num_walls_x + 2*Ny*num_walls_y + 2*(num_gaps_x + num_gaps_y)
+			num_triangles_surface = 2*num_slices_total + 2*num_walls_x + 2*num_walls_y + 2*(num_gaps_x + num_gaps_y)
 			// Need to do 5 more panels - 4 for the sides and one for the back
-			num_triangles_sides = 2 + 2 * (Nx*num_slices_total + num_gaps_x) + 2 * (Ny*num_slices_total + num_gaps_y)
+			num_triangles_sides = 2 + 2 * (num_slices_total + num_gaps_x) + 2 * (num_slices_total + num_gaps_y)
 			data[10] = num_triangles_surface + num_triangles_sides;
 			
 			/* is this object a solid? put 1 in data[11], use 0 if shell */
@@ -149,59 +147,47 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 				for (slice_num = 0, slice_num < p.n_each * p.n_rows, slice_num++) {
 
-					// Iterate x facets
-					xstart = col_num * (p.dx + p.gx_width);
-					xend = xstart + p.dx;
-					for (i = 0; i < Nx; i++) {
-						
-						// Iterate y facets
-						ystart = slice_num * (p.dy + p.gy_width);
-						yend = yend + p.dy;
-						for (j = 0; j < Ny; j++) {
+                    code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
 
-							code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
-	
-							// Determine face visibility
-							if (i == 0) {code1 -= 4;}  		 // side from point 3 to 1 is visible on triangle 1
-							elif (i == Nx - 1) {code2 -= 4;} // 3 to 1 is visible on triangle 2
-							if (j == 0) {code1 -= 1;} 		 // 1 to 2 is visible on triangle 1
-							elif (j == Ny - 1) {code -= 2;}  // 2 to 3 is visible on triangle 2
+                    // Determine face visibility
+                    if (i == 0) {code1 -= 4;}  		 // side from point 3 to 1 is visible on triangle 1
+                    elif (i == Nx - 1) {code2 -= 4;} // 3 to 1 is visible on triangle 2
+                    if (j == 0) {code1 -= 1;} 		 // 1 to 2 is visible on triangle 1
+                    elif (j == Ny - 1) {code -= 2;}  // 2 to 3 is visible on triangle 2
 
 
-							x1 = xstart + xstep*i  // you don't need to recompute these!
-							x2 = xstart + xstep*(i+1) // only needs to be computed if i=0, j=0
-							y1 = ystart + ystep*j  // recycle somehow...
-							y2 = ystart + ystep*(j+1)
-							z1 = ImageSlicerSag(x1, y1, p, &Conic3DSag);
-							z2 = ImageSlicerSag(x2, y1, p, &Conic3DSag);
-							z3 = ImageSlicerSag(x1, y2, p, &Conic3DSag);
-							z4 = ImageSlicerSag(x2, y2, p, &Conic3DSag);
+                    x1 = xstart + xstep*i  // you don't need to recompute these!
+                    x2 = xstart + xstep*(i+1) // only needs to be computed if i=0, j=0
+                    y1 = ystart + ystep*j  // recycle somehow...
+                    y2 = ystart + ystep*(j+1)
+                    z1 = ImageSlicerSag(x1, y1, p, TiltedPlaneSag);
+                    z2 = ImageSlicerSag(x2, y1, p, TiltedPlaneSag);
+                    z3 = ImageSlicerSag(x1, y2, p, TiltedPlaneSag);
+                    z4 = ImageSlicerSag(x2, y2, p, TiltedPlaneSag);
 
-							tri_list[num_triangles*10 + 0] = x1;  // x1
-							tri_list[num_triangles*10 + 1] = y1;  // y1
-							tri_list[num_triangles*10 + 2] = z1;  // z1
-							tri_list[num_triangles*10 + 3] = x2;  // x2
-							tri_list[num_triangles*10 + 4] = y1;  // y2
-							tri_list[num_triangles*10 + 5] = z2;  // z2
-							tri_list[num_triangles*10 + 6] = x1;  // x3
-							tri_list[num_triangles*10 + 7] = y2;  // y3
-							tri_list[num_triangles*10 + 8] = z3;  // z3
-							tri_list[num_triangles*10 + 9] = code1;
-							num_triangles++;
+                    tri_list[num_triangles*10 + 0] = x1;  // x1
+                    tri_list[num_triangles*10 + 1] = y1;  // y1
+                    tri_list[num_triangles*10 + 2] = z1;  // z1
+                    tri_list[num_triangles*10 + 3] = x2;  // x2
+                    tri_list[num_triangles*10 + 4] = y1;  // y2
+                    tri_list[num_triangles*10 + 5] = z2;  // z2
+                    tri_list[num_triangles*10 + 6] = x1;  // x3
+                    tri_list[num_triangles*10 + 7] = y2;  // y3
+                    tri_list[num_triangles*10 + 8] = z3;  // z3
+                    tri_list[num_triangles*10 + 9] = code1;
+                    num_triangles++;
 
-							tri_list[num_triangles*10 + 0] = x2;  // x1
-							tri_list[num_triangles*10 + 1] = y1;  // y1
-							tri_list[num_triangles*10 + 2] = z2;  // z1
-							tri_list[num_triangles*10 + 3] = x1;  // x2
-							tri_list[num_triangles*10 + 4] = y2;  // y2
-							tri_list[num_triangles*10 + 5] = z3;  // z2
-							tri_list[num_triangles*10 + 6] = x2;  // x3
-							tri_list[num_triangles*10 + 7] = y2;  // y3
-							tri_list[num_triangles*10 + 8] = z4;  // z3
-							tri_list[num_triangles*10 + 9] = code2;
-							num_triangles++;
-						}
-					}
+                    tri_list[num_triangles*10 + 0] = x2;  // x1
+                    tri_list[num_triangles*10 + 1] = y1;  // y1
+                    tri_list[num_triangles*10 + 2] = z2;  // z1
+                    tri_list[num_triangles*10 + 3] = x1;  // x2
+                    tri_list[num_triangles*10 + 4] = y2;  // y2
+                    tri_list[num_triangles*10 + 5] = z3;  // z2
+                    tri_list[num_triangles*10 + 6] = x2;  // x3
+                    tri_list[num_triangles*10 + 7] = y2;  // y3
+                    tri_list[num_triangles*10 + 8] = z4;  // z3
+                    tri_list[num_triangles*10 + 9] = code2;
+                    num_triangles++;
 				}
 			}
 
@@ -268,13 +254,13 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 					tp = z / n;
 					xt = x - tp * l; yt = y - tp * m;
 					// Analytic solution for the transfer distance for this slice		
-					t = Conic3DTransfer(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
-					if (isnan(t)) return 1; // something went wrong... ray missed somehow?
+					t = TiltedPlaneTransfer(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
+					if (isnan(t)) return -1; // something went wrong... ray missed somehow?
 
 					// Compute surface normal from xs and ys
 					xs = xt + t*l;
 					ys = yt + t*m;
-					Conic3DSurfaceNormal(&Fx, &Fy, &Fz, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
+					TiltedPlaneSurfaceNormal(&Fx, &Fy, &Fz, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
 					if (isnan(Fx) || isnan(Fy) || isnan(Fz)) return 1;
 					
 					data[10] = t;
