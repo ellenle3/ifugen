@@ -47,21 +47,21 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    // };
 
    IMAGE_SLICER_PARAMS p = {
-      .n_each = 1,
+      .n_each = 5,
       .n_rows = 1,
       .n_cols = 1,
       .mode = 0,
       .trace_walls = 0,
       .active_x = 0,
       .active_y = 0,
-      .dalpha = 0,
-      .dbeta = 0,
-      .dgamma = 0,
+      .dalpha = 4,
+      .dbeta = 4,
+      .dgamma = 1,
       .alpha_cen = 0,
       .beta_cen = 0,
       .gamma_cen = 0,
-      .dx = 5,
-      .dy = 5,
+      .dx = 10,
+      .dy = 2,
       .gx_width = 0,
       .gx_depth = 0,
       .gy_width = 0,
@@ -303,8 +303,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         FD->param[0] = 8;      // n_each
-         FD->param[1] = 2;      // n_rows
+         FD->param[0] = 5;      // n_each
+         FD->param[1] = 1;      // n_rows
          FD->param[2] = 1;      // n_cols
          FD->param[3] = 0;      // mode
          FD->param[4] = 0;      // trace_walls
@@ -312,12 +312,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[6] = 4.0;    // active_y
          FD->param[7] = 4.0;    // dalpha
          FD->param[8] = 4.0;    // dbeta
-         FD->param[9] = 0.5;    // dgamma
+         FD->param[9] = 1.0;    // dgamma
          FD->param[10] = 0.0;   // alpha_cen
          FD->param[11] = 0.0;   // beta_cen
          FD->param[12] = 0.0;   // gamma_cen
          FD->param[13] = 10.0;  // dx
-         FD->param[14] = 0.5;   // dy
+         FD->param[14] = 2;     // dy
          FD->param[15] = 0.0;   // gx_width
          FD->param[16] = 0.0;   // gx_depth
          FD->param[17] = 0.0;   // gy_width
