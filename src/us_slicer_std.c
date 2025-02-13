@@ -42,8 +42,6 @@ IMAGE_SLICER_PARAMS pold_GLOBAL = {
         .cv = -1,
         .k = -1
     };
-// Do not check until after the DLL has been called for the first time
-int is_initialized_GLOBAL = 0;
 
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
@@ -66,7 +64,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int i;
    double p2, alpha, a, b, c, rad, casp, t, zc;
    double power;
-   double zmax = 1E13, zmin = -1E13, sag = 0.0;
    RAY_IN ray_in = {
       .xt = 0,
       .yt = 0,
@@ -84,20 +81,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
-   // Update the struct and global extrema if the FD have been changed
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
-   //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
-   ValidateSlicerParams(&p);
-   if ( !IsParametersEqual(p, pold_GLOBAL) && is_initialized_GLOBAL) {
-      FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
-      pold_GLOBAL = p;
-   };
 
    SAG_FUNC sag_func;
    TRANSFER_DIST_FUNC transfer_dist_func;
    CRITICAL_XY_FUNC critical_xy_func;
    SURF_NORMAL_FUNC surf_normal_func;
-   GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
 
    switch(FD->type)
    	{
@@ -338,12 +327,22 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          break;
 
       case 8:
-         SetSlicerParamsFromFD(&p, FD);
-      	/* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
-         FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
-         fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
-         fprintf(fptr, "%.10f %.10f\n", zmin_GLOBAL, zmax_GLOBAL);
-         fclose(fptr);
+         /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
+
+         //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
+         ValidateSlicerParams(&p);
+
+         if ( !IsParametersEqual(p, pold_GLOBAL) ) {
+            // Update global extrema
+            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
+            pold_GLOBAL = p;
+            fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
+            fprintf(fptr, "%.10f %.10f\n", zmin_GLOBAL, zmax_GLOBAL);
+            fclose(fptr);
+         };
+
+         // Set functions for sag generation and ray tracing
+         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
          break;
 
       case 9:

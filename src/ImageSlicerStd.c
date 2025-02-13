@@ -57,7 +57,6 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	int num_walls_x = 0, num_walls_y = 0;
 	int num_triangles_surface = 2, num_triangles_sides = 2;
 
-	// Validate parameters
 	ValidateSlicerParams(&p);
 
 	/* what we do now depends upon what was requested */
@@ -276,7 +275,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 					ys = yt + t*m;
 					Conic3DSurfaceNormal(&Fx, &Fy, &Fz, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
 					if (isnan(Fx) || isnan(Fy) || isnan(Fz)) return 1;
-					
+
 					data[10] = t;
 					data[11] = Fx;
 					data[12] = Fy;
@@ -295,14 +294,27 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		/* safe data */
 		case 4:
 			/* set safe parameter data values the first time the DLL is initialized */
-			R = 1.0;
-			L = 1.0;
-			N = 6;
-			data[101] = R;
-			data[102] = L;
-			data[103] = (double) N;
+			data[101] = (int) 5;  // n_each
+			data[102] = (int) 1;  // n_rows
+			data[103] = (int) 1;  // n_cols
+			data[104] = (int) 0;  // mode
+			data[105] = (int) 0;  // trace_walls
+			data[106] = (int) 0;  // active_x
+			data[107] = (int) 0;  // active_y
+			data[108] = 4.0;      // dalpha
+			data[109] = 4.0;      // dbeta
+			data[110] = 1.0;      // dgamma
+			data[111] = 0.0;      // alpha_cen
+			data[112] = 0.0;      // beta_cen
+			data[113] = 0.0;      // gamma_cen
+			data[114] = 8.0;      // dx
+			data[115] = 1;        // dy
+			data[116] = 0.0;      // gx_width
+			data[117] = 0.0;      // gx_depth
+			data[118] = 0.0;      // gy_width
+			data[119] = 0.0;      // gy_depth
+			SetSlicerParamsFromData(&p, data);
 			return 0;
-
 		}
 
 	/* we did not recognize the request */
@@ -371,23 +383,23 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
-	p->n_each = (int) data[101];
-	p->n_rows = (int) data[102];
-	p->n_cols = (int) data[103];
-	p->mode = (int) data[104];
+	p->n_each =      (int) data[101];
+	p->n_rows =      (int) data[102];
+	p->n_cols =      (int) data[103];
+	p->mode =        (int) data[104];
 	p->trace_walls = (int) data[105];
-	p->active_x = (int) data[106];
-	p->active_y = (int) data[107];
-	p->dalpha = data[108];
-	p->dbeta = data[109];
-	p->dgamma = data[110];
-	p->alpha_cen = data[111];
-	p->beta_cen = data[112];
-	p->gamma_cen = data[113];
-	p->dx = data[114];
-	p->dy = data[115];
-	p->gx_width = data[116];
-	p->gx_depth = data[117];
-	p->gy_width = data[118];
-	p->gy_depth = data[119];
+	p->active_x =    (int) data[106];
+	p->active_y =    (int) data[107];
+	p->dalpha =      data[108];
+	p->dbeta =       data[109];
+	p->dgamma =      data[110];
+	p->alpha_cen =   data[111];
+	p->beta_cen =    data[112];
+	p->gamma_cen =   data[113];
+	p->dx =          data[114];
+	p->dy =          data[115];
+	p->gx_width =    data[116];
+	p->gx_depth =    data[117];
+	p->gy_width =    data[118];
+	p->gy_depth =    data[119];
 }
