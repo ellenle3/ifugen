@@ -46,12 +46,6 @@ The number of facets to use in approximating the curve of the cylinder is also a
 
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list)
 	{
-	int col_num = 0, slice_num = 0;
-	int i = 0, j = 0;
-	double xstart, xend, xstep;
-	double ystart, yend, ystep;
-	double pt1, pt2, pt3, pt4;
-
 	IMAGE_SLICER_PARAMS p;
 	SetSlicerParamsFromData(&p, data);
     Nx = (int) data[120];
@@ -111,8 +105,13 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		/* generate triangles */
 		case 1:
 			{
-			int num_triangles, t;
-			double a1, a2;
+			int num_triangles;
+			int col_num = 0, slice_num = 0;
+			int i = 0, j = 0;
+			double xstart, xend, xstep;
+			double ystart, yend, ystep;
+			double pt1, pt2, pt3, pt4;
+			double code1, code2;
 
 			/*
 			We are being asked to generate the triangle list.
@@ -165,39 +164,47 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 						ystart = slice_num * (p.dy + p.gy_width);
 						yend = yend + p.dy;
 						for (j = 0; j < Ny; j++) {
+
+							code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
+	
+							// Determine face visibility
+							if (i == 0) {code1 -= 4;}  		 // side from point 3 to 1 is visible on triangle 1
+							elif (i == Nx - 1) {code2 -= 4;} // 3 to 1 is visible on triangle 2
+							if (j == 0) {code1 -= 1;} 		 // 1 to 2 is visible on triangle 1
+							elif (j == Ny - 1) {code -= 2;}  // 2 to 3 is visible on triangle 2
+
+
 							x1 = xstart + xstep*i  // you don't need to recompute these!
 							x2 = xstart + xstep*(i+1) // only needs to be computed if i=0, j=0
 							y1 = ystart + ystep*j  // recycle somehow...
 							y2 = ystart + ystep*(j+1)
-							pt1 = ImageSlicerSag(x1, y1, p, sag_func);
-							pt2 = ImageSlicerSag(x2, y1, p, sag_func);
-							pt3 = ImageSlicerSag(x1, y2, p, sag_func);
-							pt4 = ImageSlicerSag(x2, y2, p, sag_func);
+							z1 = ImageSlicerSag(x1, y1, p, sag_func);
+							z2 = ImageSlicerSag(x2, y1, p, sag_func);
+							z3 = ImageSlicerSag(x1, y2, p, sag_func);
+							z4 = ImageSlicerSag(x2, y2, p, sag_func);
 
-							tri_list[num_triangles*10 + 0] = x1;   // x1
-							tri_list[num_triangles*10 + 1] = y1; // y1
-							tri_list[num_triangles*10 + 2] = pt1; // z1
-							tri_list[num_triangles*10 + 3] = x2;   // x2
-							tri_list[num_triangles*10 + 4] = y1; // y2
-							tri_list[num_triangles*10 + 5] = pt2;   // z2
+							tri_list[num_triangles*10 + 0] = x1;  // x1
+							tri_list[num_triangles*10 + 1] = y1;  // y1
+							tri_list[num_triangles*10 + 2] = z1;  // z1
+							tri_list[num_triangles*10 + 3] = x2;  // x2
+							tri_list[num_triangles*10 + 4] = y1;  // y2
+							tri_list[num_triangles*10 + 5] = z2;  // z2
 							tri_list[num_triangles*10 + 6] = x1;  // x3
-							tri_list[num_triangles*10 + 7] = y2; // y3
-							tri_list[num_triangles*10 + 8] = pt3;   // z3
-							tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+							tri_list[num_triangles*10 + 7] = y2;  // y3
+							tri_list[num_triangles*10 + 8] = z3;  // z3
+							tri_list[num_triangles*10 + 9] = code1;
 							num_triangles++;
 
-							// check visibility flags...
-
-							tri_list[num_triangles*10 + 0] = x2;   // x1
-							tri_list[num_triangles*10 + 1] = y1; // y1
-							tri_list[num_triangles*10 + 2] = pt2; // z1
+							tri_list[num_triangles*10 + 0] = x2;  // x1
+							tri_list[num_triangles*10 + 1] = y1;  // y1
+							tri_list[num_triangles*10 + 2] = z2;  // z1
 							tri_list[num_triangles*10 + 3] = x1;  // x2
-							tri_list[num_triangles*10 + 4] = y2; // y2
-							tri_list[num_triangles*10 + 5] = pt3; // z2
+							tri_list[num_triangles*10 + 4] = y2;  // y2
+							tri_list[num_triangles*10 + 5] = z3;  // z2
 							tri_list[num_triangles*10 + 6] = x2;  // x3
-							tri_list[num_triangles*10 + 7] = y2; // y3
-							tri_list[num_triangles*10 + 8] = pt4;   // z3
-							tri_list[num_triangles*10 + 9] = 000104.0;   // exact 0, CSG 1, refractive, 3-1 invisible
+							tri_list[num_triangles*10 + 7] = y2;  // y3
+							tri_list[num_triangles*10 + 8] = z4;  // z3
+							tri_list[num_triangles*10 + 9] = code2;
 							num_triangles++;
 						}
 					}
@@ -209,8 +216,14 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			// ...y-walls
 
 			// Do any x-gaps
+			for (col_num = 0, col_num < p.n_cols, col_num++) {
+			}
 
 			// ...y-gaps
+
+			// if xgap and ygap depths are different these also need walls! Find
+			// number of intersection points between gaps. 4 walls (8) triangles
+			// for each one... No need if either xgap or ygap size is 0.
 
 			// Finish by doing the side + back panels
 
@@ -349,12 +362,9 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 
 	/* negative numbers or zero mean names for coat/scatter groups */
 	if (i ==  0) strcpy(data,"Slicer Face");
-	if (i == -1) strcpy(data,"Wall -x Face");
-	if (i == -2) strcpy(data,"Wall +x Face");
-	if (i == -3) strcpy(data,"Wall -y Face");
-	if (i == -4) strcpy(data,"Wall -y Face");
-	if (i == -5) strcpy(data,"Gap x Face");
-	if (i == -6) strcpy(data,"Gap y Face");
+	if (i == -1) strcpy(data,"Wall Face");
+	if (i == -2) strcpy(data,"Gap Face");
+	if (i == -3) strcpy(dta,"Outside Face")
 
 	if (i == 1) strcpy(data,"n_each");
 	if (i == 2) strcpy(data,"n_rows");
