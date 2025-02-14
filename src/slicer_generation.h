@@ -15,15 +15,16 @@ typedef struct {
     double dalpha;   // Difference in off-axis y-angle between rows in degrees
     double dbeta;    // Difference in off-axis x-angle between columns in degrees
     double dgamma;   // Difference in rotation angle between slices in degrees
-    double alpha_cen;  // Central off-axis angle along y in degrees
-    double beta_cen;   // Central off-axis angle along x in degrees
-    double gamma_cen;  // Central rotation angle about global y-axis in degrees
-    double dx;  // Slice width
-    double dy;  // Slice height
-    double gx_width;  // Gap width between columns
-    double gx_depth;  // Gap depth betwen column
-    double gy_width;  // Gap depth between slices along y
-    double gy_depth;  // Gap depth between slices along y
+    double gamma_offset; // Offset for the rotation angle
+    double alpha_cen;    // Central off-axis angle along y in degrees
+    double beta_cen;     // Central off-axis angle along x in degrees
+    double gamma_cen;    // Central rotation angle about global y-axis in degrees
+    double dx;           // Slice width
+    double dy;           // Slice height
+    double gx_width;     // Gap width between columns
+    double gx_depth;     // Gap depth betwen column
+    double gy_width;     // Gap depth between slices along y
+    double gy_depth;     // Gap depth between slices along y
     double cv; // Curvature - equal to 1/R where R is the ROC
     double k;  // Conic constant
 } IMAGE_SLICER_PARAMS;

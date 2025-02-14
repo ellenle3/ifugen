@@ -290,15 +290,16 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[108] = 4.0;      // dalpha
 			data[109] = 4.0;      // dbeta
 			data[110] = 1.0;      // dgamma
-			data[111] = 0.0;      // alpha_cen
-			data[112] = 0.0;      // beta_cen
-			data[113] = 0.0;      // gamma_cen
-			data[114] = 8.0;      // dx
-			data[115] = 1;        // dy
-			data[116] = 0.0;      // gx_width
-			data[117] = 0.0;      // gx_depth
-			data[118] = 0.0;      // gy_width
-			data[119] = 0.0;      // gy_depth
+			data[111] = 1.0; 	  // gamma_offset
+			data[112] = 0.0;      // alpha_cen
+			data[113] = 0.0;      // beta_cen
+			data[114] = 0.0;      // gamma_cen
+			data[115] = 8.0;      // dx
+			data[116] = 1;        // dy
+			data[117] = 0.0;      // gx_width
+			data[118] = 0.0;      // gx_depth
+			data[119] = 0.0;      // gy_width
+			data[120] = 0.0;      // gy_depth
 			SetSlicerParamsFromData(&p, data);
 			return 0;
 
@@ -331,17 +332,18 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i == 8) strcpy(data,"dalpha");
 	if (i == 9) strcpy(data,"dbeta");
 	if (i == 10) strcpy(data,"dgamma");
-	if (i == 11) strcpy(data,"alpha_cen");
-	if (i == 12) strcpy(data,"beta_cen");
-	if (i == 13) strcpy(data,"gamma_cen");
-	if (i == 14) strcpy(data,"dx");
-	if (i == 15) strcpy(data,"dy");
-	if (i == 16) strcpy(data,"gx_width");
-	if (i == 17) strcpy(data,"gx_depth");
-	if (i == 18) strcpy(data,"gy_width");
-	if (i == 19) strcpy(data,"gy_depth");
-	if (i == 20) strcpy(data,"# Facets x");
-	if (i == 21) strcpy(data,"# Facets y");
+	if (i == 11) strcpy(data,"gamma_offset");
+	if (i == 12) strcpy(data,"alpha_cen");
+	if (i == 13) strcpy(data,"beta_cen");
+	if (i == 14) strcpy(data,"gamma_cen");
+	if (i == 15) strcpy(data,"dx");
+	if (i == 16) strcpy(data,"dy");
+	if (i == 17) strcpy(data,"gx_width");
+	if (i == 18) strcpy(data,"gx_depth");
+	if (i == 19) strcpy(data,"gy_width");
+	if (i == 20) strcpy(data,"gy_depth");
+	if (i == 21) strcpy(data,"# Facets x");
+	if (i == 22) strcpy(data,"# Facets y");
 	
 	return 0;
 	}
@@ -358,35 +360,37 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 	data[108] = p->dalpha;
 	data[109] = p->dbeta;
 	data[110] = p->dgamma;
-	data[111] = p->alpha_cen;
-	data[112] = p->beta_cen;
-	data[113] = p->gamma_cen;
-	data[114] = p->dx;
-	data[115] = p->dy;
-	data[116] = p->gx_width;
-	data[117] = p->gx_depth;
-	data[118] = p->gy_width;
-	data[119] = p->gy_depth;
+	data[111] = p->gamma_offset;
+	data[112] = p->alpha_cen;
+	data[113] = p->beta_cen;
+	data[114] = p->gamma_cen;
+	data[115] = p->dx;
+	data[116] = p->dy;
+	data[117] = p->gx_width;
+	data[118] = p->gx_depth;
+	data[119] = p->gy_width;
+	data[120] = p->gy_depth;
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
-	p->n_each =      (int) data[101];
-	p->n_rows =      (int) data[102];
-	p->n_cols =      (int) data[103];
-	p->mode =        (int) data[104];
-	p->trace_walls = (int) data[105];
-	p->active_x =    (int) data[106];
-	p->active_y =    (int) data[107];
-	p->dalpha =      data[108];
-	p->dbeta =       data[109];
-	p->dgamma =      data[110];
-	p->alpha_cen =   data[111];
-	p->beta_cen =    data[112];
-	p->gamma_cen =   data[113];
-	p->dx =          data[114];
-	p->dy =          data[115];
-	p->gx_width =    data[116];
-	p->gx_depth =    data[117];
-	p->gy_width =    data[118];
-	p->gy_depth =    data[119];
+	p->n_each =       (int) data[101];
+	p->n_rows =       (int) data[102];
+	p->n_cols =       (int) data[103];
+	p->mode =         (int) data[104];
+	p->trace_walls =  (int) data[105];
+	p->active_x =     (int) data[106];
+	p->active_y =     (int) data[107];
+	p->dalpha =       data[108];
+	p->dbeta =        data[109];
+	p->dgamma =       data[110];
+	p->gamma_offset = data[111];
+	p->alpha_cen =    data[112];
+	p->beta_cen =     data[113];
+	p->gamma_cen =    data[114];
+	p->dx =           data[115];
+	p->dy =           data[116];
+	p->gx_width =     data[117];
+	p->gx_depth =     data[118];
+	p->gy_width =     data[119];
+	p->gy_depth =     data[120];
 }

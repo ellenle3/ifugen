@@ -64,6 +64,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
       p1.dalpha == p2.dalpha &&
       p1.dbeta == p2.dbeta &&
       p1.dgamma == p2.dgamma &&
+      p1.gamma_offset == p2.gamma_offset &&
       p1.alpha_cen == p2.alpha_cen &&
       p1.beta_cen == p2.beta_cen &&
       p1.gamma_cen == p2.gamma_cen &&
@@ -173,20 +174,25 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
     // Get row number as well as the subindex of the slice on that row
     int row_num = slice_num / p.n_each;
     int slice_num_row = slice_num - row_num * p.n_each;
+    double gamma_extra;
+
     // Set the angles alpha and beta depending on the row and column
     *alpha = 0; *beta = 0; *gamma = 0;
     if (p.n_rows % 2 == 0) {
         *alpha = p.alpha_cen + p.dalpha * (row_num - (p.n_rows - 1.) / 2);
+        gamma_extra = p.gamma_offset * (row_num - (p.n_rows - 1.) / 2)
     }
     else {
-        *alpha = p.alpha_cen + p.dalpha * (row_num - p.n_rows / 2);
+        *alpha = p.alpha_cen + p.dalpha * (row_num - floor(p.n_rows / 2) );
+        gamma_extra = p.gamma_offset * (row_num - floor(p.n_rows / 2) );
     }
     if (p.n_cols % 2 == 0) {
         *beta = p.beta_cen + p.dbeta * (col_num - (p.n_cols - 1.)/2);
     }
     else {
-        *beta = p.beta_cen + p.dbeta * (col_num - p.n_cols / 2);
+        *beta = p.beta_cen + p.dbeta * (col_num - floor(p.n_cols / 2) );
     }
+
     // Get the angles of the bottom- and top-most slices of the central row
     // If n_rows is even, there are 2 rows straddling the x=0 center line
     // Set the "central row" to the one above the x-axis (+y direction)
@@ -197,11 +203,21 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
         gamma_top = p.gamma_cen + p.dgamma * (p.n_each - 1.) / 2;
     }
     else {
-        gamma_bot = p.gamma_cen - p.dgamma * (p.n_each / 2);
-        gamma_top = p.gamma_cen + p.dgamma * (p.n_each / 2);
+        gamma_bot = p.gamma_cen - p.dgamma * floor(p.n_each / 2);
+        gamma_top = p.gamma_cen + p.dgamma * floor(p.n_each / 2);
     }
+
+    // Determine offsets in gamma. First, check whether the mode allows the extra
+    // offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
+    if (p.mode == 2 || p.mode == 3) {
+        // Offsets should not stack
+        if (row_num % 2 == 0) gamma_extra = -p.gamma_offset / 2;
+        else gamma_extra = p.gamma_offset / 2;
+    }
+
     switch (p.mode) {
         case 0:
+        case 2:
             // If the row is even, the angles are the same as the central row
             // If odd, the top/bottom angles are flipped
             if (row_num % 2 == 0) {
@@ -211,7 +227,9 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
                 *gamma = gamma_top - slice_num_row * p.dgamma;
             }
             break;
+
         case 1:
+        case 3:
             // Copy the same angle pattern as the central row
             *gamma = gamma_bot + slice_num_row * p.dgamma;
             break;

@@ -34,6 +34,7 @@ int main() {
         .alpha_cen = -10,
         .beta_cen = 11,
         .gamma_cen = 1,
+        .gamma_offset = -1,
         .dx = 9,
         .dy = 0.8,
         .gx_width = 0,

@@ -30,6 +30,7 @@ IMAGE_SLICER_PARAMS pold_GLOBAL = {
         .dalpha = -1,
         .dbeta = -1,
         .dgamma = -1,
+        .gamma_offset = -1,
         .alpha_cen = -1,
         .beta_cen = -1,
         .gamma_cen = -1,
@@ -284,15 +285,16 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[7] = 4.0;    // dalpha
          FD->param[8] = 4.0;    // dbeta
          FD->param[9] = 1.0;    // dgamma
-         FD->param[10] = 0.0;   // alpha_cen
-         FD->param[11] = 0.0;   // beta_cen
-         FD->param[12] = 0.0;   // gamma_cen
-         FD->param[13] = 8.0;   // dx
-         FD->param[14] = 1;     // dy
-         FD->param[15] = 0.0;   // gx_width
-         FD->param[16] = 0.0;   // gx_depth
-         FD->param[17] = 0.0;   // gy_width
-         FD->param[18] = 0.0;   // gy_depth
+         FD->param[10] = 0.0;   // gamma_offset
+         FD->param[11] = 0.0;   // alpha_cen
+         FD->param[12] = 0.0;   // beta_cen
+         FD->param[13] = 0.0;   // gamma_cen
+         FD->param[14] = 8.0;   // dx
+         FD->param[15] = 1;     // dy
+         FD->param[16] = 0.0;   // gx_width
+         FD->param[17] = 0.0;   // gx_depth
+         FD->param[18] = 0.0;   // gy_width
+         FD->param[19] = 0.0;   // gy_depth
          FD->cv = -0.01;
          FD->k = 0;
 
@@ -312,9 +314,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             // Update global extrema
             FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
             pold_GLOBAL = p;
-            fptr = fopen("C:\\Projects\\ifugen\\test_output.txt", "a");
-            fprintf(fptr, "%.10f %.10f\n", zmin_GLOBAL, zmax_GLOBAL);
-            fclose(fptr);
          };
          break;
 
@@ -352,49 +351,51 @@ return 0;
 
 // Functions to convert between Zemax FIXED_DATA and image slicer params struct
 void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   FD->param[0] = p->n_each;
-   FD->param[1] = p->n_rows;
-   FD->param[2] = p->n_cols;
-   FD->param[3] = p->mode;
-   FD->param[4] = p->trace_walls;
-   FD->param[5] = p->active_x;
-   FD->param[6] = p->active_y;
-   FD->param[7] = p->dalpha;
-   FD->param[8] = p->dbeta;
-   FD->param[9] = p->dgamma;
-   FD->param[10] = p->alpha_cen;
-   FD->param[11] = p->beta_cen;
-   FD->param[12] = p->gamma_cen;
-   FD->param[13] = p->dx;
-   FD->param[14] = p->dy;
-   FD->param[15] = p->gx_width;
-   FD->param[16] = p->gx_depth;
-   FD->param[17] = p->gy_width;
-   FD->param[18] = p->gy_depth;
+   FD->param[0] =  p->n_each;
+   FD->param[1] =  p->n_rows;
+   FD->param[2] =  p->n_cols;
+   FD->param[3] =  p->mode;
+   FD->param[4] =  p->trace_walls;
+   FD->param[5] =  p->active_x;
+   FD->param[6] =  p->active_y;
+   FD->param[7] =  p->dalpha;
+   FD->param[8] =  p->dbeta;
+   FD->param[9] =  p->dgamma;
+   FD->param[10] = p->gamma_offset;
+   FD->param[11] = p->alpha_cen;
+   FD->param[12] = p->beta_cen;
+   FD->param[13] = p->gamma_cen;
+   FD->param[14] = p->dx;
+   FD->param[15] = p->dy;
+   FD->param[16] = p->gx_width;
+   FD->param[17] = p->gx_depth;
+   FD->param[18] = p->gy_width;
+   FD->param[19] = p->gy_depth;
    FD->cv = p->cv;
    FD->k = p->k;
 }
 
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   p->n_each =      FD->param[0];
-   p->n_rows =      FD->param[1];
-   p->n_cols =      FD->param[2];
-   p->mode =        FD->param[3];
-   p->trace_walls = FD->param[4];
-   p->active_x =    FD->param[5];
-   p->active_y =    FD->param[6];
-   p->dalpha =      FD->param[7];
-   p->dbeta =       FD->param[8];
-   p->dgamma =      FD->param[9];
-   p->alpha_cen =   FD->param[10];
-   p->beta_cen =    FD->param[11];
-   p->gamma_cen =   FD->param[12];
-   p->dx =          FD->param[13];
-   p->dy =          FD->param[14];
-   p->gx_width =    FD->param[15];
-   p->gx_depth =    FD->param[16];
-   p->gy_width =    FD->param[17];
-   p->gy_depth =    FD->param[18];
+   p->n_each =       FD->param[0];
+   p->n_rows =       FD->param[1];
+   p->n_cols =       FD->param[2];
+   p->mode =         FD->param[3];
+   p->trace_walls =  FD->param[4];
+   p->active_x =     FD->param[5];
+   p->active_y =     FD->param[6];
+   p->dalpha =       FD->param[7];
+   p->dbeta =        FD->param[8];
+   p->dgamma =       FD->param[9];
+   p->gamma_offset = FD->param[10];
+   p->alpha_cen =    FD->param[11];
+   p->beta_cen =     FD->param[12];
+   p->gamma_cen =    FD->param[13];
+   p->dx =           FD->param[14];
+   p->dy =           FD->param[15];
+   p->gx_width =     FD->param[16];
+   p->gx_depth =     FD->param[17];
+   p->gy_width =     FD->param[18];
+   p->gy_depth =     FD->param[19];
    p->cv = FD->cv;
    p->k =  FD->k;
 }

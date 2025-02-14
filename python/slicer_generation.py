@@ -16,6 +16,7 @@ class ImageSlicerParams:
     dalpha: float
     dbeta: float
     dgamma: float
+    gamma_offset: float
     alpha_cen: float
     beta_cen: float
     gamma_cen: float
@@ -104,8 +105,10 @@ def get_slice_angles(slice_num, col_num, p):
     alpha, beta, gamma = 0, 0, 0
     if p.n_rows % 2 == 0:
         alpha = p.alpha_cen + p.dalpha*(row_num - (p.n_rows-1)/2)
+        gamma_extra = p.gamma_offset * (row_num - (p.n_rows-1)/2)
     else:
         alpha = p.alpha_cen + p.dalpha*(row_num - p.n_rows//2)
+        gamma_extra = p.gamma_offset * (row_num - p.n_rows//2)
 
     if p.n_cols % 2 == 0:
         beta = p.beta_cen + p.dbeta*(col_num - (p.n_cols-1)/2)
@@ -121,16 +124,26 @@ def get_slice_angles(slice_num, col_num, p):
     else:
         gamma_bot = p.gamma_cen - p.dgamma*(p.n_each//2)
         gamma_top = p.gamma_cen + p.dgamma*(p.n_each//2)
-    if p.mode == 0:
+
+    # Determine offsets in gamma. First, check whether the mode allows the extra
+    # offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
+    if (p.mode == 2 or p.mode == 3):
+        # gamma_offset should not stack
+        if row_num % 2 == 0:
+            gamma_extra = -p.gamma_offset/2
+        else:
+            gamma_extra = p.gamma_offset/2
+
+    if (p.mode == 0 or p.mode == 2):
         # If the row is even, the angles are the same as the central row
         # If odd, the top/bottom angles are flipped
         if row_num % 2 == 0:
-            gamma = gamma_bot + slice_num_row*p.dgamma
+            gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
         else:
-            gamma = gamma_top - slice_num_row*p.dgamma
+            gamma = gamma_top - slice_num_row*p.dgamma + gamma_extra
     # Copy the same angle pattern as the central row
-    elif p.mode == 1:
-        gamma = gamma_bot + slice_num_row*p.dgamma
+    elif (p.mode == 1 or p.mode == 3):
+        gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
     return alpha, beta, gamma
 
 def make_image_slicer(x, y, p, sag_func):
