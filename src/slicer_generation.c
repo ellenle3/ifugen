@@ -221,17 +221,17 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
             // If the row is even, the angles are the same as the central row
             // If odd, the top/bottom angles are flipped
             if (row_num % 2 == 0) {
-                *gamma = gamma_bot + slice_num_row * p.dgamma;
+                *gamma = gamma_bot + slice_num_row * p.dgamma + gamma_extra;
             }  
             else {
-                *gamma = gamma_top - slice_num_row * p.dgamma;
+                *gamma = gamma_top - slice_num_row * p.dgamma + gamma_extra;
             }
             break;
 
         case 1:
         case 3:
             // Copy the same angle pattern as the central row
-            *gamma = gamma_bot + slice_num_row * p.dgamma;
+            *gamma = gamma_bot + slice_num_row * p.dgamma + gamma_extra;
             break;
     }
 }
