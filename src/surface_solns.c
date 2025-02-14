@@ -50,6 +50,7 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     if (k == -1 && gamma == 0) {
+        x += x0; y += y0;
         return cv * (x*x + y*y) / 2;
     }
 
@@ -89,6 +90,14 @@ double Conic3DTransfer(double xt, double yt, double l, double m, double n, doubl
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
+    if (k == -1 && gamma == 0) {
+        xt += x0; yt += y0;
+        double a = -n*n + 1;
+        double b = n/cv - xt*l - yt*m;
+        double c = xt*xt + yt*yt;
+        return c / (b + sgn*sqrt(b*b - a*c));
+    }
+
     double cosg = cos(gamma), cosg2 = cosg*cosg;
     double sing = sin(gamma), sing2 = sing*sing;
     
@@ -117,32 +126,42 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
 
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
-    
-    double cosg = cos(gamma), cosg2 = cosg*cosg;
-    double sing = sin(gamma), sing2 = sing*sing;
-    double asol = cv*(sing2 + (k+1)*cosg2);
-    double bsol = 2*cv*sing*(x*k*cosg - x0) - 2*cosg;
-    double csol = cv*k*x*x*sing2 - 2*x*sing + 2*cv*x0*x*cosg + cv*(x*x + x0*x0 + (y-y0)*(y-y0));
 
-    double arg0 = bsol*bsol - 4*asol*csol;
-    if (arg0 <= 0) {
-        *ln = *mn = *nn = NAN;
-        return;
+    double dervx, dervy;
+    if (k == -1 && gamma == 0) {
+        x += x0; y += y0;
+        dervx = cv * x;
+        dervy = cv * y;
     }
-    double eta = sqrt(arg0);
-    double denom = -bsol + sgn*eta;
+    
+    else {
+        double cosg = cos(gamma), cosg2 = cosg*cosg;
+        double sing = sin(gamma), sing2 = sing*sing;
+        double asol = cv*(sing2 + (k+1)*cosg2);
+        double bsol = 2*cv*sing*(x*k*cosg - x0) - 2*cosg;
+        double csol = cv*k*x*x*sing2 - 2*x*sing + 2*cv*x0*x*cosg + cv*(x*x + x0*x0 + (y-y0)*(y-y0));
 
-    // Partial derivative with respect to x
-    double arg1 = 4 * (cv*x*(1+k*sing2) + cv*x0*cosg - sing) / denom;
-    double arg2 = 4 * csol / (denom*denom);
-    double arg3 = -cv*k*sing*cosg;
-    double arg4 = cv*k*bsol*sing*cosg - 2*asol*(cv*x*(1+k*sing2) + cv*x0*cosg - sing);
-    double dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta);
+        double arg0 = bsol*bsol - 4*asol*csol;
+        if (arg0 <= 0) {
+            *ln = *mn = *nn = NAN;
+            return;
+        }
+        double eta = sqrt(arg0);
+        double denom = -bsol + sgn*eta;
 
-    // ...with respect to y
-    arg1 = 4*cv*(y-y0) / denom;
-    arg2 = 2*asol*csol / (eta*denom);
-    double dervy = arg1 * (1 + sgn*arg2);
+        // Partial derivative with respect to x
+        double arg1 = 4 * (cv*x*(1+k*sing2) + cv*x0*cosg - sing) / denom;
+        double arg2 = 4 * csol / (denom*denom);
+        double arg3 = -cv*k*sing*cosg;
+        double arg4 = cv*k*bsol*sing*cosg - 2*asol*(cv*x*(1+k*sing2) + cv*x0*cosg - sing);
+        dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta);
+
+        // ...with respect to y
+        arg1 = 4*cv*(y-y0) / denom;
+        arg2 = 2*asol*csol / (eta*denom);
+        dervy = arg1 * (1 + sgn*arg2);
+    }
+    
     
     // Surface normals should be normalized. But if we do this, we lose the magnitude
     // of the derivatives. So we can choose to normalize or not.

@@ -52,6 +52,8 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
 
     if (gamma == 0 and k == -1):
         # On-axis parabola
+        x += x0
+        y += y0
         return c*(x*x + y*y) / 2
 
     # Rotate about the y-axis
