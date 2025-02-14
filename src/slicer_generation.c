@@ -124,8 +124,8 @@ void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLIC
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     // Calculate the column and slice number based on x, y position
-    *col_num = (x + xsize / 2) / (p.dx + p.gx_width);
-    *slice_num = (y + ysize / 2) / (p.dy + p.gy_width);
+    *col_num = floor( (x + xsize / 2) / (p.dx + p.gx_width) );
+    *slice_num = floor( (y + ysize / 2) / (p.dy + p.gy_width) );
 }
 
 // Checks whether a point (x, y) is inside a gap. This is useful for sag and ray
@@ -395,15 +395,15 @@ void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, RAY_IN ray
 
 int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_PARAMS p) {
     if ( (nc_min < 0 && nc_max < 0) || (nc_min >= p.n_cols && nc_max >= p.n_cols)) {
-        return 1;  // x-value of the ray is too high or low
+        return 0;  // x-value of the ray is too high or low
     }
 
     int n_sperc = p.n_each * p.n_rows;  // number of slices per column
     if ( (ns_min < 0 && ns_max < 0) || (ns_min >= n_sperc && ns_max >= n_sperc) ) {
-        return 1;  // y-value of the ray is too high or low
+        return 0;  // y-value of the ray is too high or low
     }
     
-    return 0;
+    return 1;
 }
 
 
@@ -411,12 +411,13 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
 
     // Tolerance for accepting the transfer distance as valid
-    double tol = 1e-13;
+    double tol = 1e-11;
     ray_out->xs = ray_out->ys = ray_out->zs = NAN;
     ray_out->t = ray_out->ln = ray_out->mn = ray_out->nn = NAN;
 
     int nc_min, ns_min, nc_max, ns_max;
     GetRayBounds(&nc_min, &ns_min, &nc_max, &ns_max, ray_in, zmin, zmax, p);
+    //printf("bounds are %d %d %d %d\n", nc_min, ns_min, nc_max, ns_max);
 
     // Ray missed
     if (!IsRayInBounds(nc_min, ns_min, nc_max, ns_max, p)) return;
@@ -475,6 +476,10 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                 GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test, p);
                 t_test = transfer_dist_func(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
                 result = TransferEquation(t_test, xt, yt, l, m, n, p, sag_func);
+
+                //printf("checking (%d, %d)\n", nc_test, ns_test);
+                //printf("t is %.6f\n", t_test);
+                //printf("result is %.6f\n", result);
                 
                 // Check whether the transfer distance of the current slice is a
                 // valid zero of the transfer equation.

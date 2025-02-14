@@ -95,8 +95,6 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     # Ray missed this surface
     if fsol**2-dsol*gsol < 0:
         return np.nan
-    
-    print(dsol, fsol, gsol)
         
     return gsol/(-fsol + sgn*np.sqrt(fsol*fsol - dsol*gsol))
 
@@ -224,7 +222,7 @@ def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     arg2 = n - l * sinbg / (cosa * cosbg) + m * sina / cosa
     
     if abs(arg2) < 1e-13:
-        return np.nanß
+        return np.nan
     return arg1 / arg2
 
 def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):

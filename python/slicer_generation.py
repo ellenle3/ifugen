@@ -293,13 +293,14 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
     xs, ys, zs
     """
     # Tolerance for accepting the transfer distance as valid
-    tol = 1e-13
+    tol = 1e-11
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
     # Get starting and ending rows and columns
     nc_min, ns_min, nc_max, ns_max = get_ray_bounds(ray_in, zmin, zmax, p)
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
         return ray_out
+    print("bounds: " + str((nc_min, ns_min, nc_max, ns_max)))
     
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
