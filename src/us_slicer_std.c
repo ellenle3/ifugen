@@ -61,12 +61,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   FILE* fptr;
-   int i;
-   double p2, alpha, a, b, c, rad, casp, t, zc;
-   double power;
-
-   double sag;
+   double power, sag;
    RAY_IN ray_in = {
       .xt = 0,
       .yt = 0,

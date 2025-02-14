@@ -180,7 +180,7 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
     *alpha = 0; *beta = 0; *gamma = 0;
     if (p.n_rows % 2 == 0) {
         *alpha = p.alpha_cen + p.dalpha * (row_num - (p.n_rows - 1.) / 2);
-        gamma_extra = p.gamma_offset * (row_num - (p.n_rows - 1.) / 2)
+        gamma_extra = p.gamma_offset * (row_num - (p.n_rows - 1.) / 2);
     }
     else {
         *alpha = p.alpha_cen + p.dalpha * (row_num - floor(p.n_rows / 2) );
