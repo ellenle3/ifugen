@@ -49,6 +49,10 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
     double x0, y0;
     Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
+    if (k == -1 && gamma == 0) {
+        return cv * (x*x + y*y) / 2;
+    }
+
     // Rotate about the x-axis
     double cosg = cos(gamma), cosg2 = cosg*cosg;
     double sing = sin(gamma), sing2 = sing*sing;

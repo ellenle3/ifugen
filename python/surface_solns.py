@@ -50,6 +50,10 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
         
     x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
+    if (gamma == 0 and k == -1):
+        # On-axis parabola
+        return c*(x*x + y*y) / 2
+
     # Rotate about the y-axis
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
