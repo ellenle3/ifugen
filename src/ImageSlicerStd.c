@@ -48,8 +48,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	{
 	IMAGE_SLICER_PARAMS p;
 	SetSlicerParamsFromData(&p, data);
-    Nx = (int) data[120];
-    Ny = (int) data[121];
+	L = data[123];
+    Nx = (int) data[124];
+    Ny = (int) data[125];
 
 	// For computing how many triangles we need
 	int num_slices_total = 2;
@@ -99,12 +100,12 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		case 1:
 			{
 			int num_triangles;
-			int col_num = 0, slice_num = 0;
-			int i = 0, j = 0;
+			int col_num, slice_num, i, j;
 			double xstart, xend, xstep;
 			double ystart, yend, ystep;
 			double pt1, pt2, pt3, pt4;
 			double code1, code2;
+			double xsize, ysize;
 
 			/*
 			We are being asked to generate the triangle list.
@@ -141,21 +142,22 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			*/
 
 			num_triangles = 0;
+			GetSlicerSize(&xsize, &ysize, p);
 
 			xstep = p.dx / (Nx - 1); ystep = p.dy / (Ny - 1);
 			// First, do the surfaces of all of the slices
 			for (col_num = 0, col_num < p.n_cols, col_num++) {
 
-				for (slice_num = 0, slice_num < p.n_each * p.n_rows, slice_num++) {
-
-					// Iterate x facets
-					xstart = col_num * (p.dx + p.gx_width);
+					xstart = col_num * (p.dx + p.gx_width) - xsize / 2;
 					xend = xstart + p.dx;
+
+				for (slice_num = 0, slice_num < p.n_each * p.n_rows, slice_num++) {
+					
+					ystart = slice_num * (p.dy + p.gy_width) - ysize / 2;
+					yend = yend + p.dy;
+					
 					for (i = 0; i < Nx; i++) {
 						
-						// Iterate y facets
-						ystart = slice_num * (p.dy + p.gy_width);
-						yend = yend + p.dy;
 						for (j = 0; j < Ny; j++) {
 
 							code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
@@ -199,26 +201,126 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 							tri_list[num_triangles*10 + 8] = z4;  // z3
 							tri_list[num_triangles*10 + 9] = code2;
 							num_triangles++;
+
+							// Do walls if applicable
 						}
 					}
 				}
 			}
 
-			// Now do x-walls
+			// Now do gaps between columns
+			if (p.gx_width > 0) {
+				for (col_num = 0, col_num < p.n_cols - 1, col_num++) {
+					x1 = col_num * (p.dx + p.gx_width) + p.dx - xsize / 2;
+					x2 = (col_num + 1) * (p.dx + p.gx_width) - xsize / 2;
 
-			// ...y-walls
+					tri_list[num_triangles*10 + 0] = x1;  // x1
+					tri_list[num_triangles*10 + 1] = -ysize / 2;  // y1
+					tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+					tri_list[num_triangles*10 + 3] = x2;  // x2
+					tri_list[num_triangles*10 + 4] = -ysize / 2;  // y2
+					tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+					tri_list[num_triangles*10 + 6] = x1;  // x3
+					tri_list[num_triangles*10 + 7] = ysize / 2;  // y3
+					tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+					tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+					num_triangles++;
 
-			// Do any x-gaps
-			for (col_num = 0, col_num < p.n_cols, col_num++) {
+					tri_list[num_triangles*10 + 0] = x2;  // x1
+					tri_list[num_triangles*10 + 1] = -ysize / 2;  // y1
+					tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+					tri_list[num_triangles*10 + 3] = x1;  // x2
+					tri_list[num_triangles*10 + 4] = ysize / 2;  // y2
+					tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+					tri_list[num_triangles*10 + 6] = x2;  // x3
+					tri_list[num_triangles*10 + 7] = ysize / 2;  // y3
+					tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+					tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+					num_triangles++;
+				}
 			}
 
-			// ...y-gaps
+			// ... y gaps
+			if (p.gy_width > 0) {
+				// Fill in gaps between slices on y-axis
+				for (col_num = 0, col_num < p.n_cols, col_num++) {
+
+					for (slice_num = 0, slice_num < p.n_each * p.n_rows - 1, slice_num++) {
+
+						x1 = col_num * (p.dx + p.gx_width) - xsize / 2;
+						x2 = col_num * (p.dx + p.gx_width) + p.dx - xsize / 2;
+						y1 = slice_num * (p.dy + p.gy_width) + p.dy - ysize / 2;
+						y2 = (slice_num + 1) * (p.dy + p.gy_width) - ysize / 2;
+
+						tri_list[num_triangles*10 + 0] = x1;  // x1
+						tri_list[num_triangles*10 + 1] = y1;  // y1
+						tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+						tri_list[num_triangles*10 + 3] = x2;  // x2
+						tri_list[num_triangles*10 + 4] = y1;  // y2
+						tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+						tri_list[num_triangles*10 + 6] = x1;  // x3
+						tri_list[num_triangles*10 + 7] = y2;  // y3
+						tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+						tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+						num_triangles++;
+
+						tri_list[num_triangles*10 + 0] = x2;  // x1
+						tri_list[num_triangles*10 + 1] = y1;  // y1
+						tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+						tri_list[num_triangles*10 + 3] = x1;  // x2
+						tri_list[num_triangles*10 + 4] = y2;  // y2
+						tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+						tri_list[num_triangles*10 + 6] = x2;  // x3
+						tri_list[num_triangles*10 + 7] = y2;  // y3
+						tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+						tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+						num_triangles++;
+					}
+				}
+			}
 
 			// if xgap and ygap depths are different these also need walls! Find
 			// number of intersection points between gaps. 4 walls (8) triangles
 			// for each one... No need if either xgap or ygap size is 0.
+			if (p.gx_width > 0 && p.gy_width > 0 && p.gx_depth != p.gy_depth) {
+				for (col_num = 0, col_num < p.n_cols - 1, col_num++) {
+					for (slice_num = 0, slice_num < p.n_each * p.n_rows - 1, slice_num++) {
+						x1 = ;
+						y2 = ;
+						x1 = ;
+						y2 = ;
+					}
+				}
+			}
 
-			// Finish by doing the side + back panels
+			// Finish by doing outer panels. Side panels first
+
+
+			// Then the back panel
+			tri_list[num_triangles*10 + 0] = x1;  // x1
+			tri_list[num_triangles*10 + 1] = y1;  // y1
+			tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+			tri_list[num_triangles*10 + 3] = x2;  // x2
+			tri_list[num_triangles*10 + 4] = y1;  // y2
+			tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+			tri_list[num_triangles*10 + 6] = x1;  // x3
+			tri_list[num_triangles*10 + 7] = y2;  // y3
+			tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+			tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+			num_triangles++;
+
+			tri_list[num_triangles*10 + 0] = x2;  // x1
+			tri_list[num_triangles*10 + 1] = y1;  // y1
+			tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
+			tri_list[num_triangles*10 + 3] = x1;  // x2
+			tri_list[num_triangles*10 + 4] = y2;  // y2
+			tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
+			tri_list[num_triangles*10 + 6] = x2;  // x3
+			tri_list[num_triangles*10 + 7] = y2;  // y3
+			tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
+			tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+			num_triangles++;
+
 
 			data[10] = num_triangles; /* how many we actually wrote out */
 			return 0;
@@ -314,6 +416,11 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[118] = 0.0;      // gx_depth
 			data[119] = 0.0;      // gy_width
 			data[120] = 0.0;      // gy_depth
+			data[121] = 0.01	  // curvature
+			data[122] = 0.0;	  // conic constant
+			data[123] = 5;		  // length
+			data[124] = 4; 		  // Nx
+			data[125] = 3; 		  // Ny
 			SetSlicerParamsFromData(&p, data);
 			return 0;
 		}
@@ -355,8 +462,11 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i == 18) strcpy(data,"gx_depth");
 	if (i == 19) strcpy(data,"gy_width");
 	if (i == 20) strcpy(data,"gy_depth");
-	if (i == 21) strcpy(data,"# Facets x");
-	if (i == 22) strcpy(data,"# Facets y");
+	if (i == 21) strcpy(data,"cv");
+	if (i == 22) strcpy(data,"k");
+	if (i == 23) strcpy(data,"Length");
+	if (i == 24) strcpy(data,"# Facets x");
+	if (i == 25) strcpy(data,"# Facets y");
 	
 	return 0;
 	}
@@ -383,6 +493,8 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 	data[118] = p->gx_depth;
 	data[119] = p->gy_width;
 	data[120] = p->gy_depth;
+	data[121] = p->cv;
+	data[122] = p->k;
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
@@ -406,4 +518,6 @@ void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
 	p->gx_depth =     data[118];
 	p->gy_width =     data[119];
 	p->gy_depth =     data[120];
+	p->cv =           data[121];
+	p->k =            data[122];
 }
