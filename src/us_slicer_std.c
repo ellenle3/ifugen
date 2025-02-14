@@ -151,30 +151,33 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             	strcpy(UD->string,"dgamma");
                break;
             case 10:
-            	strcpy(UD->string,"alpha_cen");
+               strcpy(UD->string,"gamma_offset");
                break;
             case 11:
-            	strcpy(UD->string,"beta_cen");
+            	strcpy(UD->string,"alpha_cen");
                break;
             case 12:
-            	strcpy(UD->string,"gamma_cen");
+            	strcpy(UD->string,"beta_cen");
                break;
             case 13:
-            	strcpy(UD->string,"dx");
+            	strcpy(UD->string,"gamma_cen");
                break;
             case 14:
-            	strcpy(UD->string,"dy");
+            	strcpy(UD->string,"dx");
                break;
             case 15:
-            	strcpy(UD->string,"gx_width");
+            	strcpy(UD->string,"dy");
                break;
             case 16:
-            	strcpy(UD->string,"gx_depth");
+            	strcpy(UD->string,"gx_width");
                break;
             case 17:
-            	strcpy(UD->string,"gy_width");
+            	strcpy(UD->string,"gx_depth");
                break;
             case 18:
+            	strcpy(UD->string,"gy_width");
+               break;
+            case 19:
             	strcpy(UD->string,"gy_depth");
                break;
             default:
