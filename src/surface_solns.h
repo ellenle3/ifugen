@@ -20,7 +20,7 @@ double ConvertAngle(double t);
  * @param alpha Off-axis angle on the y-axis in degrees.
  * @param beta Off-axis angle on the x-axis in degrees.
  */
-void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta);
+void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta);
 
 /**
  * @brief Computes an axially symmetric conic rotated about the global y-axis
@@ -34,7 +34,7 @@ void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, dou
  * @param gamma Angle of rotation about the y-axis in degrees.
  * @return double Sag at the given point.
  */
-double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
 
 /**
  * @brief Computes the ray transfer distance for a rotated conic.
@@ -51,7 +51,7 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
  * @param gamma Angle of rotation about the y-axis in degrees.
  * @return double Transfer distance for the given ray to the surface.
  */
-double Conic3DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
 
 /**
  * @brief Computes the surface normal vectors for a rotated conic. This is the
@@ -69,7 +69,7 @@ double Conic3DTransfer(double xt, double yt, double l, double m, double n, doubl
  * @param gamma Angle of rotation about the y-axis in degrees.
  * @param normalize If 1, normalizes the vector. If 0, does not normalize.
  */
-void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
+void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
 
 /**
  * @brief Partial derivative about x for the rotated conic sag. This is a wrapper
@@ -85,7 +85,7 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
  * @param gamma Angle of rotation about the y-axis in degrees.
  * @return double Partial derivative of the sag with respect to x.
  */
-double Conic3DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma);
 
 /**
  * @brief Computes the critical points (dz/dx = 0, dz/dy = 0) for a rotated conic.
@@ -98,7 +98,7 @@ double Conic3DDervX(double x, double y, double cv, double k, double alpha, doubl
  * @param beta Off-axis angle on the x-axis in degrees.
  * @param gamma Angle of rotation about the y-axis in degrees.
  */
-void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma);
+void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma);
 
 
 // Tilted plane solutions (cv = 0)

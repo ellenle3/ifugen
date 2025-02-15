@@ -28,6 +28,7 @@ class ImageSlicerParams:
     gx_depth: float
     gy_width: float
     gy_depth: float
+    custom: bool = False
 
 @dataclass
 class RayIn:

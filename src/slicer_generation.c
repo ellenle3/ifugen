@@ -90,10 +90,10 @@ CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SL
         *surf_normal_func = &TiltedPlaneSurfaceNormal;
     }
     else {
-        *sag_func = &Conic3DSag;
-        *critical_xy_func = &Conic3DCriticalXY;
-        *transfer_dist_func = &Conic3DTransfer;
-        *surf_normal_func = &Conic3DSurfaceNormal;
+        *sag_func = &Conic2DSag;
+        *critical_xy_func = &Conic2DCriticalXY;
+        *transfer_dist_func = &Conic2DTransfer;
+        *surf_normal_func = &Conic2DSurfaceNormal;
     }
 
 }

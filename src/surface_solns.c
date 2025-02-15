@@ -20,12 +20,12 @@ double ConvertAngle(double t) {
     return t;
 }
 
-// 3D conic solutions - planes (cv -> 0) are handled differently, see next section
+// 2D conic solutions - planes (cv -> 0) are handled differently, see next section
 
 // Determine the off-axis distance. If the curvature is near-zero, this is
 // basically a plane. Set a limit to how small cv can be. In practice the
 // user should not set a non-zero off-axis distance if the surface is a plane.
-void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta) {
+void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta) {
     if (fabs(cv) < 1E-13) cv = 1E-13;
     *y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );  // Angles must be in radians
     *x0 = sin(beta) / ( cv * (1 + cos(beta)) );
@@ -36,7 +36,7 @@ void Conic3DOffAxisDistance(double *x0, double *y0, double cv, double alpha, dou
 // transformations backward, i.e., undoing the rotation and then the translation.
 // The reason for this is that the sag is easier to solve for this way, but it
 // is equivalent. Refer to the derivation for more informaiton.
-double Conic3DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
+double Conic2DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
@@ -75,7 +75,7 @@ double Conic3DSag(double x, double y, double cv, double k, double alpha, double 
 // where the ray starts at (x_t, y_t, 0) with direction cosines (l, m, n) and is 
 // propagated to the surface at (x_s, y_s, z_s). This function computes an analytic
 // expression for t.
-double Conic3DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
+double Conic2DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
 
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
@@ -114,7 +114,7 @@ double Conic3DTransfer(double xt, double yt, double l, double m, double n, doubl
 
 // The normal vectors are obtained by taking the gradient of the sag function.
 // We need these along with the transfer distance to perform the ray refraction.
-void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
+void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
     alpha = ConvertAngle(alpha) * M_PI/180;
     beta = ConvertAngle(beta) * M_PI/180;
     gamma = ConvertAngle(gamma) * M_PI/180;
@@ -177,7 +177,7 @@ void Conic3DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
 
 // Wrapper function to make accessing the partial derivative about x easier. This
 // is only used for the critical point calculation. 
-double Conic3DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
+double Conic2DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
     double dervx, dervy, dervz;
     Conic3DSurfaceNormal(&dervx, &dervy, &dervz, x, y, cv, k, alpha, beta, gamma, 0);
     return dervx;
@@ -195,7 +195,7 @@ double Conic3DDervX(double x, double y, double cv, double k, double alpha, doubl
 // Also, we know that there can only be one critical point because an unrotated
 // conic has only one critical point. For there to be two, the sag would not be
 // a function anymore (multiple values of the sag for the same (x, y)).
-void Conic3DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
+void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
     double tol = 1E-13;    // Tolerance for accepting root
     int niter_max = 50;    // Max number of iterations - under normal circumstances
                            // should converge quickly (10 iterations or less)

@@ -21,28 +21,28 @@ int main() {
     // Set up the image slicer
 
     IMAGE_SLICER_PARAMS p = {
-        .n_each = 5,
-        .n_rows = 3,
-        .n_cols = 2,
+        .n_each = 1,
+        .n_rows = 1,
+        .n_cols = 1,
         .mode = 0,
         .trace_walls = 0,
         .active_x = 0,
         .active_y = 0,
-        .dalpha = 8,
-        .dbeta = -5,
-        .dgamma = 1.5,
-        .alpha_cen = -10,
-        .beta_cen = 11,
-        .gamma_cen = 1,
-        .gamma_offset = -1,
-        .dx = 9,
-        .dy = 0.8,
+        .dalpha = 0,
+        .dbeta = 0,
+        .dgamma = 0,
+        .alpha_cen = 0,
+        .beta_cen = 0,
+        .gamma_cen = 0,
+        .gamma_offset = 0,
+        .dx = 0,
+        .dy = 0,
         .gx_width = 0,
         .gx_depth = 0,
         .gy_width = 0,
         .gy_depth = 0,
         .cv = -0.01,
-        .k = -0.9
+        .k = -1
     };
 
     SAG_FUNC sag_func;
@@ -63,9 +63,9 @@ int main() {
             surf_normal_func = &Conic3DSurfaceNormal;
          }
     
-    //TestImageSlicerSag(fptr, p, sag_func);
+    TestImageSlicerSag(fptr, p, sag_func);
     //TestGlobalExtrema(fptr, p, sag_func, critical_xy_func);
-    TestRayTrace(fptr, p, sag_func, transfer_dist_func, surf_normal_func, critical_xy_func);
+    //TestRayTrace(fptr, p, sag_func, transfer_dist_func, surf_normal_func, critical_xy_func);
     //TestTransferDistance(fptr, p, transfer_dist_func);
 
     fclose(fptr);

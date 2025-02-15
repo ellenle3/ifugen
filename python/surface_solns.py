@@ -55,7 +55,7 @@ def conic_3d_sag(x, y, c, k, alpha, beta, gamma):
         x += x0
         y += y0
         return c*(x*x + y*y) / 2
-
+    
     # Rotate about the y-axis
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
@@ -89,6 +89,14 @@ def conic_3d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         
     x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
+    if (gamma == 0 and k == -1):
+        xt += x0
+        yt += y0
+        a = -n*n + 1
+        b = n / c + xt*l -yt * m
+        c = xt*xt + yt*yt
+        return c / (-b + sgn*np.sqrt(b*b - a*c))
+
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
     sing = np.sin(gamma)
@@ -120,30 +128,35 @@ def conic_3d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     
     x0, y0 = conic_3d_off_axis_distance(c, alpha, beta)
 
-    cosg = np.cos(gamma)
-    cosg2 = cosg*cosg
-    sing = np.sin(gamma)
-    sing2 = sing*sing
-    asol = c*(sing2 + (k+1)*cosg2)
-    bsol = 2*c*sing*(x*k*cosg - x0) - 2*cosg
-    csol = c*k*x*x*sing2 - 2*x*sing + 2*c*x0*x*cosg + c*(x*x + x0*x0 + (y-y0)*(y-y0))
-    
-    arg0 = bsol*bsol - 4*asol*csol
-    # Partial derivatves are undefined - no surface normal
-    if arg0 <= 0:
-        return np.nan, np.nan, np.nan
-    eta = np.sqrt(arg0)
-    denom = -bsol + sgn*eta
+    if (gamma == 0 and k == -1):
+        dervx = c*x
+        dervy = c*y
 
-    arg1 = 4 * (c*x*(1+k*sing2) + c*x0*cosg - sing) / denom
-    arg2 = 4 * csol / (denom*denom)
-    arg3 = -c*k*sing*cosg
-    arg4 = c*k*bsol*sing*cosg - 2*asol*(c*x*(1+k*sing2) + c*x0*cosg - sing)
-    dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta)
+    else: 
+        cosg = np.cos(gamma)
+        cosg2 = cosg*cosg
+        sing = np.sin(gamma)
+        sing2 = sing*sing
+        asol = c*(sing2 + (k+1)*cosg2)
+        bsol = 2*c*sing*(x*k*cosg - x0) - 2*cosg
+        csol = c*k*x*x*sing2 - 2*x*sing + 2*c*x0*x*cosg + c*(x*x + x0*x0 + (y-y0)*(y-y0))
+        
+        arg0 = bsol*bsol - 4*asol*csol
+        # Partial derivatves are undefined - no surface normal
+        if arg0 <= 0:
+            return np.nan, np.nan, np.nan
+        eta = np.sqrt(arg0)
+        denom = -bsol + sgn*eta
 
-    arg1 = 4*c*(y-y0) / denom
-    arg2 = 2*asol*csol / (eta*denom)
-    dervy = arg1 * (1 + sgn*arg2)
+        arg1 = 4 * (c*x*(1+k*sing2) + c*x0*cosg - sing) / denom
+        arg2 = 4 * csol / (denom*denom)
+        arg3 = -c*k*sing*cosg
+        arg4 = c*k*bsol*sing*cosg - 2*asol*(c*x*(1+k*sing2) + c*x0*cosg - sing)
+        dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta)
+
+        arg1 = 4*c*(y-y0) / denom
+        arg2 = 2*asol*csol / (eta*denom)
+        dervy = arg1 * (1 + sgn*arg2)
 
     norm = 1
     if normalize:
