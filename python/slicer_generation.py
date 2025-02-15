@@ -10,9 +10,6 @@ class ImageSlicerParams:
     n_rows: int
     n_cols: int
     mode: int
-    trace_walls: bool
-    active_x: bool
-    active_y: bool
     dalpha: float
     dbeta: float
     dgamma: float
@@ -80,17 +77,17 @@ def is_inside_slicer_gap(x, y, p):
     in_xgap = (x > xgap_left and x <= xgap_right)
     return in_xgap, in_ygap
 
-def get_paraxial_slice_index(p):
+def get_paraxial_slice_index(p, active_x, active_y):
     """Returns the indices of the paraxial slice.
     """
     col_num = p.n_cols // 2
-    if (p.n_cols % 2 == 0 and p.active_x):
+    if (p.n_cols % 2 == 0 and active_x):
         col_num += 1
         
     n_slices = p.n_each * p.n_rows    # slices per column
     slice_num = n_slices // 2
     
-    if (n_slices % 2 == 0 and p.active_y):
+    if (n_slices % 2 == 0 and active_y):
         slice_num += 1
 
     return col_num, slice_num
@@ -299,7 +296,7 @@ def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
     
     return True
 
-def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_normal_func):
+def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist_func, surf_normal_func):
     """Computes ray trace.
     
     Returns
@@ -390,7 +387,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
                     return ray_out
 
                 # Check if the ray is hitting a wall after this slice
-                if p.trace_walls:
+                if trace_walls:
 
                     # Going between columns. Skip if there are no columns left to iterate
                     if (slice_iter == 0 and abs(l) > 1e-13 and dcol > 0):
@@ -471,7 +468,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, sag_func, transfer_dist_func, surf_n
         dcol -= 1
 
     # If none of the above worked then we probably hit a gap
-    if (not p.trace_walls or abs(n) < 1e-13):
+    if (not trace_walls or abs(n) < 1e-13):
         return ray_out
 
     # Gaps between columns take precedence over gaps between slices in rows

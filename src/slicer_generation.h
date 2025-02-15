@@ -9,9 +9,6 @@ typedef struct {
     int n_rows; // Number of rows
     int n_cols; // Number of columns
     int mode;   // Mode for alternating angles between rows
-    int trace_walls; // Flag to trace the walls of the image slicer
-    int active_x;    // Flag for central slice in x for an even number of slices
-    int active_y;    // Flag for central slice in y for an even number of slices
     double dalpha;   // Difference in off-axis y-angle between rows in degrees
     double dbeta;    // Difference in off-axis x-angle between columns in degrees
     double dgamma;   // Difference in rotation angle between slices in degrees
@@ -123,7 +120,7 @@ void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLIC
 
 void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS p);
 
-void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p);
+void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int active_y, IMAGE_SLICER_PARAMS p);
 
 /** @brief Computes the angles alpha and beta for the given slice number. Indexing
 *   of the slices starts at 0 from the bottom (negative y-direction) of the image
@@ -195,11 +192,12 @@ double TransferEquation(double t, double xt, double yt, double l, double m, doub
  * @param zmin Global minimum of the image slicer.
  * @param zmax Global maximum of the image slicer.
  * @param p Image slicer parameters.
+ * @param trace_walls If 1, attempts to ray trace walls. If 0, walls are ignored.
  * @param sag_func Function to compute the sag of a slice.
  * @param transfer_dist_func Function to compute the transfer distance for a slice.
  * @param surf_normal_func Function to compute the surface normal of a slice.
  */
-void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p, int trace_walls,
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
 
 #endif

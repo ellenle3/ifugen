@@ -32,7 +32,6 @@ IMAGE_SLICER_PARAMS pold_GLOBAL = {
         .n_rows = -1,
         .n_cols = -1,
         .mode = -1,
-        .trace_walls = -1,
         .active_x = -1,
         .active_y = -1,
         .dalpha = -1,
@@ -115,25 +114,25 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          switch(FD->numb)
          	{
             case 0:
-            	strcpy(UD->string,"n_each");
+               strcpy(UD->string,"trace_walls");
                break;
             case 1:
-            	strcpy(UD->string,"n_rows");
-               break;
-            case 2:
-            	strcpy(UD->string,"n_cols");
-               break;
-            case 3:
-            	strcpy(UD->string,"mode");
-               break;
-            case 4:
-            	strcpy(UD->string,"trace_walls");
-               break;
-            case 5:
                strcpy(UD->string,"active_x");
                break;
-            case 6:
+            case 2:
                strcpy(UD->string,"active_y");
+               break;
+            case 3:
+               strcpy(UD->string,"n_each");
+               break;
+            case 4:
+               strcpy(UD->string,"n_rows");
+               break;
+            case 5:
+               strcpy(UD->string,"n_cols");
+               break;
+            case 6:
+            	strcpy(UD->string,"mode");
                break;
             case 7:
             	strcpy(UD->string,"dalpha");
@@ -272,13 +271,13 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         FD->param[0] = 5;      // n_each
-         FD->param[1] = 1;      // n_rows
-         FD->param[2] = 1;      // n_cols
-         FD->param[3] = 0;      // mode
-         FD->param[4] = 0;      // trace_walls
-         FD->param[5] = 0;      // active_x
-         FD->param[6] = 0;      // active_y
+         FD->param[0] = 0;      // trace_walls
+         FD->param[1] = 0;      // active_x
+         FD->param[2] = 0;      // active_y
+         FD->param[3] = 5;      // n_each
+         FD->param[4] = 1;      // n_rows
+         FD->param[5] = 1;      // n_cols
+         FD->param[6] = 0;      // mode
          FD->param[7] = 4.0;    // dalpha
          FD->param[8] = 4.0;    // dbeta
          FD->param[9] = 1.0;    // dgamma
@@ -345,16 +344,12 @@ if (thisn != nextn)
 return 0;
 }
 
-
 // Functions to convert between Zemax FIXED_DATA and image slicer params struct
 void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   FD->param[0] =  p->n_each;
-   FD->param[1] =  p->n_rows;
-   FD->param[2] =  p->n_cols;
-   FD->param[3] =  p->mode;
-   FD->param[4] =  p->trace_walls;
-   FD->param[5] =  p->active_x;
-   FD->param[6] =  p->active_y;
+   FD->param[3] =  p->n_each;
+   FD->param[4] =  p->n_rows;
+   FD->param[5] =  p->n_cols;
+   FD->param[6] =  p->mode;
    FD->param[7] =  p->dalpha;
    FD->param[8] =  p->dbeta;
    FD->param[9] =  p->dgamma;
@@ -373,13 +368,10 @@ void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
 }
 
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   p->n_each =       FD->param[0];
-   p->n_rows =       FD->param[1];
-   p->n_cols =       FD->param[2];
-   p->mode =         FD->param[3];
-   p->trace_walls =  FD->param[4];
-   p->active_x =     FD->param[5];
-   p->active_y =     FD->param[6];
+   p->n_each =       FD->param[3];
+   p->n_rows =       FD->param[4];
+   p->n_cols =       FD->param[5];
+   p->mode =         FD->param[6];
    p->dalpha =       FD->param[7];
    p->dbeta =        FD->param[8];
    p->dgamma =       FD->param[9];

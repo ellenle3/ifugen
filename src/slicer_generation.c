@@ -33,7 +33,6 @@ int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
     if (p->n_rows < 1) { p->n_rows = 1; flag = 1; }
     if (p->n_each < 1) { p->n_each = 1; flag = 1; }
     if (!(p->mode==0 || p->mode==1)) { p->mode = 0; flag = 1; }
-    if (!(p->trace_walls==0 || p->trace_walls==1)) { p->trace_walls = 0; flag = 1; }
 
     // No need to check angles because we will convert them to be between -180
     // and 180 degrees...
@@ -58,9 +57,6 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
       p1.n_rows == p2.n_rows &&
       p1.n_cols == p2.n_cols &&
       p1.mode == p2.mode &&
-      p1.trace_walls == p2.trace_walls &&
-      p1.active_x == p2.active_x &&
-      p1.active_y == p2.active_y &&
       p1.dalpha == p2.dalpha &&
       p1.dbeta == p2.dbeta &&
       p1.dgamma == p2.dgamma &&
@@ -152,12 +148,12 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
 // to specify whether they want to slice above or below the center line. Same
 // goes for the columns. The parameters p.active_x and p.active_y exist for this
 // purpose.
-void GetParaxialSliceIndex(int *col_num, int *slice_num, IMAGE_SLICER_PARAMS p) {
+void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int active_y, IMAGE_SLICER_PARAMS p) {
     *col_num = p.n_cols / 2;
-    if (p.n_cols % 2 == 0 && p.active_x) (*col_num)++;
+    if (p.n_cols % 2 == 0 && active_x) (*col_num)++;
     int n_slices = p.n_each * p.n_rows;
     *slice_num = n_slices / 2;
-    if (n_slices % 2 == 0 && p.active_y) (*slice_num)++;
+    if (n_slices % 2 == 0 && active_y) (*slice_num)++;
 }
 
 // For a given column, row indices determine the angles alpha, beta, and gamma.
@@ -425,7 +421,7 @@ int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_P
 }
 
 
-void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p,
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p, int trace_walls,
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
 
     // Tolerance for accepting the transfer distance as valid
@@ -523,7 +519,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                 }
 
                 // Check if the ray is hitting a wall after this slice
-                if (p.trace_walls) {
+                if (trace_walls) {
 
                     // Going between columns since slice_iter==0. Skip if there
                     // are no columns left to iterate
@@ -615,7 +611,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
     }
 
     // If none of the above worked then we probably hit a gap
-    if (!p.trace_walls || fabs(n) < 1e-13) return;
+    if (!trace_walls || fabs(n) < 1e-13) return;
 
     // Gaps between columns take precedence over gaps between slices in rows
     t_test = p.gx_depth / n;

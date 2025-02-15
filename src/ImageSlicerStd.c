@@ -9,6 +9,9 @@
 /*
 Ellen Lee
 Feb 2025
+
+combine flat and standard types. triangle generation for slices is slightly diffferent
+but everything else is the same
 */
 
 
@@ -48,9 +51,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	{
 	IMAGE_SLICER_PARAMS p;
 	SetSlicerParamsFromData(&p, data);
-	L = data[123];
-    Nx = (int) data[124];
-    Ny = (int) data[125];
+    Nx = (int) data[101];
+    Ny = (int) data[102];
+	L = data[103];
 
 	// For computing how many triangles we need
 	int num_slices_total = 2;
@@ -396,13 +399,13 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 		/* safe data */
 		case 4:
 			/* set safe parameter data values the first time the DLL is initialized */
-			data[101] = (int) 5;  // n_each
-			data[102] = (int) 1;  // n_rows
-			data[103] = (int) 1;  // n_cols
-			data[104] = (int) 0;  // mode
-			data[105] = (int) 0;  // trace_walls
-			data[106] = (int) 0;  // active_x
-			data[107] = (int) 0;  // active_y
+			data[101] = 4; 		  // Nx
+			data[102] = 3; 		  // Ny
+			data[103] = 5;		  // length
+			data[104] = (int) 5;  // n_each
+			data[105] = (int) 1;  // n_rows
+			data[106] = (int) 1;  // n_cols
+			data[107] = (int) 0;  // mode
 			data[108] = 4.0;      // dalpha
 			data[109] = 4.0;      // dbeta
 			data[110] = 1.0;      // dgamma
@@ -416,11 +419,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[118] = 0.0;      // gx_depth
 			data[119] = 0.0;      // gy_width
 			data[120] = 0.0;      // gy_depth
-			data[121] = 0.01	  // curvature
+			data[121] = -0.01	  // curvature
 			data[122] = 0.0;	  // conic constant
-			data[123] = 5;		  // length
-			data[124] = 4; 		  // Nx
-			data[125] = 3; 		  // Ny
+			
 			SetSlicerParamsFromData(&p, data);
 			return 0;
 		}
@@ -442,13 +443,13 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i == -2) strcpy(data,"Gap Face");
 	if (i == -3) strcpy(dta,"Outside Face")
 
-	if (i == 1) strcpy(data,"n_each");
-	if (i == 2) strcpy(data,"n_rows");
-	if (i == 3) strcpy(data,"n_cols");
-	if (i == 4) strcpy(data,"mode");
-	if (i == 5) strcpy(data,"trace_walls");
-	if (i == 6) strcpy(data,"active_x");
-	if (i == 7) strcpy(data,"active_y");
+	if (i == 1) strcpy(data,"Length");
+	if (i == 2) strcpy(data,"# Facets x");
+	if (i == 3) strcpy(data,"# Facets y");
+	if (i == 4) strcpy(data,"n_each");
+	if (i == 5) strcpy(data,"n_rows");
+	if (i == 6) strcpy(data,"n_cols");
+	if (i == 7) strcpy(data,"mode");
 	if (i == 8) strcpy(data,"dalpha");
 	if (i == 9) strcpy(data,"dbeta");
 	if (i == 10) strcpy(data,"dgamma");
@@ -464,22 +465,15 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i == 20) strcpy(data,"gy_depth");
 	if (i == 21) strcpy(data,"cv");
 	if (i == 22) strcpy(data,"k");
-	if (i == 23) strcpy(data,"Length");
-	if (i == 24) strcpy(data,"# Facets x");
-	if (i == 25) strcpy(data,"# Facets y");
-	
 	return 0;
 	}
 
 // Functions to convert between Zemax data and image slicer params struct
 void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
-	data[101] = p->n_each;
-	data[102] = p->n_rows;
-	data[103] = p->n_cols;
-	data[104] = p->mode;
-	data[105] = p->trace_walls;
-	data[106] = p->active_x;
-	data[107] = p->active_y;
+	data[104] = p->n_each;
+	data[105] = p->n_rows;
+	data[106] = p->n_cols;
+	data[107] = p->mode;
 	data[108] = p->dalpha;
 	data[109] = p->dbeta;
 	data[110] = p->dgamma;
@@ -498,13 +492,10 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
-	p->n_each =       (int) data[101];
-	p->n_rows =       (int) data[102];
-	p->n_cols =       (int) data[103];
-	p->mode =         (int) data[104];
-	p->trace_walls =  (int) data[105];
-	p->active_x =     (int) data[106];
-	p->active_y =     (int) data[107];
+	p->n_each =       (int) data[104];
+	p->n_rows =       (int) data[105];
+	p->n_cols =       (int) data[106];
+	p->mode =         (int) data[107];
 	p->dalpha =       data[108];
 	p->dbeta =        data[109];
 	p->dgamma =       data[110];

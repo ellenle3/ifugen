@@ -27,6 +27,7 @@ int Refract(double thisn, double nextn, double *l, double *m, double *n, double 
 double zmin_GLOBAL, zmax_GLOBAL;
 int file_num_old = -10000; // Store previous file number to check if it changed
 
+
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
    double power, sag;
