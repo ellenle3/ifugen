@@ -81,8 +81,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
    SAG_FUNC sag_func = Conic2DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = Conic2DTransfer;
-   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
    SURF_NORMAL_FUNC surf_normal_func = Conic2DSurfaceNormal;
+   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
 
    switch(FD->type)
    	{
@@ -304,7 +304,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          ValidateSlicerParams(&p);
 
          // Set functions for sag generation and ray tracing
-         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
+         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
 
          if ( !IsParametersEqual(p, pold_GLOBAL) ) {
             // Update global extrema

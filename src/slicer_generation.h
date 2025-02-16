@@ -53,8 +53,8 @@ typedef struct {
 /** Function pointers */
 typedef double (*SAG_FUNC)(double, double, double, double, double, double, double);
 typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, double, double, double, double);
-typedef void (*CRITICAL_XY_FUNC)(double*, double*, double, double, double, double, double);
 typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, double, double, double, double, double, int);
+typedef void (*CRITICAL_XY_FUNC)(double*, double*, double, double, double, double, double);
 
 /**
  * @brief Creates a linearly spaced array. This is akin to the numpy linspace
@@ -96,7 +96,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2);
  * @param p 
  */
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
-CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SLICER_PARAMS p);
+SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, IMAGE_SLICER_PARAMS p);
 
 /**
  * @brief Computes the size of the image slicer.

@@ -77,19 +77,19 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
 }
 
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
-CRITICAL_XY_FUNC *critical_xy_func, SURF_NORMAL_FUNC *surf_normal_func, IMAGE_SLICER_PARAMS p) {
+SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, IMAGE_SLICER_PARAMS p) {
     // If the curvature is 0, then the image slicer is a plane
     if (p.cv == 0) {
         *sag_func = &TiltedPlaneSag;
-        *critical_xy_func = &TiltedPlaneCriticalXY;
         *transfer_dist_func = &TiltedPlaneTransfer;
         *surf_normal_func = &TiltedPlaneSurfaceNormal;
+        *critical_xy_func = &TiltedPlaneCriticalXY;
     }
     else {
         *sag_func = &Conic2DSag;
-        *critical_xy_func = &Conic2DCriticalXY;
         *transfer_dist_func = &Conic2DTransfer;
         *surf_normal_func = &Conic2DSurfaceNormal;
+        *critical_xy_func = &Conic2DCriticalXY;
     }
 
 }
@@ -364,6 +364,8 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
             }
         }
     }
+
+    free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values
     *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p, sag_func, critical_xy_func);

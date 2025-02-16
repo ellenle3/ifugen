@@ -1,18 +1,19 @@
 import numpy as np
-from slicer_generation import ImageSlicerParams
 from dataclasses import dataclass
 
-def load_slice_params(file_num, trace_walls, active_x, active_y):
+def load_slice_params_file(file_num):
     """Load parameters from a txt file. The two lines of the file *must* be
     as such:
 
-    n_slices_per_col, n_cols
+    n_slices_per_col, n_cols, surface_type
     dx, dy, gx_width, gx_depth, gy_width, gy_depth
 
     All entries in the first line must be integers and all entries in the second
-    line must be floats. From then on, the entires must be as follows:
+    line must be floats. solution refers to what type of surface to use: 0 for
+    2D conic, 1 for cylinder. ofFrom then on, the entires must
+    be as follows:
 
-    alpha, beta, gamma, c, k, solution
+    alpha, beta, gamma, c, k
 
     The number of entires *must* be equal to n_slices_per_col * n_cols. The row
     at slice_num * col_num + 2 corresponds to the entries for that slice and column
@@ -24,45 +25,32 @@ def load_slice_params(file_num, trace_walls, active_x, active_y):
     
     Returns
     -------
-    arr: nd.array of shape (n_slices_per_col * n_cols, 6)
+    slice_param_arr: nd.array of shape (n_slices_per_col * n_cols, 6)
         Array of parameters for each slice.
     p: ImageSlicerParams
         Contains data from the first two rows.
     """
+    slice_param_arr = np.zeros((n_slices_per_col * n_cols + 9, 5))
+    
     # Read in row by row
     data = np.loadtxt("custom_mirror_array_params" + file_num + ".txt")
-    n_slices_per_col, n_cols = data[0]
-    dx, dy, gx_width, gx_depth, gy_width, gy_depth = data[1]
-
+    data[:3] = n_slices_per_col, n_cols, surface_type
+    data[3:9] = data[1]
+    
     slice_data = data[2:]
-    arr = np.zeros((n_slices_per_col * n_cols, 6))
-    arr[:slice_data.shape[0]] = slice_data
+    slice_param_arr[9:slice_data.shape[0] + 9] = slice_data
+    
+    return slice_param_arr
 
-    p = ImageSlicerParams(
-        n_each = n_slices_per_col,
-        n_rows = 1,
-        n_cols = n_cols,
-        mode = -1,
-        trace_walls = False,
-        active_x = False,
-        active_y = False,
-        dalpha = -1,
-        dbeta = -1,
-        dgamma = -1,
-        gamma_offset = -1,
-        alpha_cen = -1,
-        beta_cen = -1,
-        gamma_cen = -1,
-        dx = dx,
-        dy = dy,
-        c = -1,
-        k = -1,
-        gx_width = gx_width,
-        gx_depth = gx_depth,
-        gy_width = gy_width,
-        gy_depth = gy_depth,
-        custom = True
-    )
+def get_slice_params_custom(col_num, slice_num, slice_param_arr):
+    """Returns parameters that define a slice at a given col, slice index.
+    """
+    alpha = slice_param_arr[slice_num * col_num + 9, 0]
+    beta = slice_param_arr[slice_num * col_num + 9, 1]
+    gamma = slice_param_arr[slice_num * col_num + 9, 2]
+    c = slice_param_arr[slice_num * col_num + 9, 3]
+    k = slice_param_arr[slice_num * col_num + 9, 4]
+    return alpha, beta, gamma, c, k
 
 def make_sample_txt(p, fn_out):
     """Make a sample txt file for loading slice parameters.

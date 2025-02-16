@@ -1,15 +1,18 @@
 import math
 import numpy as np
 from dataclasses import dataclass
-
+from surface_solns import *
+from custom_array_helpers import *
 
 @dataclass
 class ImageSlicerParams:
     """Class for storing image slicer params."""
+    custom: int
+    cylinder: int
     n_each: int
     n_rows: int
     n_cols: int
-    mode: int
+    angle_mode: int
     dalpha: float
     dbeta: float
     dgamma: float
@@ -25,7 +28,6 @@ class ImageSlicerParams:
     gx_depth: float
     gy_width: float
     gy_depth: float
-    custom: bool = False
 
 @dataclass
 class RayIn:
@@ -49,6 +51,10 @@ def check_slicer_params(p):
     """Returns True if all image slicer parameters are valid.
     """
     pass
+
+def get_surface_funcs(p):
+    if p.c == 0:
+        return tilted_plane_sag,
 
 def get_slicer_size(p):
     # Return image slicer x, y dimensions
@@ -92,10 +98,15 @@ def get_paraxial_slice_index(p, active_x, active_y):
 
     return col_num, slice_num
 
-def get_slice_angles(slice_num, col_num, p):
+def get_slice_params(slice_num, col_num, p):
     """Returns the angles alpha and beta for the slice number. Indexing starts at
     0 from the bottom (negative y direction) of the image slicer.
     """
+    if p.custom:
+        return get_slice_params_custom(slice_num, col_num, p)
+    return get_slice_params_standard(slice_num, col_num, p) 
+
+def get_slice_params_standard(slice_num, col_num, p):
     # Get row number as well as the subindex of the slice on that row
     row_num = slice_num // p.n_each
     slice_num_row = slice_num - row_num*p.n_each
@@ -125,14 +136,14 @@ def get_slice_angles(slice_num, col_num, p):
 
     # Determine offsets in gamma. First, check whether the mode allows the extra
     # offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
-    if (p.mode == 2 or p.mode == 3):
+    if (p.angle_mode == 2 or p.angle_mode == 3):
         # gamma_offset should not stack
         if row_num % 2 == 0:
             gamma_extra = -p.gamma_offset/2
         else:
             gamma_extra = p.gamma_offset/2
 
-    if (p.mode == 0 or p.mode == 2):
+    if (p.angle_mode == 0 or p.angle_mode == 2):
         # If the row is even, the angles are the same as the central row
         # If odd, the top/bottom angles are flipped
         if row_num % 2 == 0:
@@ -140,9 +151,9 @@ def get_slice_angles(slice_num, col_num, p):
         else:
             gamma = gamma_top - slice_num_row*p.dgamma + gamma_extra
     # Copy the same angle pattern as the central row
-    elif (p.mode == 1 or p.mode == 3):
+    elif (p.angle_mode == 1 or p.angle_mode == 3):
         gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
-    return alpha, beta, gamma
+    return alpha, beta, gamma, p.c, p.k
 
 def make_image_slicer(x, y, p, sag_func):
     """Returns the sag of the image slicer.
@@ -170,8 +181,8 @@ def make_image_slicer(x, y, p, sag_func):
     if in_ygap:
         return p.gy_depth
     # Inside a slice. From the slice number, determine the angles
-    alpha, beta, gamma = get_slice_angles(slice_num, col_num, p)
-    return sag_func(x, y, p.c, p.k, alpha, beta, gamma)
+    alpha, beta, gamma, c, k = get_slice_params(slice_num, col_num, p)
+    return sag_func(x, y, c, k, alpha, beta, gamma)
 
 def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     """
@@ -192,7 +203,7 @@ def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     # First, compute the bounds of the current slice
     col_num, slice_num = get_slicer_index(x0, y0, p)
     xsize, ysize = get_slicer_size(p)
-    alpha, beta, gamma = get_slice_angles(slice_num, col_num, p)
+    alpha, beta, gamma, c, k = get_slice_params(slice_num, col_num, p)
 
     xlo = col_num * (p.dx + p.gx_width) - xsize/2
     xhi = xlo + p.dx
@@ -200,15 +211,15 @@ def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     yhi = ylo + p.dy
 
     # Compute critical point
-    xc, yc = critical_xy_func(p.c, p.k, alpha, beta, gamma)
+    xc, yc = critical_xy_func(c, k, alpha, beta, gamma)
 
     # There are up to 5 points to compare depending on whether the critical
     # point is within bounds
     zsolns = np.zeros(5)
-    zsolns[0] = sag_func(xlo, ylo, p.c, p.k, alpha, beta, gamma)
-    zsolns[1] = sag_func(xlo, yhi, p.c, p.k, alpha, beta, gamma)
-    zsolns[2] = sag_func(xhi, ylo, p.c, p.k, alpha, beta, gamma)
-    zsolns[3] = sag_func(xhi, yhi, p.c, p.k, alpha, beta, gamma)
+    zsolns[0] = sag_func(xlo, ylo, c, k, alpha, beta, gamma)
+    zsolns[1] = sag_func(xlo, yhi, c, k, alpha, beta, gamma)
+    zsolns[2] = sag_func(xhi, ylo, c, k, alpha, beta, gamma)
+    zsolns[3] = sag_func(xhi, yhi, c, k, alpha, beta, gamma)
 
     # Number of elements to compare so far
     n_compare = 4
@@ -216,7 +227,7 @@ def find_bounded_extremum(x0, y0, p, mode, sag_func, critical_xy_func):
     # Check whether critical point is in bounds. If yes, compute the sag and
     # add to the array of points to compare.
     if (yc >= ylo and yc <= yhi and xc >= xlo and xc <= xhi):
-        zsolns[4] = sag_func(xc, yc, p.c, p.k, alpha, beta, gamma)
+        zsolns[4] = sag_func(xc, yc, c, k, alpha, beta, gamma)
         n_compare += 1
 
     # Compare potential solutions to get the maximum or minimum
@@ -301,7 +312,6 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist
     
     Returns
     -------
-    xs, ys, zs
     """
     # Tolerance for accepting the transfer distance as valid
     tol = 1e-11
@@ -357,8 +367,8 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist
             
             if (nc_test >= 0 and ns_test >= 0):
                 # Check if out of bounds
-                alpha, beta, gamma = get_slice_angles(ns_test, nc_test, p)
-                t = transfer_dist_func(xt, yt, l, m, n, p.c, p.k, alpha, beta, gamma)
+                alpha, beta, gamma, c, k = get_slice_params(ns_test, nc_test, p)
+                t = transfer_dist_func(xt, yt, l, m, n, c, k, alpha, beta, gamma)
                 result = transfer_equation(t, xt, yt, l, m, n, p, sag_func)
 
                 print("checking " + str((nc_test, ns_test)))
@@ -372,7 +382,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist
                     xs = xt + t*l
                     ys = yt + t*m
                     zs = t*n
-                    ln, mn, nn = surf_normal_func(xs, ys, p.c, p.k, alpha, beta, gamma, True)
+                    ln, mn, nn = surf_normal_func(xs, ys, c, k, alpha, beta, gamma, True)
 
                     # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
                     # equal to the gap depth then this may be the case.
@@ -401,9 +411,9 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist
                         yfar = yt + tfar*m
                         zfar = tfar*n
 
-                        znear_slice = sag_func(xnear, ynear, p.c, p.k, alpha, beta, gamma)
-                        alpha, beta, gamma = get_slice_angles(ns_test, nc_test + 1*sgnc, p)
-                        zfar_slice = sag_func(xfar, yfar, p.c, p.k, alpha, beta, gamma)
+                        znear_slice = sag_func(xnear, ynear, c, k, alpha, beta, gamma)
+                        alpha, beta, gamma, c, k = get_slice_params(ns_test, nc_test + 1*sgnc, p)
+                        zfar_slice = sag_func(xfar, yfar, c, k, alpha, beta, gamma)
 
                         # Did it hit a near wall? This is only possible if the gap depth
                         # protrudes further in -z than the near edge
@@ -435,9 +445,9 @@ def ray_trace_slicer(ray_in, zmin, zmax, p, trace_walls, sag_func, transfer_dist
                         xfar = xt + tfar*l
                         zfar = tfar*n
                         
-                        znear_slice = sag_func(xnear, ynear, p.c, p.k, alpha, beta, gamma)
-                        alpha, beta, gamma = get_slice_angles(ns_test + 1*sgns, nc_test, p)
-                        zfar_slice = sag_func(xfar, yfar, p.c, p.k, alpha, beta, gamma)
+                        znear_slice = sag_func(xnear, ynear, c, k, alpha, beta, gamma)
+                        alpha, beta, gamma, c, k = get_slice_params(ns_test + 1*sgns, nc_test, p)
+                        zfar_slice = sag_func(xfar, yfar, c, k, alpha, beta, gamma)
 
                         # Did it hit a near wall? This is only possible if the gap depth
                         # protrudes further than the near edge
