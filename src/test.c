@@ -21,13 +21,12 @@ int main() {
     // Set up the image slicer
 
     IMAGE_SLICER_PARAMS p = {
+        .custom = 0,
+        .cylinder = 0,
         .n_each = 1,
         .n_rows = 1,
         .n_cols = 1,
-        .mode = 0,
-        .trace_walls = 0,
-        .active_x = 0,
-        .active_y = 0,
+        .angle_mode = 0,
         .dalpha = 0,
         .dbeta = 0,
         .dgamma = 0,
@@ -35,38 +34,29 @@ int main() {
         .beta_cen = 0,
         .gamma_cen = 0,
         .gamma_offset = 0,
-        .dx = 0,
-        .dy = 0,
+        .dx = 10,
+        .dy = 10,
         .gx_width = 0,
         .gx_depth = 0,
         .gy_width = 0,
         .gy_depth = 0,
         .cv = -0.01,
-        .k = -1
+        .k = -0.9999
     };
+
+    double custom_slice_params[1] = {0};
 
     SAG_FUNC sag_func;
     CRITICAL_XY_FUNC critical_xy_func;
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func; 
 
-    if (p.cv == 0) {
-            sag_func = &TiltedPlaneSag;
-            critical_xy_func = &TiltedPlaneCriticalXY;
-            transfer_dist_func = &TiltedPlaneTransfer;
-            surf_normal_func = &TiltedPlaneSurfaceNormal;
-         }
-         else {
-            sag_func = &Conic3DSag;
-            critical_xy_func = &Conic3DCriticalXY;
-            transfer_dist_func = &Conic3DTransfer;
-            surf_normal_func = &Conic3DSurfaceNormal;
-         }
+    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
     
-    TestImageSlicerSag(fptr, p, sag_func);
+    //TestImageSlicerSag(fptr, p, sag_func);
     //TestGlobalExtrema(fptr, p, sag_func, critical_xy_func);
     //TestRayTrace(fptr, p, sag_func, transfer_dist_func, surf_normal_func, critical_xy_func);
-    //TestTransferDistance(fptr, p, transfer_dist_func);
+    TestTransferDistance(fptr, p, transfer_dist_func);
 
     fclose(fptr);
 }
@@ -76,6 +66,7 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
     // Compute test function over an array of points and save to a TXT file
     double xsize, ysize;
     double output;
+    double custom_slice_params[1] = {0};
     GetSlicerSize(&xsize, &ysize, p);
 
     int nx = 20; int ny = 20;
@@ -85,7 +76,7 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
 
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            output = ImageSlicerSag(xpts[i], ypts[j], p, sag_func);
+            output = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params, sag_func);
             fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ypts[j], output);
         }
     }
@@ -94,7 +85,8 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     
     double zmin, zmax;
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+    double custom_slice_params[1] = {0};
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params, sag_func, critical_xy_func);
     fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
 
 }
@@ -134,7 +126,8 @@ SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
     RAY_OUT ray_out;
 
     double zmin, zmax, norm, l, m, n;
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, sag_func, critical_xy_func);
+    double custom_slice_params[1] = {0};
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params, sag_func, critical_xy_func);
 
     int num = 2;
     double xpts[num]; double ypts[num];
@@ -159,8 +152,8 @@ SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
                         ray_in.xt = xpts[i1]; ray_in.yt = ypts[i2];
                         ray_in.l = l; ray_in.m = m; ray_in.n = n;
 
-                        RayTraceSlicer(&ray_out, ray_in, zmin, zmax,
-                        p, sag_func, transfer_dist_func, surf_normal_func);
+                        RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
+                        p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
                         printf("        >>> going to next\n");

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include "slicer_generation.h"
 #include "surface_solns.h"
+#include "custom_array_params.h"
 
 /*
 Slicer generation and ray tracing algorithm.
@@ -32,7 +33,9 @@ int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
     if (p->n_cols < 1) { p->n_cols = 1; flag = 1; }
     if (p->n_rows < 1) { p->n_rows = 1; flag = 1; }
     if (p->n_each < 1) { p->n_each = 1; flag = 1; }
-    if (!(p->mode==0 || p->mode==1)) { p->mode = 0; flag = 1; }
+    if (!(p->angle_mode==0 || p->angle_mode==1 || p->angle_mode==2 || p->angle_mode==3)){
+        p->angle_mode = 0; flag = 1;
+        }
 
     // No need to check angles because we will convert them to be between -180
     // and 180 degrees...
@@ -56,7 +59,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
       p1.n_each == p2.n_each &&
       p1.n_rows == p2.n_rows &&
       p1.n_cols == p2.n_cols &&
-      p1.mode == p2.mode &&
+      p1.angle_mode == p2.angle_mode &&
       p1.dalpha == p2.dalpha &&
       p1.dbeta == p2.dbeta &&
       p1.dgamma == p2.dgamma &&
@@ -93,7 +96,6 @@ SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, IMAGE_SL
     }
 
 }
-
 
 // Sag generation and helpers for determining the parameters of individual slices
 
@@ -156,17 +158,32 @@ void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int activ
     if (n_slices % 2 == 0 && active_y) (*slice_num)++;
 }
 
+
+// If p.custom, then use the slice parameters provided in the array custom_slice_params.
+// Otherwise, this array is ignored.
+void GetSliceParams(double* alpha, double* beta, double* gamma, double* cv, double* k,
+int slice_num, int col_num, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
+    // if (p.custom) {
+    //     GetSliceParamsCustom(alpha, beta, gamma, slice_num, col_num, custom_slice_params);
+    //     return;
+    // }
+    GetSliceParamsStandard(alpha, beta, gamma, cv, k, slice_num, col_num, p);
+}
+
 // For a given column, row indices determine the angles alpha, beta, and gamma.
 // alpha and beta determine the behavior of one "section" of the image slicer.
 // gamma defines the rotation of each slice within that section. Essentially,
 // alpha results in rows of pupil images (e.g., IRTF/SPECTRE) and beta gives
 // different columns (e.g., VLT/MUSE).
 // 
-// The p.mode parameter allows the user to specify how the angles gamma switch
+// The p.angle_mode parameter allows the user to specify how the angles gamma switch
 // between rows. If the mode is 1, then gamma is incremented the same way in every
 // section. If 0, then sign of dgamma is flipped so that pattern is alternated
 // like a staircase.
-void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
+void GetSliceParamsStandard(double* alpha, double* beta, double* gamma, double* cv, double* k, int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
+    // cv and k are determined by p and are the same for all slices
+    *cv = p.cv; *k = p.k;
+    
     // Get row number as well as the subindex of the slice on that row
     int row_num = slice_num / p.n_each;
     int slice_num_row = slice_num - row_num * p.n_each;
@@ -205,13 +222,13 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
 
     // Determine offsets in gamma. First, check whether the mode allows the extra
     // offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
-    if (p.mode == 2 || p.mode == 3) {
+    if (p.angle_mode == 2 || p.angle_mode == 3) {
         // Offsets should not stack
         if (row_num % 2 == 0) gamma_extra = -p.gamma_offset / 2;
         else gamma_extra = p.gamma_offset / 2;
     }
 
-    switch (p.mode) {
+    switch (p.angle_mode) {
         case 0:
         case 2:
             // If the row is even, the angles are the same as the central row
@@ -233,7 +250,7 @@ void GetSliceAngles(double* alpha, double* beta, double* gamma, int slice_num, i
 }
 
 // The sag of the image slicer can be found by
-double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
+double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func) {
     // Get dimensions of the image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
@@ -256,15 +273,16 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_fu
     }
 
     // Inside a slice. From the slice number, determine the angles
-    double alpha, beta, gamma;
-    GetSliceAngles(&alpha, &beta, &gamma, slice_num, col_num, p);
-    return sag_func(x, y, p.cv, p.k, alpha, beta, gamma);
+    double alpha, beta, gamma, cv, k;
+    GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
+    return sag_func(x, y, cv, k, alpha, beta, gamma);
 }
 
 
 // Ray tracing
 
-double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
+SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     // If x0, y0 are inside gaps then we don't need to go further
     int in_xgap, in_ygap;
     IsInsideSlicerGap(&in_xgap, &in_ygap, x0, y0, p);
@@ -278,8 +296,8 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     GetSlicerIndex(&col_num, &slice_num, x0, y0, p);
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-    double alpha, beta, gamma;
-    GetSliceAngles(&alpha, &beta, &gamma, slice_num, col_num, p);
+    double alpha, beta, gamma, cv, k;
+    GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
 
     double xlo = col_num * (p.dx + p.gx_width) - xsize / 2;
     double xhi = xlo + p.dx;
@@ -288,22 +306,22 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 
     // Compute critical point
     double xc, yc;
-    critical_xy_func(&xc, &yc, p.cv, p.k, alpha, beta, gamma);
+    critical_xy_func(&xc, &yc, cv, k, alpha, beta, gamma);
 
     // There are up to 5 points to compare depending on whether the critical point
     // is within bounds.
     double zsolns[5];
-    zsolns[0] = sag_func(xlo, ylo, p.cv, p.k, alpha, beta, gamma);
-    zsolns[1] = sag_func(xlo, yhi, p.cv, p.k, alpha, beta, gamma);
-    zsolns[2] = sag_func(xhi, ylo, p.cv, p.k, alpha, beta, gamma);
-    zsolns[3] = sag_func(xhi, yhi, p.cv, p.k, alpha, beta, gamma);
+    zsolns[0] = sag_func(xlo, ylo, cv, k, alpha, beta, gamma);
+    zsolns[1] = sag_func(xlo, yhi, cv, k, alpha, beta, gamma);
+    zsolns[2] = sag_func(xhi, ylo, cv, k, alpha, beta, gamma);
+    zsolns[3] = sag_func(xhi, yhi, cv, k, alpha, beta, gamma);
 
     int n_compare = 4; // Number of elements to compare so far
 
     // Check whether critical points are in bounds. If yes, compute the sag an
     // add to the array of points to compare.
     if (yc >= ylo && yc <= yhi && xc >= xlo && xc <= xhi) {
-        zsolns[4] = sag_func(xc, yc, p.cv, p.k, alpha, beta, gamma);
+        zsolns[4] = sag_func(xc, yc, cv, k, alpha, beta, gamma);
         n_compare++;
     }
     
@@ -320,7 +338,8 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 }
 
 
-void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
+SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     // Determine which slice the global extrema are on by roughly sampling the
     // entire image slicer
     double xsize, ysize;
@@ -352,7 +371,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
     double x0_min = 0, y0_min = 0, z0_min = INFINITY;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            double z = ImageSlicerSag(xpts[i], ypts[j], p, sag_func);
+            double z = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params, sag_func);
             if (z > z0_max) {
                 x0_max = xpts[i];
                 y0_max = ypts[j];
@@ -368,15 +387,16 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
     free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values
-    *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p, sag_func, critical_xy_func);
-    *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p, sag_func, critical_xy_func);
+    *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p, custom_slice_params, sag_func, critical_xy_func);
+    *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p, custom_slice_params, sag_func, critical_xy_func);
 }
 
-double TransferEquation(double t, double xt, double yt, double l, double m, double n, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
+double TransferEquation(double t, double xt, double yt, double l, double m, double n,
+IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func) {
     double xs = xt + t*l;
     double ys = yt + t*m;
     double zs = t*n;
-    double sag = ImageSlicerSag(xs, ys, p, sag_func);
+    double sag = ImageSlicerSag(xs, ys, p, custom_slice_params, sag_func);
     return sag - zs;
 }
 
@@ -422,8 +442,7 @@ int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_P
     return 1;
 }
 
-
-void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p, int trace_walls,
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
     SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
 
     // Tolerance for accepting the transfer distance as valid
@@ -460,7 +479,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
     double l = ray_in.l, m = ray_in.m, n = ray_in.n;
 
     int n_sforc, in_xgap, in_ygap;
-    double x_cross, y_cross, alpha, beta, gamma, t_test, result;
+    double x_cross, y_cross, alpha, beta, gamma, cv, k, t_test, result;
     double xs, ys, zs, t, ln, mn, nn;
     double xnear, ynear, znear, tnear, xfar, yfar, zfar, tfar, znear_slice, zfar_slice, zcompare;
 
@@ -489,9 +508,9 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
             if (nc_test >= 0 && ns_test >= 0) {
 
                 // Check if out of bounds
-                GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test, p);
-                t_test = transfer_dist_func(xt, yt, l, m, n, p.cv, p.k, alpha, beta, gamma);
-                result = TransferEquation(t_test, xt, yt, l, m, n, p, sag_func);
+                GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test, nc_test, p, custom_slice_params);
+                t_test = transfer_dist_func(xt, yt, l, m, n, cv, k, alpha, beta, gamma);
+                result = TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func);
 
                 //printf("checking (%d, %d)\n", nc_test, ns_test);
                 //printf("t is %.6f\n", t_test);
@@ -505,7 +524,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                     xs = xt + t_test*l;
                     ys = yt + t_test*m;
                     zs = t_test*n;
-                    surf_normal_func(&ln, &mn, &nn, xs, ys, p.cv, p.k, alpha, beta, gamma, 1);
+                    surf_normal_func(&ln, &mn, &nn, xs, ys, cv, k, alpha, beta, gamma, 1);
 
                     // WAIT - Is the solution inside of a gap? If we're unlucky
                     // and zs is equal to the gap depth then this may be the case.
@@ -537,9 +556,9 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                         yfar = yt + tfar*m;
                         zfar = tfar*n;
 
-                        znear_slice = sag_func(xnear, ynear, p.cv, p.k, alpha, beta, gamma);
-                        GetSliceAngles(&alpha, &beta, &gamma, ns_test, nc_test + 1*sgnc, p);
-                        zfar_slice = sag_func(xfar, yfar, p.cv, p.k, alpha, beta, gamma);
+                        znear_slice = sag_func(xnear, ynear, cv, k, alpha, beta, gamma);
+                        GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test, nc_test + 1*sgnc, p, custom_slice_params);
+                        zfar_slice = sag_func(xfar, yfar, cv, k, alpha, beta, gamma);
 
                         // Did it hit a near wall? This is only possible if the gap depth
                         // protrudes further in -z than the near edge
@@ -574,9 +593,9 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
                             xfar = xt + tfar*l;
                             zfar = tfar*n;
                             
-                            znear_slice = sag_func(xnear, ynear, p.cv, p.k, alpha, beta, gamma);
-                            GetSliceAngles(&alpha, &beta, &gamma, ns_test + 1*sgns, nc_test, p);
-                            zfar_slice = sag_func(xfar, yfar, p.cv, p.k, alpha, beta, gamma);
+                            znear_slice = sag_func(xnear, ynear, cv, k, alpha, beta, gamma);
+                            GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test + 1*sgns, nc_test, p, custom_slice_params);
+                            zfar_slice = sag_func(xfar, yfar, cv, k, alpha, beta, gamma);
 
                             if ( (znear_slice > p.gy_depth && p.gy_width > 0) && (znear < znear_slice && znear > p.gy_depth) ) {
                                 ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear; ray_out->t = tnear;
@@ -617,13 +636,13 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, I
 
     // Gaps between columns take precedence over gaps between slices in rows
     t_test = p.gx_depth / n;
-    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol ) {
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gx_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;
     }
     t_test = p.gy_depth / n;
-    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, sag_func)) < tol ) {
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol ) {
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gy_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;

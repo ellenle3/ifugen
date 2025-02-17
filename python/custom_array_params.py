@@ -1,5 +1,4 @@
 import numpy as np
-from dataclasses import dataclass
 
 def load_slice_params_file(file_num):
     """Load parameters from a txt file. The two lines of the file *must* be
@@ -30,13 +29,14 @@ def load_slice_params_file(file_num):
     p: ImageSlicerParams
         Contains data from the first two rows.
     """
-    slice_param_arr = np.zeros((n_slices_per_col * n_cols + 9, 5))
-    
     # Read in row by row
     data = np.loadtxt("custom_mirror_array_params" + file_num + ".txt")
-    data[:3] = n_slices_per_col, n_cols, surface_type
-    data[3:9] = data[1]
-    
+    n_slices_per_col, n_cols, surface_type = data[:3]
+
+    slice_param_arr = np.zeros((n_slices_per_col * n_cols + 9, 5))
+    slice_param_arr[:3] = n_slices_per_col, n_cols, surface_type
+
+    slice_param_arr[3:9] = data[1]
     slice_data = data[2:]
     slice_param_arr[9:slice_data.shape[0] + 9] = slice_data
     

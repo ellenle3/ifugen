@@ -28,27 +28,27 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 double zmin_GLOBAL, zmax_GLOBAL;
 // Need to keep track of whether parameters changed
 IMAGE_SLICER_PARAMS pold_GLOBAL = {
+        .custom = 0,
+        .cylinder = -1,
         .n_each = -1,
         .n_rows = -1,
         .n_cols = -1,
-        .mode = -1,
-        .active_x = -1,
-        .active_y = -1,
-        .dalpha = -1,
-        .dbeta = -1,
-        .dgamma = -1,
-        .gamma_offset = -1,
-        .alpha_cen = -1,
-        .beta_cen = -1,
-        .gamma_cen = -1,
-        .dx = -1,
-        .dy = -1,
-        .gx_width = -1,
-        .gx_depth = -1,
-        .gy_width = -1,
-        .gy_depth = -1,
-        .cv = -1,
-        .k = -1
+        .angle_mode = -1,
+        .dalpha = NAN,
+        .dbeta = NAN,
+        .dgamma = NAN,
+        .alpha_cen = NAN,
+        .beta_cen = NAN,
+        .gamma_cen = NAN,
+        .gamma_offset = NAN,
+        .dx = NAN,
+        .dy = NAN,
+        .gx_width = NAN,
+        .gx_depth = NAN,
+        .gy_width = NAN,
+        .gy_depth = NAN,
+        .cv = NAN,
+        .k = NAN
     };
 
 
@@ -78,6 +78,16 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    };
 
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
+   // We will never need the custom_slice_params array in standard mode but we need
+   // to pass it as an argument. It will never be accessed because p.custom will
+   // always be set to 0.
+   double custom_slice_params[1] = {0};
+   p.custom = 0;
+
+   // Store some other FD params
+   int trace_walls = FD->param[0];
+   int active_x = FD->param[1];
+   int active_y = FD->param[2];
 
    SAG_FUNC sag_func = Conic2DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = Conic2DTransfer;
@@ -123,54 +133,57 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
                strcpy(UD->string,"active_y");
                break;
             case 3:
-               strcpy(UD->string,"n_each");
+               strcpy(UD->string,"cylinder");
                break;
             case 4:
-               strcpy(UD->string,"n_rows");
+               strcpy(UD->string,"n_each");
                break;
             case 5:
-               strcpy(UD->string,"n_cols");
+               strcpy(UD->string,"n_rows");
                break;
             case 6:
-            	strcpy(UD->string,"mode");
+               strcpy(UD->string,"n_cols");
                break;
             case 7:
-            	strcpy(UD->string,"dalpha");
+            	strcpy(UD->string,"angle_mode");
                break;
             case 8:
-            	strcpy(UD->string,"dbeta");
+            	strcpy(UD->string,"dalpha");
                break;
             case 9:
-            	strcpy(UD->string,"dgamma");
+            	strcpy(UD->string,"dbeta");
                break;
             case 10:
-               strcpy(UD->string,"gamma_offset");
+            	strcpy(UD->string,"dgamma");
                break;
             case 11:
-            	strcpy(UD->string,"alpha_cen");
+               strcpy(UD->string,"gamma_offset");
                break;
             case 12:
-            	strcpy(UD->string,"beta_cen");
+            	strcpy(UD->string,"alpha_cen");
                break;
             case 13:
-            	strcpy(UD->string,"gamma_cen");
+            	strcpy(UD->string,"beta_cen");
                break;
             case 14:
-            	strcpy(UD->string,"dx");
+            	strcpy(UD->string,"gamma_cen");
                break;
             case 15:
-            	strcpy(UD->string,"dy");
+            	strcpy(UD->string,"dx");
                break;
             case 16:
-            	strcpy(UD->string,"gx_width");
+            	strcpy(UD->string,"dy");
                break;
             case 17:
-            	strcpy(UD->string,"gx_depth");
+            	strcpy(UD->string,"gx_width");
                break;
             case 18:
-            	strcpy(UD->string,"gy_width");
+            	strcpy(UD->string,"gx_depth");
                break;
             case 19:
+            	strcpy(UD->string,"gy_width");
+               break;
+            case 20:
             	strcpy(UD->string,"gy_depth");
                break;
             default:
@@ -196,7 +209,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
+         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params, sag_func);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -242,8 +255,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
-         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL,
-            p, sag_func, transfer_dist_func, surf_normal_func);
+         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL, trace_walls,
+            p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -274,23 +287,24 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[0] = 0;      // trace_walls
          FD->param[1] = 0;      // active_x
          FD->param[2] = 0;      // active_y
-         FD->param[3] = 5;      // n_each
-         FD->param[4] = 1;      // n_rows
-         FD->param[5] = 1;      // n_cols
-         FD->param[6] = 0;      // mode
-         FD->param[7] = 4.0;    // dalpha
-         FD->param[8] = 4.0;    // dbeta
-         FD->param[9] = 1.0;    // dgamma
-         FD->param[10] = 0.0;   // gamma_offset
-         FD->param[11] = 0.0;   // alpha_cen
-         FD->param[12] = 0.0;   // beta_cen
-         FD->param[13] = 0.0;   // gamma_cen
-         FD->param[14] = 8.0;   // dx
-         FD->param[15] = 1;     // dy
-         FD->param[16] = 0.0;   // gx_width
-         FD->param[17] = 0.0;   // gx_depth
-         FD->param[18] = 0.0;   // gy_width
-         FD->param[19] = 0.0;   // gy_depth
+         FD->param[3] = 0;      // cylinder
+         FD->param[4] = 5;      // n_each
+         FD->param[5] = 2;      // n_rows
+         FD->param[6] = 1;      // n_cols
+         FD->param[7] = 0;      // angle_mode
+         FD->param[8] = 4.0;    // dalpha
+         FD->param[9] = 4.0;    // dbeta
+         FD->param[10] = 1.0;   // dgamma
+         FD->param[11] = 0.0;   // gamma_offset
+         FD->param[12] = 0.0;   // alpha_cen
+         FD->param[13] = 0.0;   // beta_cen
+         FD->param[14] = 0.0;   // gamma_cen
+         FD->param[15] = 8.0;   // dx
+         FD->param[16] = 1.5;   // dy
+         FD->param[17] = 0.0;   // gx_width
+         FD->param[18] = 0.0;   // gx_depth
+         FD->param[19] = 0.0;   // gy_width
+         FD->param[20] = 0.0;   // gy_depth
          FD->cv = -0.01;
          FD->k = 0;
 
@@ -308,7 +322,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          if ( !IsParametersEqual(p, pold_GLOBAL) ) {
             // Update global extrema
-            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
+            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params, sag_func, critical_xy_func);
             pold_GLOBAL = p;
          };
          break;
@@ -346,45 +360,47 @@ return 0;
 
 // Functions to convert between Zemax FIXED_DATA and image slicer params struct
 void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   FD->param[3] =  p->n_each;
-   FD->param[4] =  p->n_rows;
-   FD->param[5] =  p->n_cols;
-   FD->param[6] =  p->mode;
-   FD->param[7] =  p->dalpha;
-   FD->param[8] =  p->dbeta;
-   FD->param[9] =  p->dgamma;
-   FD->param[10] = p->gamma_offset;
-   FD->param[11] = p->alpha_cen;
-   FD->param[12] = p->beta_cen;
-   FD->param[13] = p->gamma_cen;
-   FD->param[14] = p->dx;
-   FD->param[15] = p->dy;
-   FD->param[16] = p->gx_width;
-   FD->param[17] = p->gx_depth;
-   FD->param[18] = p->gy_width;
-   FD->param[19] = p->gy_depth;
+   FD->param[3] =  p->cylinder;
+   FD->param[4] =  p->n_each;
+   FD->param[5] =  p->n_rows;
+   FD->param[6] =  p->n_cols;
+   FD->param[7] =  p->mode;
+   FD->param[8] =  p->dalpha;
+   FD->param[9] =  p->dbeta;
+   FD->param[10] =  p->dgamma;
+   FD->param[11] = p->gamma_offset;
+   FD->param[12] = p->alpha_cen;
+   FD->param[13] = p->beta_cen;
+   FD->param[14] = p->gamma_cen;
+   FD->param[15] = p->dx;
+   FD->param[16] = p->dy;
+   FD->param[17] = p->gx_width;
+   FD->param[18] = p->gx_depth;
+   FD->param[19] = p->gy_width;
+   FD->param[20] = p->gy_depth;
    FD->cv = p->cv;
    FD->k = p->k;
 }
 
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   p->n_each =       FD->param[3];
-   p->n_rows =       FD->param[4];
-   p->n_cols =       FD->param[5];
-   p->mode =         FD->param[6];
-   p->dalpha =       FD->param[7];
-   p->dbeta =        FD->param[8];
-   p->dgamma =       FD->param[9];
-   p->gamma_offset = FD->param[10];
-   p->alpha_cen =    FD->param[11];
-   p->beta_cen =     FD->param[12];
-   p->gamma_cen =    FD->param[13];
-   p->dx =           FD->param[14];
-   p->dy =           FD->param[15];
-   p->gx_width =     FD->param[16];
-   p->gx_depth =     FD->param[17];
-   p->gy_width =     FD->param[18];
-   p->gy_depth =     FD->param[19];
+   p->cylinder =     FD->param[3];
+   p->n_each =       FD->param[4];
+   p->n_rows =       FD->param[5];
+   p->n_cols =       FD->param[6];
+   p->mode =         FD->param[7];
+   p->dalpha =       FD->param[8];
+   p->dbeta =        FD->param[9];
+   p->dgamma =       FD->param[10];
+   p->gamma_offset = FD->param[11];
+   p->alpha_cen =    FD->param[12];
+   p->beta_cen =     FD->param[13];
+   p->gamma_cen =    FD->param[14];
+   p->dx =           FD->param[15];
+   p->dy =           FD->param[16];
+   p->gx_width =     FD->param[17];
+   p->gx_depth =     FD->param[18];
+   p->gy_width =     FD->param[19];
+   p->gy_depth =     FD->param[20];
    p->cv = FD->cv;
    p->k =  FD->k;
 }

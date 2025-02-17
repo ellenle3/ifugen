@@ -47,7 +47,7 @@ double Conic2DSag(double x, double y, double cv, double k, double alpha, double 
     else sgn = -1;
 
     double x0, y0;
-    Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     if (k == -1 && gamma == 0) {
         x += x0; y += y0;
@@ -88,7 +88,7 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, doubl
     else sgn = -1;
         
     double x0, y0;
-    Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     if (k == -1 && gamma == 0) {
         xt += x0; yt += y0;
@@ -125,7 +125,7 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     else sgn = -1;
 
     double x0, y0;
-    Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     double dervx, dervy;
     if (k == -1 && gamma == 0) {
@@ -179,7 +179,7 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
 // is only used for the critical point calculation. 
 double Conic2DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
     double dervx, dervy, dervz;
-    Conic3DSurfaceNormal(&dervx, &dervy, &dervz, x, y, cv, k, alpha, beta, gamma, 0);
+    Conic2DSurfaceNormal(&dervx, &dervy, &dervz, x, y, cv, k, alpha, beta, gamma, 0);
     return dervx;
 }
 
@@ -212,7 +212,7 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
     gamma = ConvertAngle(gamma) * M_PI/180;
 
     double x0, y0;
-    Conic3DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     // Perform secant method to find xc; it should be around x0 if gamma is not
     // huge. Use 10% the radius of curvature as initial guesses to compute the
@@ -223,8 +223,8 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
     double err = 1;
     int i = 1;
     while (err < tol && i < niter_max) {
-        dervx0 = Conic3DDervX(xc0, -y0, cv, k, alpha, beta, gamma);
-        dervx1 = Conic3DDervX(xc1, -y0, cv, k, alpha, beta, gamma);
+        dervx0 = Conic2DDervX(xc0, -y0, cv, k, alpha, beta, gamma);
+        dervx1 = Conic2DDervX(xc1, -y0, cv, k, alpha, beta, gamma);
         xc2 = (xc0 * dervx1 - xc1 * dervx0) / (dervx1 - dervx0);
         err = fabs(xc2 - xc1);
         xc0 = xc1; xc1 = xc2;
