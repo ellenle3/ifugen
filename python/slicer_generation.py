@@ -2,7 +2,7 @@ import math
 import numpy as np
 from dataclasses import dataclass
 from surface_solns import *
-from custom_array_params import *
+from custom_slicer_helpers import *
 
 @dataclass
 class ImageSlicerParams:
@@ -47,14 +47,92 @@ class RayOut:
     mn: float
     nn: float
 
-def check_slicer_params(p):
-    """Returns True if all image slicer parameters are valid.
+def validate_slicer_params(p):
+    """Returns True if all image slicer parameters are valid. Otherwise, modifies
+    p to be valid and returns False.
+
+    Parameters
+    ----------
+    p: ImageSlicerParams
+        Image slicer parameters.
+    
+    Returns
+    -------
+    is_valid: bool
+        True if all parameters are valid. False if p needed to be modified.
     """
-    pass
+    is_valid = True
+
+    # Do not touch the custom flag
+    if p.cylinder not in [0, 1]:
+        p.cylinder = 0
+        is_valid = False
+
+    if p.n_cols < 1:
+        p.n_cols = 1
+        is_valid = False
+    if p.n_rows < 1:
+        p.n_rows = 1
+        is_valid = False
+    if p.n_each < 1:
+        p.n_each = 1
+        is_valid = False
+    if p.angle_mode not in [0, 1, 2, 3]:
+        p.angle_mode = 0
+        is_valid = False
+
+    # Angles can be whatever since we will convert them to be +/- 180
+
+    if p.dx <= 0:
+        p.dx = 1
+        is_valid = False
+    if p.dy <= 0:
+        p.dy = 1
+        is_valid = False
+    if p.gx_width < 0:
+        p.gx_width = 0
+        is_valid = False
+    if p.gy_width < 0:
+        p.gy_width = 0
+        is_valid = False
+    
+    # Gap depths can also be whatever, no limitations on c or k either
+    return is_valid
 
 def get_surface_funcs(p):
     if p.c == 0:
-        return tilted_plane_sag,
+        return tilted_plane_sag, tilted_plane_transfer, tilted_plane_surface_normal, tilted_plane_critical_xy
+    else:
+        return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
+    # if p.cylinder:
+    
+def make_image_slicer_params_from_custom(custom_slice_params):
+    p = ImageSlicerParams(
+        custom = 1,
+        n_each = 1,
+        n_rows = custom_slice_params[0],
+        cylinder = custom_slice_params[2],
+        n_cols = custom_slice_params[1],
+        dx = custom_slice_params[3],
+        dy = custom_slice_params[4],
+        gx_width = custom_slice_params[5],
+        gx_depth = custom_slice_params[6],
+        gy_width = custom_slice_params[7],
+        gy_depth = custom_slice_params[8],
+
+        # These params are unused for custom slicers, set to 0
+        angle_mode = 0,
+        dalpha = 0,
+        dbeta = 0,
+        dgamma = 0,
+        gamma_offset = 0,
+        alpha_cen = 0,
+        beta_cen = 0,
+        gamma_cen = 0,
+        c = 0,
+        k = 0
+    )
+    return p
 
 def get_slicer_size(p):
     # Return image slicer x, y dimensions

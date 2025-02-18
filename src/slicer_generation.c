@@ -28,28 +28,29 @@ void linspace(double *array, double start, double end, int n) {
 // Validate image slicer parameters, modifying illegal parameters as needed.
 int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
     // Keep track of whether we had to change any parameters
-    int flag = 0;
-    
-    if (p->n_cols < 1) { p->n_cols = 1; flag = 1; }
-    if (p->n_rows < 1) { p->n_rows = 1; flag = 1; }
-    if (p->n_each < 1) { p->n_each = 1; flag = 1; }
+    int is_valid = 1;
+
+    // Do not touch the custom flag
+
+    if (!(p->cylinder==0 || p->cylinder==1)) { p->cylinder=0; is_valid = 0; }
+    if (p->n_cols < 1) { p->n_cols = 1; is_valid = 0; }
+    if (p->n_rows < 1) { p->n_rows = 1; is_valid = 0; }
+    if (p->n_each < 1) { p->n_each = 1; is_valid = 0; }
     if (!(p->angle_mode==0 || p->angle_mode==1 || p->angle_mode==2 || p->angle_mode==3)){
-        p->angle_mode = 0; flag = 1;
+        p->angle_mode = 0; is_valid = 0;
         }
 
     // No need to check angles because we will convert them to be between -180
     // and 180 degrees...
 
-    if (p->dx <= 0) { p->dx = 1; flag = 1; }
-    if (p->dy <= 0) { p->dy = 1; flag = 1; }
-    if (p->gx_width < 0) { p->gx_width = 0; flag = 1; }
-    if (p->gy_width < 0) { p->gy_width = 0; flag = 1; }
+    if (p->dx <= 0) { p->dx = 1; is_valid = 0; }
+    if (p->dy <= 0) { p->dy = 1; is_valid = 0; }
+    if (p->gx_width < 0) { p->gx_width = 0; is_valid = 0; }
+    if (p->gy_width < 0) { p->gy_width = 0; is_valid = 0; }
 
     // Gap depths can be whatever
     // There are also no limitations on cv and k
-
-    if (flag) return 1;
-    return 0;
+    return is_valid;
 }
 
 // Checks whether every member in each of the IMAGER_SLICER_PARAMS structs are

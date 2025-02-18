@@ -41,7 +41,7 @@ int main() {
         .gy_width = 0,
         .gy_depth = 0,
         .cv = -0.01,
-        .k = -0.9999
+        .k = -1
     };
 
     double custom_slice_params[1] = {0};

@@ -149,12 +149,12 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 			xstep = p.dx / (Nx - 1); ystep = p.dy / (Ny - 1);
 			// First, do the surfaces of all of the slices
-			for (col_num = 0, col_num < p.n_cols, col_num++) {
+			for (col_num = 0; col_num < p.n_cols; col_num++) {
 
 					xstart = col_num * (p.dx + p.gx_width) - xsize / 2;
 					xend = xstart + p.dx;
 
-				for (slice_num = 0, slice_num < p.n_each * p.n_rows, slice_num++) {
+				for (slice_num = 0; slice_num < p.n_each * p.n_rows; slice_num++) {
 					
 					ystart = slice_num * (p.dy + p.gy_width) - ysize / 2;
 					yend = yend + p.dy;
@@ -246,9 +246,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			// ... y gaps
 			if (p.gy_width > 0) {
 				// Fill in gaps between slices on y-axis
-				for (col_num = 0, col_num < p.n_cols, col_num++) {
+				for (col_num = 0; col_num < p.n_cols; col_num++) {
 
-					for (slice_num = 0, slice_num < p.n_each * p.n_rows - 1, slice_num++) {
+					for (slice_num = 0; slice_num < p.n_each * p.n_rows - 1; slice_num++) {
 
 						x1 = col_num * (p.dx + p.gx_width) - xsize / 2;
 						x2 = col_num * (p.dx + p.gx_width) + p.dx - xsize / 2;
@@ -286,8 +286,8 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			// number of intersection points between gaps. 4 walls (8) triangles
 			// for each one... No need if either xgap or ygap size is 0.
 			if (p.gx_width > 0 && p.gy_width > 0 && p.gx_depth != p.gy_depth) {
-				for (col_num = 0, col_num < p.n_cols - 1, col_num++) {
-					for (slice_num = 0, slice_num < p.n_each * p.n_rows - 1, slice_num++) {
+				for (col_num = 0; col_num < p.n_cols - 1; col_num++) {
+					for (slice_num = 0; slice_num < p.n_each * p.n_rows - 1; slice_num++) {
 						x1 = ;
 						y2 = ;
 						x1 = ;
