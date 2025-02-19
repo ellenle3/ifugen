@@ -7,6 +7,7 @@
 #include "usersurf.h"
 #include "slicer_generation.h"
 #include "surface_solns.h"
+#include "custom_slicer_helpers.h"
 
 /*
 Ellen Lee
@@ -15,9 +16,10 @@ Feb 2025
 
 // The maximum number of slices that can be defined in the params file. This is
 // to prevent the param array from becoming excessively large. Set limit is
-// 5000 * 5000 slices. This is probably way more than anyone would ever need...
-// 8 bytes per double * 5 doubles per slice * (5000^2) slices = 1 GB.
-#define MAX_SLICES 125000000
+// 2500 * 2500 slices. This is probably way more than anyone would ever need...
+// 8 bytes per double * 5 doubles per slice * (2500^2) slices = 250 MB.
+// Plus 9 elements for the first 9 parameters.
+#define MAX_ELEMENTS 6250009
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
@@ -33,8 +35,28 @@ int file_num_old_GLOBAL = -999999999; // Store previous file number to check if 
 
 // Keep the custom slice parameters in a global array so we don't need to reload
 // the file every time this DLL is called.
-double custom_slice_params[1] = {0};
+double *custom_slice_params;
 
+
+BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
+{
+	switch (ul_reason_for_call)
+	{
+      case DLL_PROCESS_ATTACH:
+         custom_slice_params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
+         
+         if (custom_slice_params == NULL) {
+            MessageBox(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
+            return FALSE;
+         }
+         break;
+
+      case DLL_PROCESS_DETACH:
+         free(custom_slice_params);
+         break;
+	}
+	return TRUE;
+}
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
@@ -63,7 +85,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int file_num = FD->param[3];
 
    // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS p;
+   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(custom_slice_params);
+   ValidateSlicerParams(&p);
    p.custom = 1;
    
    SAG_FUNC sag_func = Conic2DSag;
@@ -223,9 +246,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
 
-         //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
-         ValidateSlicerParams(&p);
-
          // Set functions for sag generation and ray tracing
          GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
 
@@ -236,6 +256,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params, sag_func, critical_xy_func);
             file_num_old_GLOBAL = file_num;
          };
+
+         ValidateSlicerParams(&p);
          break;
 
       case 9:

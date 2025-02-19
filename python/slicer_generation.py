@@ -99,8 +99,8 @@ def validate_slicer_params(p):
     # Gap depths can also be whatever, no limitations on c or k either
     return is_valid
 
-def get_surface_funcs(p):
-    if p.c == 0:
+def get_surface_funcs(c, p):
+    if c == 0:
         return tilted_plane_sag, tilted_plane_transfer, tilted_plane_surface_normal, tilted_plane_critical_xy
     else:
         return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
@@ -233,7 +233,7 @@ def get_slice_params_standard(slice_num, col_num, p):
         gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
     return alpha, beta, gamma, p.c, p.k
 
-def make_image_slicer(x, y, p, custom_slice_params, sag_func):
+def make_image_slicer(x, y, p, custom_slice_params):
     """Returns the sag of the image slicer.
 
     Parameters
@@ -260,9 +260,10 @@ def make_image_slicer(x, y, p, custom_slice_params, sag_func):
         return p.gy_depth
     # Inside a slice. From the slice number, determine the angles
     alpha, beta, gamma, c, k = get_slice_params(slice_num, col_num, p, custom_slice_params)
+    sag_func, _, _, _ = get_surface_funcs(c, p)
     return sag_func(x, y, c, k, alpha, beta, gamma)
 
-def find_bounded_extremum(x0, y0, mode, p, custom_slice_params, sag_func, critical_xy_func):
+def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
     """
     Parameters
     ----------
@@ -282,6 +283,7 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params, sag_func, critic
     col_num, slice_num = get_slicer_index(x0, y0, p)
     xsize, ysize = get_slicer_size(p)
     alpha, beta, gamma, c, k = get_slice_params(slice_num, col_num, p, custom_slice_params)
+    sag_func, junk1, junk2, critical_xy_func = get_surface_funcs(c, p)
 
     xlo = col_num * (p.dx + p.gx_width) - xsize/2
     xhi = xlo + p.dx
@@ -313,7 +315,7 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params, sag_func, critic
         return np.max(zsolns[:n_compare])
     return np.min(zsolns[:n_compare])
 
-def find_global_extrema_slicer(p, custom_slice_params, sag_func, critical_xy_func):
+def find_global_extrema_slicer(p, custom_slice_params):
     """Returns the global max and min of the image slicer.
     """
     # Determine which slice the global extrema are on. To do this, roughly sample
@@ -328,23 +330,23 @@ def find_global_extrema_slicer(p, custom_slice_params, sag_func, critical_xy_fun
     x0_min, y0_min, z0_min = 0, 0, np.inf
     for x in xpts:
         for y in ypts:
-            z = make_image_slicer(x, y, p, custom_slice_params, sag_func)
+            z = make_image_slicer(x, y, p, custom_slice_params)
             # Update the (x,y) corresponding to the max and min values
             if z > z0_max: x0_max, y0_max, z0_max = x, y, z
             elif z < z0_min: x0_min, y0_min, z0_min = x, y, z
 
-    zmin = find_bounded_extremum(x0_min, y0_min, 0, p, custom_slice_params, sag_func, critical_xy_func)
-    zmax = find_bounded_extremum(x0_max, y0_max, 1, p, custom_slice_params, sag_func, critical_xy_func)
+    zmin = find_bounded_extremum(x0_min, y0_min, 0, p, custom_slice_params)
+    zmax = find_bounded_extremum(x0_max, y0_max, 1, p, custom_slice_params)
     
     return zmin, zmax
 
-def transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params, sag_func):
+def transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params):
     """The roots of this function give the value of t.
     """
     xs = xt + t*l
     ys = yt + t*m
     zs = t*n
-    sag = make_image_slicer(xs, ys, p, custom_slice_params, sag_func)
+    sag = make_image_slicer(xs, ys, p, custom_slice_params)
     return sag - zs
 
 def get_ray_bounds(ray_in, zmin, zmax, p):
@@ -385,7 +387,7 @@ def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
     
     return True
 
-def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func):
+def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
     """Computes ray trace.
     
     Returns
@@ -399,7 +401,6 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params, sa
     nc_min, ns_min, nc_max, ns_max = get_ray_bounds(ray_in, zmin, zmax, p)
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
         return ray_out
-    print("bounds: " + str((nc_min, ns_min, nc_max, ns_max)))
     
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
@@ -446,12 +447,10 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params, sa
             if (nc_test >= 0 and ns_test >= 0):
                 # Check if out of bounds
                 alpha, beta, gamma, c, k = get_slice_params(ns_test, nc_test, p, custom_slice_params)
-                t = transfer_dist_func(xt, yt, l, m, n, c, k, alpha, beta, gamma)
-                result = transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params, sag_func)
+                sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(c, p)
 
-                print("checking " + str((nc_test, ns_test)))
-                print("t is " + str(t))
-                print("result is " + str(result))
+                t = transfer_dist_func(xt, yt, l, m, n, c, k, alpha, beta, gamma)
+                result = transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)
                 
                 # Check whether the transfer distance of the current slice is a valid
                 # zero of the transfer equation.
@@ -561,13 +560,13 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params, sa
 
     # Gaps between columns take precedence over gaps between slices in rows
     t = p.gx_depth / n
-    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol:
+    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
         ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
         ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
         return ray_out
 
     t = p.gy_depth / n
-    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol:
+    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
         ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
         ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
         return ray_out

@@ -89,11 +89,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int active_x = FD->param[1];
    int active_y = FD->param[2];
 
-   SAG_FUNC sag_func = Conic2DSag;
-   TRANSFER_DIST_FUNC transfer_dist_func = Conic2DTransfer;
-   SURF_NORMAL_FUNC surf_normal_func = Conic2DSurfaceNormal;
-   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
-
    switch(FD->type)
    	{
       case 0:
@@ -209,7 +204,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params, sag_func);
+         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -256,7 +251,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
          RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL, trace_walls,
-            p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
+            p, custom_slice_params);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -317,12 +312,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
          ValidateSlicerParams(&p);
 
-         // Set functions for sag generation and ray tracing
-         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
-
          if ( !IsParametersEqual(p, pold_GLOBAL) ) {
             // Update global extrema
-            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params, sag_func, critical_xy_func);
+            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params);
             pold_GLOBAL = p;
          };
          break;

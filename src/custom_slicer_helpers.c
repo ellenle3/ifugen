@@ -3,11 +3,11 @@
 
 static const char params_dir_GLOBAL[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
 
-double* LoadCustomParamsFromFile(int file_num, int *array_size) {
+void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, int max_elements) {
 
     if (file_num > 9999 || file_num < -999) {
         printf("Error: File number cannot exceed 4 digits\n");
-        return NULL;
+        return;
     }
 
     // Get base name of file
@@ -21,7 +21,7 @@ double* LoadCustomParamsFromFile(int file_num, int *array_size) {
     FILE *file = fopen(filename, "r");
     if (!file) {
         printf("Error: Could not open file %s\n", filename);
-        return NULL;
+        return;
     }
 
     int n_slices_per_col, n_cols, surface_type;
@@ -31,30 +31,28 @@ double* LoadCustomParamsFromFile(int file_num, int *array_size) {
     if (fscanf(file, "%d %d %d\n", &n_slices_per_col, &n_cols, &surface_type) != 3) {
         printf("Error: Invalid format on first line\n");
         fclose(file);
-        return NULL;
+        return;
     }
 
     // Read second line (doubles)
     if (fscanf(file, "%lf %lf %lf %lf %lf %lf\n", &dx, &dy, &gx_width, &gx_depth, &gy_width, &gy_depth) != 6) {
         printf("Error: Invalid format on second line\n");
         fclose(file);
-        return NULL;
+        return;
     }
 
     // Calculate length of array based on the total number of slices
     int num_slices = n_slices_per_col * n_cols;
-    *array_size = 9 + num_slices * 5; // First 9 entries + slice parameters
+    int array_size = 9 + num_slices * 5; // First 9 entries + slice parameters
 
-    // Allocate memory for parameter array
-    double *custom_slice_params = (double *)malloc(*array_size * sizeof(double));
-    if (!custom_slice_params) {
-        printf("Error: Memory allocation failed\n");
+    if (array_size > max_elements) {
+        printf("Error: Number of entries exceeds maximum limit of %d\n", max_elements);
         fclose(file);
-        return NULL;
+        return;
     }
 
-    // Initialize all values to zero
-    for (int i = 0; i < *array_size; i++) {
+    // Set all values to zero initially
+    for (int i = 0; i < array_size; i++) {
         custom_slice_params[i] = 0;
     }
 
@@ -87,7 +85,6 @@ double* LoadCustomParamsFromFile(int file_num, int *array_size) {
 
     fclose(file);
     // Make sure to free the array when you're done!
-    return custom_slice_params;
 }
 
 void GetSliceParamsCustom(double* alpha, double* beta, double* gamma, double* cv, double* k,

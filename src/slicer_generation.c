@@ -89,7 +89,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
 //
 // The important parameters (row and column numbers, slice dimensions, etc.) are
 // read in from the text file. Store those parameters in a struct with this function.
-IMAGE_SLICER_PARAMS MakeImageSlicerParamsFromCustom(double custom_slice_params[]) {
+IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double custom_slice_params[]) {
     IMAGE_SLICER_PARAMS p;
     p.custom = 1;
     p.n_each = 1;
@@ -118,9 +118,9 @@ IMAGE_SLICER_PARAMS MakeImageSlicerParamsFromCustom(double custom_slice_params[]
 }
 
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
-SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, IMAGE_SLICER_PARAMS p) {
+SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, double cv, int is_cylinder) {
     // If the curvature is 0, then the image slicer is a plane
-    if (p.cv == 0) {
+    if (cv == 0) {
         *sag_func = &TiltedPlaneSag;
         *transfer_dist_func = &TiltedPlaneTransfer;
         *surf_normal_func = &TiltedPlaneSurfaceNormal;
@@ -288,7 +288,7 @@ void GetSliceParamsStandard(double* alpha, double* beta, double* gamma, double* 
 }
 
 // The sag of the image slicer can be found by
-double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func) {
+double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
     // Get dimensions of the image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
@@ -313,14 +313,16 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_s
     // Inside a slice. From the slice number, determine the angles
     double alpha, beta, gamma, cv, k;
     GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
+
+    SAG_FUNC sag_func;
+    GetSurfaceFuncs(&sag_func, NULL, NULL, NULL, cv, p.cylinder);
     return sag_func(x, y, cv, k, alpha, beta, gamma);
 }
 
 
 // Ray tracing
 
-double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
-SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
     // If x0, y0 are inside gaps then we don't need to go further
     int in_xgap, in_ygap;
     IsInsideSlicerGap(&in_xgap, &in_ygap, x0, y0, p);
@@ -336,6 +338,8 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     GetSlicerSize(&xsize, &ysize, p);
     double alpha, beta, gamma, cv, k;
     GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
+    SAG_FUNC sag_func; CRITICAL_XY_FUNC critical_xy_func;
+    GetSurfaceFuncs(&sag_func, NULL, NULL, &critical_xy_func, cv, p.cylinder);
 
     double xlo = col_num * (p.dx + p.gx_width) - xsize / 2;
     double xhi = xlo + p.dx;
@@ -376,8 +380,7 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
 }
 
 
-void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
-SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
     // Determine which slice the global extrema are on by roughly sampling the
     // entire image slicer
     double xsize, ysize;
@@ -409,7 +412,7 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     double x0_min = 0, y0_min = 0, z0_min = INFINITY;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            double z = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params, sag_func);
+            double z = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params);
             if (z > z0_max) {
                 x0_max = xpts[i];
                 y0_max = ypts[j];
@@ -425,16 +428,16 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values
-    *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p, custom_slice_params, sag_func, critical_xy_func);
-    *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p, custom_slice_params, sag_func, critical_xy_func);
+    *zmin = FindBoundedSliceExtremum(x0_min, y0_min, 0, p, custom_slice_params);
+    *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p, custom_slice_params);
 }
 
 double TransferEquation(double t, double xt, double yt, double l, double m, double n,
-IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func) {
+IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
     double xs = xt + t*l;
     double ys = yt + t*m;
     double zs = t*n;
-    double sag = ImageSlicerSag(xs, ys, p, custom_slice_params, sag_func);
+    double sag = ImageSlicerSag(xs, ys, p, custom_slice_params);
     return sag - zs;
 }
 
@@ -480,8 +483,7 @@ int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_P
     return 1;
 }
 
-void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
-    SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func) {
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
 
     // Tolerance for accepting the transfer distance as valid
     double tol = 1e-11;
@@ -519,6 +521,9 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
     double x_cross, y_cross, alpha, beta, gamma, cv, k, t_test, result;
     double xs, ys, zs, t, ln, mn, nn;
     double xnear, ynear, znear, tnear, xfar, yfar, zfar, tfar, znear_slice, zfar_slice, zcompare;
+    SAG_FUNC sag_func;
+    TRANSFER_DIST_FUNC transfer_dist_func;
+    SURF_NORMAL_FUNC surf_normal_func;
 
     // Begin iterating through slices
 
@@ -546,8 +551,10 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
 
                 // Check if out of bounds
                 GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test, nc_test, p, custom_slice_params);
+                GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, NULL, cv, p.cylinder);
+                
                 t_test = transfer_dist_func(xt, yt, l, m, n, cv, k, alpha, beta, gamma);
-                result = TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func);
+                result = TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params);
                 
                 // Check whether the transfer distance of the current slice is a
                 // valid zero of the transfer equation.
@@ -669,13 +676,13 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
 
     // Gaps between columns take precedence over gaps between slices in rows
     t_test = p.gx_depth / n;
-    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol ) {
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params)) < tol ) {
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gx_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;
     }
     t_test = p.gy_depth / n;
-    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func)) < tol ) {
+    if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params)) < tol ) {
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gy_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;

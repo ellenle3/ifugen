@@ -5,11 +5,12 @@
 #include "surface_solns.h"
 #include "custom_slicer_helpers.h"
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
-void TestTransferDistance(FILE* fptr, IMAGE_SLICER_PARAMS p, TRANSFER_DIST_FUNC transfer_dist_func);
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func,
-SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func);
+#define MAX_ELEMENTS 6250009
+
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p);
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p);
+void TestTransferDistance(FILE* fptr, IMAGE_SLICER_PARAMS p);
+void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p);
 void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
@@ -47,24 +48,16 @@ int main() {
     };
 
     double custom_slice_params[1] = {0};
-
-    SAG_FUNC sag_func;
-    CRITICAL_XY_FUNC critical_xy_func;
-    TRANSFER_DIST_FUNC transfer_dist_func;
-    SURF_NORMAL_FUNC surf_normal_func; 
-
-    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
     
-    //TestImageSlicerSag(fptr, p, sag_func);
-    //TestGlobalExtrema(fptr, p, sag_func, critical_xy_func);
-    //TestRayTrace(fptr, p, sag_func, transfer_dist_func, surf_normal_func, critical_xy_func);
-    //TestTransferDistance(fptr, p, transfer_dist_func);
+    //TestImageSlicerSag(fptr, p);
+    //TestGlobalExtrema(fptr, p);
+    //TestRayTrace(fptr, p);
     TestLoadCustomParams(fptr, 0);
 
     fclose(fptr);
 }
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p) {
     
     // Compute test function over an array of points and save to a TXT file
     double xsize, ysize;
@@ -79,58 +72,29 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func) {
 
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            output = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params, sag_func);
+            output = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params);
             fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ypts[j], output);
         }
     }
 }
 
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p) {
     
     double zmin, zmax;
     double custom_slice_params[1] = {0};
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params, sag_func, critical_xy_func);
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params);
     fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
 
 }
 
-void TestTransferDistance(FILE* fptr, IMAGE_SLICER_PARAMS p, TRANSFER_DIST_FUNC transfer_dist_func) {
-    int n = 5;
-    double t;
-    double xpts[n]; double ypts[n];
-    double lpts[n]; double mpts[n]; double npts[n];
-    linspace(xpts, -3, 3, n);
-    linspace(ypts, -3, 3, n);
-    linspace(lpts, -0.2, 0.2, n);
-    linspace(mpts, -0.2, 0.2, n);
-    linspace(npts, -0.1, 1.3, n);
-
-    for (int i1 = 0; i1 < n; i1++) {
-        for (int i2 = 0; i2 < n; i2++) {
-            for (int i3 = 0; i3 < n; i3++) {
-                for (int i4 = 0; i4 < n; i4++) {
-                    for (int i5 = 0; i5 < n; i5++) {
-
-                        t = transfer_dist_func(xpts[i1], ypts[i2], lpts[i3], mpts[i4], npts[i5], p.cv, p.k, p.alpha_cen, p.beta_cen, p.gamma_cen);
-
-                        fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], lpts[i3], mpts[i4], npts[i5], t);
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func,
-SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
+void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
 
     RAY_IN ray_in;
     RAY_OUT ray_out;
 
     double zmin, zmax, norm, l, m, n;
     double custom_slice_params[1] = {0};
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params, sag_func, critical_xy_func);
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params);
 
     int num = 2;
     double xpts[num]; double ypts[num];
@@ -156,7 +120,7 @@ SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
                         ray_in.l = l; ray_in.m = m; ray_in.n = n;
 
                         RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
-                        p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
+                        p, custom_slice_params);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
                     }
@@ -167,13 +131,12 @@ SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
 }
 
 void TestLoadCustomParams(FILE* fptr, int file_num) {
-    int array_size = 0;
-    double* params = LoadCustomParamsFromFile(file_num, &array_size);
-    
-    if (params == NULL) {
-        printf("Failed to load slice parameters.\n");
-        return;
-    }
+    double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
+    LoadCustomParamsFromFile(params, file_num, MAX_ELEMENTS);
+
+    int n_slices_per_col = params[0];
+    int n_cols = params[1];
+    int array_size = 9 + n_slices_per_col * n_cols * 5;
 
     // Print the first few parameters as a test
     printf("Array Size: %d\n", array_size);

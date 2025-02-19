@@ -88,6 +88,8 @@ int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p);
  */
 int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2);
 
+IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double custom_slice_params[]);
+
 /**
  * @brief Get the appropriate functions for the surface type indicated by p.
  * 
@@ -95,10 +97,10 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2);
  * @param transfer_dist_func Pointer to function that computes the ray transfer distance of a slice.
  * @param critical_xy_func Pointer to function that computes the critical point of a slice.
  * @param surf_normal_func Pointer to function that computes the surface normal of a slice.
- * @param p 
+ * @param cv
  */
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
-SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, IMAGE_SLICER_PARAMS p);
+SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, double cv, int is_cylinder);
 
 /**
  * @brief Computes the size of the image slicer.
@@ -146,7 +148,7 @@ void GetSliceParamsStandard(double* alpha, double* beta, double* gamma, double* 
 * 
 *   @return 0 if success.
 **/
-double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func);
+double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
 
 /**
  * @brief Finds an extremum of a slice within the bounds that it is defined for
@@ -160,7 +162,7 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_s
  * @param critical_xy_func Function to compute the critical point of a slice.
  * @return double Bounded maximum or minimum for a slice.
  */
-double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
+double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
 
 /**
  * @brief Computes global extrema for the image slicer.
@@ -171,7 +173,7 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
  * @param sag_func Function to compute the sag of a slice.
  * @param critical_xy_func Function to compute the critical point of a slice.
  */
-void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
 
 /**
  * @brief Transfer equation for the entire image slicer. The roots of this function
@@ -188,7 +190,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
  * @return double The image slicer sag minus the computed z-coordinate at the surface (zs).
  */
 double TransferEquation(double t, double xt, double yt, double l, double m, double n,
-IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func);
+IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
 
 /**
  * @brief Computes the transfered ray and surface normals for the image slicer.
@@ -203,7 +205,6 @@ IMAGE_SLICER_PARAMS p, double custom_slice_params[], SAG_FUNC sag_func);
  * @param transfer_dist_func Function to compute the transfer distance for a slice.
  * @param surf_normal_func Function to compute the surface normal of a slice.
  */
-void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[],
-SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surf_normal_func);
+void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
 
 #endif
