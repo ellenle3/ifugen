@@ -90,14 +90,6 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, doubl
     double x0, y0;
     Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
-    if (k == -1 && gamma == 0) {
-        xt += x0; yt += y0;
-        double a = -n*n + 1;
-        double b = n/cv - xt*l - yt*m;
-        double c = xt*xt + yt*yt;
-        return c / (b + sgn*sqrt(b*b - a*c));
-    }
-
     double cosg = cos(gamma), cosg2 = cosg*cosg;
     double sing = sin(gamma), sing2 = sing*sing;
     

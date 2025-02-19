@@ -13,7 +13,11 @@ Ellen Lee
 Feb 2025
 */
 
-
+// The maximum number of slices that can be defined in the params file. This is
+// to prevent the param array from becoming excessively large. Set limit is
+// 5000 * 5000 slices. This is probably way more than anyone would ever need...
+// 8 bytes per double * 5 doubles per slice * (5000^2) slices = 1 GB.
+#define MAX_SLICES 125000000
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
@@ -25,7 +29,11 @@ int Refract(double thisn, double nextn, double *l, double *m, double *n, double 
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
 double zmin_GLOBAL, zmax_GLOBAL;
-int file_num_old = -10000; // Store previous file number to check if it changed
+int file_num_old_GLOBAL = -999999999; // Store previous file number to check if it changed
+
+// Keep the custom slice parameters in a global array so we don't need to reload
+// the file every time this DLL is called.
+double custom_slice_params[1] = {0};
 
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
@@ -48,12 +56,20 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
-   IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
+   // Store FD params
+   int trace_walls = FD->param[0];
+   int active_x = FD->param[1];
+   int active_y = FD->param[2];
+   int file_num = FD->param[3];
 
+   // Read in the custom slice array params
+   IMAGE_SLICER_PARAMS p;
+   p.custom = 1;
+   
    SAG_FUNC sag_func = Conic2DSag;
    TRANSFER_DIST_FUNC transfer_dist_func = Conic2DTransfer;
-   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
    SURF_NORMAL_FUNC surf_normal_func = Conic2DSurfaceNormal;
+   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
 
    switch(FD->type)
    	{
@@ -85,17 +101,20 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          switch(FD->numb)
          	{
             case 0:
-            	strcpy(UD->string,"file_num");
+               strcpy(UD->string,"trace_walls");
                break;
             case 1:
-            	strcpy(UD->string,"trace_walls");
-               break;
-            case 2:
                strcpy(UD->string,"active_x");
                break;
-            case 3:
+            case 2:
                strcpy(UD->string,"active_y");
                break;
+            case 3:
+               strcpy(UD->string,"file_num");
+               break;
+            default:
+            	UD->string[0] = '\0';
+            	break;
             }
       	break;
 
@@ -116,7 +135,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, sag_func);
+         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params, sag_func);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -162,8 +181,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
-         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL,
-            p, sag_func, transfer_dist_func, surf_normal_func);
+         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL, trace_walls,
+            p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -191,12 +210,14 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* this is used by ZEMAX to set the initial values for all parameters and extra data */
          /* when the user first changes to this surface type. */
          /* this is the only time the DLL should modify the data in the FIXED_DATA FD structure */
-         FD->param[0] = 0;      // file_num
-         FD->param[1] = 0;      // trace_walls
-         FD->param[2] = 0;      // active_x
-         FD->param[3] = 0;      // active_y
+         FD->param[0] = 0;      // trace_walls
+         FD->param[1] = 0;      // active_x
+         FD->param[2] = 0;      // active_y
+         FD->param[3] = 0;      // file_num
          FD->cv = 0;
          FD->k = 0;
+
+         SetSlicerParamsFromFD(&p, FD);
          break;
 
       case 8:
@@ -206,12 +227,14 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          ValidateSlicerParams(&p);
 
          // Set functions for sag generation and ray tracing
-         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &critical_xy_func, &surf_normal_func, p);
+         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
 
-         if ( !IsParametersEqual(p, pold_GLOBAL) ) {
-            // Update global extrema
-            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, sag_func, critical_xy_func);
-            pold_GLOBAL = p;
+         if ( file_num_old_GLOBAL != file_num ) {
+            // Update custom slice params and global extrema
+
+
+            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params, sag_func, critical_xy_func);
+            file_num_old_GLOBAL = file_num;
          };
          break;
 

@@ -17,10 +17,7 @@ def load_slice_params_file(file_num):
     The number of entires *must* be equal to n_slices_per_col * n_cols. The row
     at slice_num * col_num + 2 corresponds to the entries for that slice and column
     index (plus 2 to account for the first two rows of data). For entries that are
-    missing, a values are replaced by zeros.
-
-    If there are repeat entries, they will be overwritten so that the last line
-    determines the parameters for the slice at the given col_num, slice_num.
+    missing, all values are replaced by zeros. Excess parameters are truncated.
     
     Returns
     -------
@@ -42,25 +39,27 @@ def load_slice_params_file(file_num):
     n_slices_per_col, n_cols, _ = data[0]
     n_slices_per_col = int(n_slices_per_col)
     n_cols = int(n_cols)
-    slice_param_arr = np.zeros(n_slices_per_col * n_cols * 5 + 9)
+    num_slices = n_slices_per_col * n_cols
+    custom_slice_params = np.zeros(5 * num_slices + 9)
 
-    slice_param_arr[:3] = data[0]
-    slice_param_arr[3:9] = data[1]
+    custom_slice_params[:3] = data[0]
+    custom_slice_params[3:9] = data[1]
 
     # Set the remaining entries to the parameters for each slice. This isn't the
     # most efficient way to do this in Python, but it's more readable and is
     # somewhat closer to how it is implemented in C.
 
     # Iterate through rows in the file, skipping the first two
-    for i in range(len(data) - 2):
+    for i in range(num_slices):
 
-        if i > n_slices_per_col * n_cols * 5 - 1:
-            # Too many slices defined in the TXT file, truncate here
+        # Stop if not enough rows in file or if fewer values than expected in a row
+        if (i > len(data) - 2 or len(data[i + 2]) < 5):
             break
 
-        slice_param_arr[9 + 5*i: 9 + 5*(i+1)] = data[i + 2]
+        base_idx = 9 + 5 * i
+        custom_slice_params[base_idx: base_idx + 5] = data[i + 2]
     
-    return slice_param_arr
+    return custom_slice_params
 
 def get_slice_params_custom(slice_num, col_num, custom_slice_params):
     """Returns parameters that define a slice at a given col, slice index.

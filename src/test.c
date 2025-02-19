@@ -3,12 +3,14 @@
 #include <math.h>
 #include "slicer_generation.h"
 #include "surface_solns.h"
+#include "custom_slicer_helpers.h"
 
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func);
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func);
 void TestTransferDistance(FILE* fptr, IMAGE_SLICER_PARAMS p, TRANSFER_DIST_FUNC transfer_dist_func);
 void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p, SAG_FUNC sag_func, TRANSFER_DIST_FUNC transfer_dist_func,
 SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func);
+void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
     FILE* fptr = fopen("test_output.txt", "w+");
@@ -56,7 +58,8 @@ int main() {
     //TestImageSlicerSag(fptr, p, sag_func);
     //TestGlobalExtrema(fptr, p, sag_func, critical_xy_func);
     //TestRayTrace(fptr, p, sag_func, transfer_dist_func, surf_normal_func, critical_xy_func);
-    TestTransferDistance(fptr, p, transfer_dist_func);
+    //TestTransferDistance(fptr, p, transfer_dist_func);
+    TestLoadCustomParams(fptr, 0);
 
     fclose(fptr);
 }
@@ -156,10 +159,27 @@ SURF_NORMAL_FUNC surf_normal_func, CRITICAL_XY_FUNC critical_xy_func) {
                         p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
-                        printf("        >>> going to next\n");
                     }
                 }
             }
         }
     }
+}
+
+void TestLoadCustomParams(FILE* fptr, int file_num) {
+    int array_size = 0;
+    double* params = LoadCustomParamsFromFile(file_num, &array_size);
+    
+    if (params == NULL) {
+        printf("Failed to load slice parameters.\n");
+        return;
+    }
+
+    // Print the first few parameters as a test
+    printf("Array Size: %d\n", array_size);
+    for (int i = 0; i < array_size; i++) {
+        printf("params[%d] = %f\n", i, params[i]);
+    }
+
+    free(params);
 }

@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include "slicer_generation.h"
 #include "surface_solns.h"
-#include "custom_array_params.h"
+#include "custom_slicer_helpers.h"
 
 /*
 Slicer generation and ray tracing algorithm.
@@ -30,7 +30,7 @@ int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
     // Keep track of whether we had to change any parameters
     int is_valid = 1;
 
-    // Do not touch the custom flag
+    // Do not touch the custom flag!
 
     if (!(p->cylinder==0 || p->cylinder==1)) { p->cylinder=0; is_valid = 0; }
     if (p->n_cols < 1) { p->n_cols = 1; is_valid = 0; }
@@ -57,27 +57,64 @@ int ValidateSlicerParams(IMAGE_SLICER_PARAMS *p) {
 // equivalent
 int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
    if (
-      p1.n_each == p2.n_each &&
-      p1.n_rows == p2.n_rows &&
-      p1.n_cols == p2.n_cols &&
-      p1.angle_mode == p2.angle_mode &&
-      p1.dalpha == p2.dalpha &&
-      p1.dbeta == p2.dbeta &&
-      p1.dgamma == p2.dgamma &&
-      p1.gamma_offset == p2.gamma_offset &&
-      p1.alpha_cen == p2.alpha_cen &&
-      p1.beta_cen == p2.beta_cen &&
-      p1.gamma_cen == p2.gamma_cen &&
-      p1.dx == p2.dx &&
-      p1.dy == p2.dy &&
-      p1.gx_width == p2.gx_width &&
-      p1.gx_depth == p2.gx_depth &&
-      p1.gy_width == p2.gy_width &&
-      p1.gy_depth == p2.gy_depth &&
-      p1.cv == p2.cv &&
-      p1.k == p2.k
+        p1.custom == p2.custom &&
+        p1.cylinder == p2.cylinder &&
+        p1.n_each == p2.n_each &&
+        p1.n_rows == p2.n_rows &&
+        p1.n_cols == p2.n_cols &&
+        p1.angle_mode == p2.angle_mode &&
+        p1.dalpha == p2.dalpha &&
+        p1.dbeta == p2.dbeta &&
+        p1.dgamma == p2.dgamma &&
+        p1.gamma_offset == p2.gamma_offset &&
+        p1.alpha_cen == p2.alpha_cen &&
+        p1.beta_cen == p2.beta_cen &&
+        p1.gamma_cen == p2.gamma_cen &&
+        p1.dx == p2.dx &&
+        p1.dy == p2.dy &&
+        p1.gx_width == p2.gx_width &&
+        p1.gx_depth == p2.gx_depth &&
+        p1.gy_width == p2.gy_width &&
+        p1.gy_depth == p2.gy_depth &&
+        p1.cv == p2.cv &&
+        p1.k == p2.k
    ) return 1;
    return 0;
+}
+
+// The struct p is needed to determine the boundaries betwen slices and overall
+// size of the image slicer. Parameters relating to the angles, curvature, or conic
+// of any individual slice will be ignored in lieu of the custom slice parameters
+// if the custom flag is enabled.
+//
+// The important parameters (row and column numbers, slice dimensions, etc.) are
+// read in from the text file. Store those parameters in a struct with this function.
+IMAGE_SLICER_PARAMS MakeImageSlicerParamsFromCustom(double custom_slice_params[]) {
+    IMAGE_SLICER_PARAMS p;
+    p.custom = 1;
+    p.n_each = 1;
+    p.n_rows = (int) custom_slice_params[0];
+    p.n_cols = (int) custom_slice_params[1];
+    p.cylinder = (int) custom_slice_params[2];
+    p.dx = custom_slice_params[3];
+    p.dy = custom_slice_params[4];
+    p.gx_width = custom_slice_params[5];
+    p.gx_depth = custom_slice_params[6];
+    p.gy_width = custom_slice_params[7];
+    p.gy_depth = custom_slice_params[8];
+
+    // The rest of these will not be touched, set to zero
+    p.cv = 0;
+    p.k = 0;
+    p.angle_mode = 0;
+    p.dalpha = 0;
+    p.dbeta = 0;
+    p.dgamma = 0;
+    p.gamma_offset = 0;
+    p.alpha_cen = 0;
+    p.beta_cen = 0;
+    p.gamma_cen = 0;
+    return p;
 }
 
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
@@ -164,10 +201,10 @@ void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int activ
 // Otherwise, this array is ignored.
 void GetSliceParams(double* alpha, double* beta, double* gamma, double* cv, double* k,
 int slice_num, int col_num, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
-    // if (p.custom) {
-    //     GetSliceParamsCustom(alpha, beta, gamma, slice_num, col_num, custom_slice_params);
-    //     return;
-    // }
+    if (p.custom) {
+        GetSliceParamsCustom(alpha, beta, gamma, cv, k, slice_num, col_num, custom_slice_params);
+        return;
+    }
     GetSliceParamsStandard(alpha, beta, gamma, cv, k, slice_num, col_num, p);
 }
 
@@ -350,9 +387,9 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
 
     // Safeguard in case the user attempts to initialize an obscenely large number
     // of slices
-    if (nx > 100000 || ny > 100000) {
-        nx = 100000; 
-        ny = 100000; // Implies >10,000 slices per column which seems excessive...
+    if (nx > 60000 || ny > 100000) {
+        nx = 30000; // 5,000 columns???
+        ny = 40000; // Implies 5,000 slices per column which seems excessive...
     }
 
     // Generally the number of points shouldn't be a problem but dynamically allocate
@@ -361,7 +398,7 @@ SAG_FUNC sag_func, CRITICAL_XY_FUNC critical_xy_func) {
     double *ypts = (double *)malloc(ny * sizeof(double));
     if (xpts == NULL || ypts == NULL) {
         // If memory allocation fails, print an error and give up
-        fprintf(stderr, "Memory allocation failed!\n");
+        fprintf(stderr, "Memory allocation failed.\n");
         return;
     }
     linspace(xpts, -xsize/2, xsize/2, nx);
@@ -453,7 +490,6 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
 
     int nc_min, ns_min, nc_max, ns_max;
     GetRayBounds(&nc_min, &ns_min, &nc_max, &ns_max, ray_in, zmin, zmax, p);
-    //printf("bounds are %d %d %d %d\n", nc_min, ns_min, nc_max, ns_max);
 
     // Ray missed
     if (!IsRayInBounds(nc_min, ns_min, nc_max, ns_max, p)) return;
@@ -512,10 +548,6 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
                 GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test, nc_test, p, custom_slice_params);
                 t_test = transfer_dist_func(xt, yt, l, m, n, cv, k, alpha, beta, gamma);
                 result = TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params, sag_func);
-
-                //printf("checking (%d, %d)\n", nc_test, ns_test);
-                //printf("t is %.6f\n", t_test);
-                //printf("result is %.6f\n", result);
                 
                 // Check whether the transfer distance of the current slice is a
                 // valid zero of the transfer equation.

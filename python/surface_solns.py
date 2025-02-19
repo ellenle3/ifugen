@@ -89,14 +89,6 @@ def conic_2d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         
     x0, y0 = conic_2d_off_axis_distance(c, alpha, beta)
 
-    if (gamma == 0 and k == -1):
-        xt += x0
-        yt += y0
-        a = -n*n + 1
-        b = n / c + xt*l -yt * m
-        c = xt*xt + yt*yt
-        return c / (-b + sgn*np.sqrt(b*b - a*c))
-
     cosg = np.cos(gamma)
     cosg2 = cosg*cosg
     sing = np.sin(gamma)
