@@ -50,7 +50,7 @@ double Conic2DSag(double x, double y, double cv, double k, double alpha, double 
     Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     if (k == -1 && gamma == 0) {
-        x += x0; y += y0;
+        x -= x0; y -= y0;
         return cv * (x*x + y*y) / 2;
     }
 
@@ -121,7 +121,7 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
 
     double dervx, dervy;
     if (k == -1 && gamma == 0) {
-        x += x0; y += y0;
+        x -= x0; y -= y0;
         dervx = cv * x;
         dervy = cv * y;
     }

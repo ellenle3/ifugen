@@ -52,8 +52,8 @@ def conic_2d_sag(x, y, c, k, alpha, beta, gamma):
 
     if (gamma == 0 and k == -1):
         # On-axis parabola
-        x += x0
-        y += y0
+        x -= x0
+        y -= y0
         return c*(x*x + y*y) / 2
     
     # Rotate about the y-axis
@@ -121,6 +121,8 @@ def conic_2d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     x0, y0 = conic_2d_off_axis_distance(c, alpha, beta)
 
     if (gamma == 0 and k == -1):
+        x -= x0
+        y -= y0
         dervx = c*x
         dervy = c*y
 
