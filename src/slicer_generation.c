@@ -315,7 +315,10 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double custom_s
     GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
 
     SAG_FUNC sag_func;
-    GetSurfaceFuncs(&sag_func, NULL, NULL, NULL, cv, p.cylinder);
+    TRANSFER_DIST_FUNC transfer_dist_func;
+    SURF_NORMAL_FUNC surf_normal_func;
+    CRITICAL_XY_FUNC critical_xy_func;
+    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, cv, p.cylinder);
     return sag_func(x, y, cv, k, alpha, beta, gamma);
 }
 
@@ -338,8 +341,11 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     GetSlicerSize(&xsize, &ysize, p);
     double alpha, beta, gamma, cv, k;
     GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
-    SAG_FUNC sag_func; CRITICAL_XY_FUNC critical_xy_func;
-    GetSurfaceFuncs(&sag_func, NULL, NULL, &critical_xy_func, cv, p.cylinder);
+    SAG_FUNC sag_func;
+    TRANSFER_DIST_FUNC transfer_dist_func;
+    SURF_NORMAL_FUNC surf_normal_func;
+    CRITICAL_XY_FUNC critical_xy_func;
+    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, cv, p.cylinder);
 
     double xlo = col_num * (p.dx + p.gx_width) - xsize / 2;
     double xhi = xlo + p.dx;
@@ -390,7 +396,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
 
     // Safeguard in case the user attempts to initialize an obscenely large number
     // of slices
-    if (nx > 60000 || ny > 100000) {
+    if (nx > 30000 || ny > 40000) {
         nx = 30000; // 5,000 columns???
         ny = 40000; // Implies 5,000 slices per column which seems excessive...
     }
@@ -410,9 +416,10 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
     // Evaluate the grid, keeping track of the maximum and minimum
     double x0_max = 0, y0_max = 0, z0_max = -INFINITY;
     double x0_min = 0, y0_min = 0, z0_min = INFINITY;
+    double z;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            double z = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params);
+            z = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params);
             if (z > z0_max) {
                 x0_max = xpts[i];
                 y0_max = ypts[j];
@@ -524,6 +531,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
     SAG_FUNC sag_func;
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
+    CRITICAL_XY_FUNC critical_xy_func;
 
     // Begin iterating through slices
 
@@ -551,8 +559,8 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
 
                 // Check if out of bounds
                 GetSliceParams(&alpha, &beta, &gamma, &cv, &k, ns_test, nc_test, p, custom_slice_params);
-                GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, NULL, cv, p.cylinder);
-                
+                GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, cv, p.cylinder);
+
                 t_test = transfer_dist_func(xt, yt, l, m, n, cv, k, alpha, beta, gamma);
                 result = TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params);
                 
@@ -677,12 +685,14 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
     // Gaps between columns take precedence over gaps between slices in rows
     t_test = p.gx_depth / n;
     if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params)) < tol ) {
+        t = t_test;
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gx_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;
     }
     t_test = p.gy_depth / n;
     if ( fabs(TransferEquation(t_test, xt, yt, l, m, n, p, custom_slice_params)) < tol ) {
+        t = t_test;
         ray_out->xs = xt + t*l; ray_out->ys = yt + t*m; ray_out->zs = p.gy_depth; ray_out->t = t;
         ray_out->ln = 0; ray_out->mn = 0; ray_out->nn = -1;
         return;

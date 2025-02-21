@@ -1,9 +1,0 @@
-{
-    "files.associations": {
-        "queue": "c",
-        "stack": "c",
-        "random": "c",
-        "numeric": "c",
-        "surface_solns.h": "c"
-    }
-}

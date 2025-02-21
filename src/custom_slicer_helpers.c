@@ -1,7 +1,8 @@
+#define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
 #include <stdlib.h>
 
-void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char params_dir[], int max_elements, int max_path_length) {
+void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char params_dir[], int max_elements) {
 
     if (file_num > 9999 || file_num < -999) {
         printf("Error: File number cannot exceed 4 digits\n");
@@ -9,13 +10,11 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char pa
     }
 
     // Get base name of file
-    int max_basename_length = 35; // 31 characters for file name + 4 for number
-    char basename[max_basename_length];
+    char basename[35];
     snprintf(basename, sizeof(basename), "custom_mirror_array_params_%d.txt", file_num);
 
     // Concatenate to the absolute path of the file
-    int max_filename_length = max_path_length + max_basename_length;
-    char filename[max_filename_length];
+    char filename[547];  // 512 + 35
     snprintf(filename, sizeof(filename), "%s%s", params_dir, basename);
 
     FILE *file = fopen(filename, "r");

@@ -34,21 +34,21 @@ static IMAGE_SLICER_PARAMS P_OLD = {
         .n_rows = -1,
         .n_cols = -1,
         .angle_mode = -1,
-        .dalpha = NAN,
-        .dbeta = NAN,
-        .dgamma = NAN,
-        .alpha_cen = NAN,
-        .beta_cen = NAN,
-        .gamma_cen = NAN,
-        .gamma_offset = NAN,
-        .dx = NAN,
-        .dy = NAN,
-        .gx_width = NAN,
-        .gx_depth = NAN,
-        .gy_width = NAN,
-        .gy_depth = NAN,
-        .cv = NAN,
-        .k = NAN
+        .dalpha = -1,
+        .dbeta = -1,
+        .dgamma = -1,
+        .alpha_cen = -1,
+        .beta_cen = -1,
+        .gamma_cen = -1,
+        .gamma_offset = -1,
+        .dx = -1,
+        .dy = -1,
+        .gx_width = -1,
+        .gx_depth = -1,
+        .gy_width = -1,
+        .gy_depth = -1,
+        .cv = -1,
+        .k = -1
     };
 
 
@@ -248,8 +248,6 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          ray_in.xt = (UD->x); ray_in.yt = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
-         // The first thing this function does is reset the members of ray_out
-         // to be all NANs
          RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
             p, custom_slice_params);
 
@@ -356,10 +354,10 @@ void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    FD->param[4] =  p->n_each;
    FD->param[5] =  p->n_rows;
    FD->param[6] =  p->n_cols;
-   FD->param[7] =  p->mode;
+   FD->param[7] =  p->angle_mode;
    FD->param[8] =  p->dalpha;
    FD->param[9] =  p->dbeta;
-   FD->param[10] =  p->dgamma;
+   FD->param[10] = p->dgamma;
    FD->param[11] = p->gamma_offset;
    FD->param[12] = p->alpha_cen;
    FD->param[13] = p->beta_cen;
@@ -379,7 +377,7 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    p->n_each =       FD->param[4];
    p->n_rows =       FD->param[5];
    p->n_cols =       FD->param[6];
-   p->mode =         FD->param[7];
+   p->angle_mode =   FD->param[7];
    p->dalpha =       FD->param[8];
    p->dbeta =        FD->param[9];
    p->dgamma =       FD->param[10];
