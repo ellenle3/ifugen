@@ -38,9 +38,8 @@ static int FILE_NUM_OLD = -999999999; // Store previous file number to check if 
 
 // Keep the custom slice parameters in a global array so we don't need to reload
 // the file every time this DLL is called.
-static double *CUSTOM_SLICE_PARAMS = (double *)malloc(MAX_ELEMENTS * sizeof(double));
+static double *CUSTOM_SLICE_PARAMS = NULL;
 static char PARAMS_DIR[MAX_PATH_LENGTH];
-static HMODULE hm = NULL;  // needed to get absolute path to this file at runtime
 
 
 BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
@@ -49,30 +48,21 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	{
       case DLL_PROCESS_ATTACH:
 
+          CUSTOM_SLICE_PARAMS = (double*)malloc(MAX_ELEMENTS * sizeof(double));
+
          if (CUSTOM_SLICE_PARAMS == NULL) {
-            MessageBox(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
+            MessageBoxA(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
             return FALSE;
          }
 
-         // Get the absolute directory of the current DLL file. Get the handle to
-         // a function in this file first and then use it to get the absolute
-         // path to this DLL.
+         // Get the absolute directory of the current DLL file
          char dll_path[MAX_PATH_LENGTH];
          int ret;
 
-         if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
-            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            (LPCSTR) &Refract, &hm) == 0)
+         if (GetModuleFileNameA(hInst, dll_path, sizeof(dll_path)) == 0)
          {
             ret = GetLastError();
-            fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
-            return FALSE;
-         }
-
-         if (GetModuleFileName(hm, dll_path, sizeof(dll_path)) == 0)
-         {
-            ret = GetLastError();
-            fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
+            MessageBoxA(NULL, "GetModuleHandle failed. Could not resolve the absolute path of the DLL file.", "Error", MB_OK);
             return FALSE;
          }
 
@@ -186,7 +176,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params);
+         sag = ImageSlicerSag(UD->x, UD->y, p, CUSTOM_SLICE_PARAMS);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -275,8 +265,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          if ( FILE_NUM_OLD != file_num ) {
             // Update custom slice params and global extrema
-            LoadCustomParamsFromFile(custom_slice_params, file_num, PARAMS_DIR, MAX_ELEMENTS, MAX_PATH_LENGTH);
-            p = MakeSlicerParamsFromCustom(custom_slice_params);
+            LoadCustomParamsFromFile(CUSTOM_SLICE_PARAMS, file_num, PARAMS_DIR, MAX_ELEMENTS);
+            p = MakeSlicerParamsFromCustom(CUSTOM_SLICE_PARAMS);
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, CUSTOM_SLICE_PARAMS);
             FILE_NUM_OLD = file_num;
          };
