@@ -25,9 +25,9 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 // necessary for us to store the global extrema without having to recalculate them
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
-double zmin_GLOBAL, zmax_GLOBAL;
+static double ZMIN, ZMAX;
 // Need to keep track of whether parameters changed
-IMAGE_SLICER_PARAMS pold_GLOBAL = {
+static IMAGE_SLICER_PARAMS P_OLD = {
         .custom = 0,
         .cylinder = -1,
         .n_each = -1,
@@ -250,7 +250,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
-         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL, trace_walls,
+         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
             p, custom_slice_params);
 
          // Ray missed if transfer distance or normal vector could not be computed
@@ -312,10 +312,10 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
          ValidateSlicerParams(&p);
 
-         if ( !IsParametersEqual(p, pold_GLOBAL) ) {
+         if ( !IsParametersEqual(p, P_OLD) ) {
             // Update global extrema
-            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params);
-            pold_GLOBAL = p;
+            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, custom_slice_params);
+            P_OLD = p;
          };
          break;
 

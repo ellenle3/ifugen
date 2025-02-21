@@ -52,6 +52,7 @@ int main() {
     //TestImageSlicerSag(fptr, p);
     //TestGlobalExtrema(fptr, p);
     //TestRayTrace(fptr, p);
+
     TestLoadCustomParams(fptr, 0);
 
     fclose(fptr);
@@ -132,7 +133,8 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
 
 void TestLoadCustomParams(FILE* fptr, int file_num) {
     double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
-    LoadCustomParamsFromFile(params, file_num, MAX_ELEMENTS);
+    char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
+    LoadCustomParamsFromFile(params, file_num, params_dir, MAX_ELEMENTS, 512);
 
     int n_slices_per_col = params[0];
     int n_cols = params[1];

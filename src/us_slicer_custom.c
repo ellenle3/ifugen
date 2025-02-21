@@ -21,6 +21,9 @@ Feb 2025
 // Plus 9 elements for the first 9 parameters.
 #define MAX_ELEMENTS 6250009
 
+// Maximum number of characters in any path string
+#define MAX_PATH_LENGTH 512
+
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
 /* a generic Snells law refraction routine */
@@ -30,12 +33,14 @@ int Refract(double thisn, double nextn, double *l, double *m, double *n, double 
 // necessary for us to store the global extrema without having to recalculate them
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
-double zmin_GLOBAL, zmax_GLOBAL;
-int file_num_old_GLOBAL = -999999999; // Store previous file number to check if it changed
+static double ZMIN, ZMAX;
+static int FILE_NUM_OLD = -999999999; // Store previous file number to check if it changed
 
 // Keep the custom slice parameters in a global array so we don't need to reload
 // the file every time this DLL is called.
-double *custom_slice_params;
+static double *CUSTOM_SLICE_PARAMS = (double *)malloc(MAX_ELEMENTS * sizeof(double));
+static char PARAMS_DIR[MAX_PATH_LENGTH];
+static HMODULE hm = NULL;  // needed to get absolute path to this file at runtime
 
 
 BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
@@ -43,16 +48,44 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	switch (ul_reason_for_call)
 	{
       case DLL_PROCESS_ATTACH:
-         custom_slice_params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
-         
-         if (custom_slice_params == NULL) {
+
+         if (CUSTOM_SLICE_PARAMS == NULL) {
             MessageBox(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
             return FALSE;
          }
+
+         // Get the absolute directory of the current DLL file. Get the handle to
+         // a function in this file first and then use it to get the absolute
+         // path to this DLL.
+         char dll_path[MAX_PATH_LENGTH];
+         int ret;
+
+         if (GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | 
+            GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            (LPCSTR) &Refract, &hm) == 0)
+         {
+            ret = GetLastError();
+            fprintf(stderr, "GetModuleHandle failed, error = %d\n", ret);
+            return FALSE;
+         }
+
+         if (GetModuleFileName(hm, dll_path, sizeof(dll_path)) == 0)
+         {
+            ret = GetLastError();
+            fprintf(stderr, "GetModuleFileName failed, error = %d\n", ret);
+            return FALSE;
+         }
+
+         // Find the last backslash to get the directory
+         char *last_slash = strrchr(dll_path, '\\');
+         if (last_slash) {
+            *last_slash = '\0';  // Trim the DLL file name, keeping only the directory
+         }
+         snprintf(PARAMS_DIR, sizeof(PARAMS_DIR), "%s\\ifugen_params\\", dll_path);
          break;
 
       case DLL_PROCESS_DETACH:
-         free(custom_slice_params);
+         free(CUSTOM_SLICE_PARAMS);
          break;
 	}
 	return TRUE;
@@ -85,14 +118,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int file_num = FD->param[3];
 
    // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(custom_slice_params);
+   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(CUSTOM_SLICE_PARAMS);
    ValidateSlicerParams(&p);
    p.custom = 1;
-   
-   SAG_FUNC sag_func = Conic2DSag;
-   TRANSFER_DIST_FUNC transfer_dist_func = Conic2DTransfer;
-   SURF_NORMAL_FUNC surf_normal_func = Conic2DSurfaceNormal;
-   CRITICAL_XY_FUNC critical_xy_func = Conic2DCriticalXY;
 
    switch(FD->type)
    	{
@@ -158,7 +186,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params, sag_func);
+         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -204,8 +232,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
-         RayTraceSlicer(&ray_out, ray_in, zmin_GLOBAL, zmax_GLOBAL, trace_walls,
-            p, custom_slice_params, sag_func, transfer_dist_func, surf_normal_func);
+         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
+            p, CUSTOM_SLICE_PARAMS);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -240,21 +268,17 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->cv = 0;
          FD->k = 0;
 
-         SetSlicerParamsFromFD(&p, FD);
          break;
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
 
-         // Set functions for sag generation and ray tracing
-         GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, p);
-
-         if ( file_num_old_GLOBAL != file_num ) {
+         if ( FILE_NUM_OLD != file_num ) {
             // Update custom slice params and global extrema
-
-
-            FindSlicerGlobalExtrema(&zmin_GLOBAL, &zmax_GLOBAL, p, custom_slice_params, sag_func, critical_xy_func);
-            file_num_old_GLOBAL = file_num;
+            LoadCustomParamsFromFile(custom_slice_params, file_num, PARAMS_DIR, MAX_ELEMENTS, MAX_PATH_LENGTH);
+            p = MakeSlicerParamsFromCustom(custom_slice_params);
+            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, CUSTOM_SLICE_PARAMS);
+            FILE_NUM_OLD = file_num;
          };
 
          ValidateSlicerParams(&p);

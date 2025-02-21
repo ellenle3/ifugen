@@ -1,9 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const char params_dir_GLOBAL[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
-
-void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, int max_elements) {
+void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char params_dir[], int max_elements, int max_path_length) {
 
     if (file_num > 9999 || file_num < -999) {
         printf("Error: File number cannot exceed 4 digits\n");
@@ -11,12 +9,14 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, int max
     }
 
     // Get base name of file
-    char basename[36]; // 11 characters for file name + 4 for number
+    int max_basename_length = 35; // 31 characters for file name + 4 for number
+    char basename[max_basename_length];
     snprintf(basename, sizeof(basename), "custom_mirror_array_params_%d.txt", file_num);
 
     // Concatenate to the absolute path of the file
-    char filename[512]; // 512 characters should be plenty...
-    snprintf(filename, sizeof(filename), "%s%s", params_dir_GLOBAL, basename);
+    int max_filename_length = max_path_length + max_basename_length;
+    char filename[max_filename_length];
+    snprintf(filename, sizeof(filename), "%s%s", params_dir, basename);
 
     FILE *file = fopen(filename, "r");
     if (!file) {
