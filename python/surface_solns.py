@@ -49,6 +49,8 @@ def conic_2d_sag(x, y, c, k, alpha, beta, gamma):
         sgn = -1
         
     x0, y0 = conic_2d_off_axis_distance(c, alpha, beta)
+    #x0 -= sx
+    #x -= sx
 
     if (gamma == 0 and k == -1):
         # On-axis parabola

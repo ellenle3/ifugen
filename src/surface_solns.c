@@ -207,10 +207,10 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
     Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
 
     // Perform secant method to find xc; it should be around x0 if gamma is not
-    // huge. Use 10% the radius of curvature as initial guesses to compute the
+    // huge. Use 5% the radius of curvature as initial guesses to compute the
     // first secant line.
-    double xc0 = x0 + 0.1 * 1/cv;
-    double xc1 = x0 - 0.1 * 1/cv;
+    double xc0 = x0 + 0.05 * 1/cv;
+    double xc1 = x0 - 0.05 * 1/cv;
     double xc2, dervx0, dervx1;
     double err = 1;
     int i = 1;

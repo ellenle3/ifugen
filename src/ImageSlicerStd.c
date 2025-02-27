@@ -51,9 +51,9 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	{
 	IMAGE_SLICER_PARAMS p;
 	SetSlicerParamsFromData(&p, data);
-    Nx = (int) data[101];
-    Ny = (int) data[102];
-	L = data[103];
+    int Nx = (int) data[101];
+    int Ny = (int) data[102];
+	double Z_back = data[103];
 
 	// For computing how many triangles we need
 	int num_slices_total = 2;
@@ -62,6 +62,12 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	int num_triangles_surface = 2, num_triangles_sides = 2;
 
 	ValidateSlicerParams(&p);
+
+	SAG_FUNC sag_func;
+    TRANSFER_DIST_FUNC transfer_dist_func;
+    SURF_NORMAL_FUNC surf_normal_func;
+    CRITICAL_XY_FUNC critical_xy_func;
+    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func, &critical_xy_func, cv, p.cylinder);
 
 	/* what we do now depends upon what was requested */
 	code = (int) data[1];
@@ -107,6 +113,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			double xstart, xend, xstep;
 			double ystart, yend, ystep;
 			double pt1, pt2, pt3, pt4;
+			double alpha, beta, gamma, cv, k;
 			double code1, code2;
 			double xsize, ysize;
 
@@ -158,28 +165,32 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 					
 					ystart = slice_num * (p.dy + p.gy_width) - ysize / 2;
 					yend = yend + p.dy;
+
+					// Parameters for this slice
+					GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
 					
 					for (i = 0; i < Nx; i++) {
 						
 						for (j = 0; j < Ny; j++) {
 
-							code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
-	
-							// Determine face visibility
-							if (i == 0) {code1 -= 4;}  		 // side from point 3 to 1 is visible on triangle 1
-							elif (i == Nx - 1) {code2 -= 4;} // 3 to 1 is visible on triangle 2
-							if (j == 0) {code1 -= 1;} 		 // 1 to 2 is visible on triangle 1
-							elif (j == Ny - 1) {code -= 2;}  // 2 to 3 is visible on triangle 2
-
-
-							x1 = xstart + xstep*i  // you don't need to recompute these!
-							x2 = xstart + xstep*(i+1) // only needs to be computed if i=0, j=0
-							y1 = ystart + ystep*j  // recycle somehow...
+							x1 = xstart + xstep*i
+							x2 = xstart + xstep*(i+1)
+							y1 = ystart + ystep*j
 							y2 = ystart + ystep*(j+1)
-							z1 = ImageSlicerSag(x1, y1, p, &Conic3DSag);
-							z2 = ImageSlicerSag(x2, y1, p, &Conic3DSag);
-							z3 = ImageSlicerSag(x1, y2, p, &Conic3DSag);
-							z4 = ImageSlicerSag(x2, y2, p, &Conic3DSag);
+
+							code1 = code2 = 010017.0;   // exact 1, CSG 0, reflective, all invisible
+							
+							// Some triangle edges are visible at the edges of the
+							// slice so modify the code accordingly.
+							if (i == 0) { code1 -= 4; }  // side from point 3 to 1 is visible on triangle 1
+							elif (i == Nx - 1) { code2 -= 4; } // 3 to 1 is visible on triangle 2
+							if (j == 0) { code1 -= 1; }  // 1 to 2 is visible on triangle 1
+							elif (j == Ny - 1) { code -= 2; } // 2 to 3 is visible on triangle 2
+
+							z1 = sag_func(x1, y1, cv, k, alpha, beta, gamma);
+							z2 = sag_func(x2, y1, cv, k, alpha, beta, gamma);
+							z3 = sag_func(x1, y2, cv, k, alpha, beta, gamma);
+							z4 = sag_func(x2, y2, cv, k, alpha, beta, gamma);
 
 							tri_list[num_triangles*10 + 0] = x1;  // x1
 							tri_list[num_triangles*10 + 1] = y1;  // y1
@@ -204,8 +215,6 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 							tri_list[num_triangles*10 + 8] = z4;  // z3
 							tri_list[num_triangles*10 + 9] = code2;
 							num_triangles++;
-
-							// Do walls if applicable
 						}
 					}
 				}
@@ -300,28 +309,28 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 
 			// Then the back panel
-			tri_list[num_triangles*10 + 0] = x1;  // x1
-			tri_list[num_triangles*10 + 1] = y1;  // y1
-			tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
-			tri_list[num_triangles*10 + 3] = x2;  // x2
-			tri_list[num_triangles*10 + 4] = y1;  // y2
-			tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
-			tri_list[num_triangles*10 + 6] = x1;  // x3
-			tri_list[num_triangles*10 + 7] = y2;  // y3
-			tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
-			tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+			tri_list[num_triangles*10 + 0] = -xsize/2;  // x1
+			tri_list[num_triangles*10 + 1] = -ysize/2;  // y1
+			tri_list[num_triangles*10 + 2] = Z_back;    // z1
+			tri_list[num_triangles*10 + 3] = xsize/2;   // x2
+			tri_list[num_triangles*10 + 4] = -ysize/2;  // y2
+			tri_list[num_triangles*10 + 5] = Z_back;    // z2
+			tri_list[num_triangles*10 + 6] = -xsize/2;  // x3
+			tri_list[num_triangles*10 + 7] = ysize/2;   // y3
+			tri_list[num_triangles*10 + 8] = Z_back;    // z3
+			tri_list[num_triangles*10 + 9] = 000012.0;  // exact 0, CSG 0, reflective, outer edges visible
 			num_triangles++;
 
-			tri_list[num_triangles*10 + 0] = x2;  // x1
-			tri_list[num_triangles*10 + 1] = y1;  // y1
-			tri_list[num_triangles*10 + 2] = p.gx_depth;  // z1
-			tri_list[num_triangles*10 + 3] = x1;  // x2
-			tri_list[num_triangles*10 + 4] = y2;  // y2
-			tri_list[num_triangles*10 + 5] = p.gx_depth;  // z2
-			tri_list[num_triangles*10 + 6] = x2;  // x3
-			tri_list[num_triangles*10 + 7] = y2;  // y3
-			tri_list[num_triangles*10 + 8] = p.gx_depth;  // z3
-			tri_list[num_triangles*10 + 9] = 000012.0;   // exact 0, CSG 0, reflective, outer edges visible
+			tri_list[num_triangles*10 + 0] = xsize/2;   // x1
+			tri_list[num_triangles*10 + 1] = -ysize/2;  // y1
+			tri_list[num_triangles*10 + 2] = Z_back;  	// z1
+			tri_list[num_triangles*10 + 3] = -xsize/2;  // x2
+			tri_list[num_triangles*10 + 4] = ysize/2;   // y2
+			tri_list[num_triangles*10 + 5] = Z_back;    // z2
+			tri_list[num_triangles*10 + 6] = xsize/2;   // x3
+			tri_list[num_triangles*10 + 7] = ysize/2;   // y3
+			tri_list[num_triangles*10 + 8] = Z_back;  	// z3
+			tri_list[num_triangles*10 + 9] = 000012.0;  // exact 0, CSG 0, reflective, outer edges visible
 			num_triangles++;
 
 
@@ -401,7 +410,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			/* set safe parameter data values the first time the DLL is initialized */
 			data[101] = 4; 		  // Nx
 			data[102] = 3; 		  // Ny
-			data[103] = 5;		  // length
+			data[103] = 5;		  // Z_back
 			data[104] = (int) 5;  // n_each
 			data[105] = (int) 1;  // n_rows
 			data[106] = (int) 1;  // n_cols
@@ -442,10 +451,10 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i == -1) strcpy(data,"Wall Face");
 	if (i == -2) strcpy(data,"Gap Face");
 	if (i == -3) strcpy(dta,"Outside Face")
-
-	if (i == 1) strcpy(data,"Length");
-	if (i == 2) strcpy(data,"# Facets x");
-	if (i == 3) strcpy(data,"# Facets y");
+	
+	if (i == 1) strcpy(data,"# Facets x");
+	if (i == 2) strcpy(data,"# Facets y");
+	if (i == 3) strcpy(data,"Z_back");
 	if (i == 4) strcpy(data,"n_each");
 	if (i == 5) strcpy(data,"n_rows");
 	if (i == 6) strcpy(data,"n_cols");

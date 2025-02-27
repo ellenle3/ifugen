@@ -8,7 +8,7 @@ from custom_slicer_helpers import *
 class ImageSlicerParams:
     """Class for storing image slicer params."""
     custom: int
-    cylinder: int
+    surface_type: int
     n_each: int
     n_rows: int
     n_cols: int
@@ -17,9 +17,14 @@ class ImageSlicerParams:
     dbeta: float
     dgamma: float
     gamma_offset: float
+    dzp_col: float
+    dzp_row: float
+    dsx_col: float
     alpha_cen: float
     beta_cen: float
     gamma_cen: float
+    zp_cen: float
+    sx_cen: float
     dx: float
     dy: float
     c: float
@@ -64,8 +69,8 @@ def validate_slicer_params(p):
     is_valid = True
 
     # Do not touch the custom flag
-    if p.cylinder not in [0, 1]:
-        p.cylinder = 0
+    if p.surface_type not in [0, 1]:
+        p.surface_type = 0
         is_valid = False
 
     if p.n_cols < 1:
@@ -104,7 +109,7 @@ def get_surface_funcs(c, p):
         return tilted_plane_sag, tilted_plane_transfer, tilted_plane_surface_normal, tilted_plane_critical_xy
     else:
         return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
-    # if p.cylinder:
+    # if p.surface_type:
     
 def make_image_slicer_params_from_custom(custom_slice_params):
     p = ImageSlicerParams(
@@ -112,7 +117,7 @@ def make_image_slicer_params_from_custom(custom_slice_params):
         n_each = 1,
         n_rows = custom_slice_params[0],
         n_cols = custom_slice_params[1],
-        cylinder = custom_slice_params[2],
+        surface_type = custom_slice_params[2],
         dx = custom_slice_params[3],
         dy = custom_slice_params[4],
         gx_width = custom_slice_params[5],
@@ -126,9 +131,14 @@ def make_image_slicer_params_from_custom(custom_slice_params):
         dbeta = 0,
         dgamma = 0,
         gamma_offset = 0,
+        dzp_col = 0,
+        dzp_row = 0,
+        dsx_col = 0,
         alpha_cen = 0,
         beta_cen = 0,
         gamma_cen = 0,
+        zp_cen = 0,
+        sx_cen = 0,
         c = 0,
         k = 0
     )
@@ -201,7 +211,7 @@ def get_slice_params_standard(slice_num, col_num, p):
         beta = p.beta_cen + p.dbeta*(col_num - (p.n_cols-1)/2)
     else:
         beta = p.beta_cen + p.dbeta*(col_num - p.n_cols//2)
-        
+
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
     # Set the "central row" to the one above the x-axis (+y direction)

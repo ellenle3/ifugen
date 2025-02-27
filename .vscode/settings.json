@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "array": "c",
+        "span": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c",
+        "system_error": "c",
+        "random": "c",
+        "cmath": "c"
+    }
+}

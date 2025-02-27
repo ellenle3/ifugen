@@ -16,10 +16,10 @@ Feb 2025
 
 // The maximum number of slices that can be defined in the params file. This is
 // to prevent the param array from becoming excessively large. Set limit is
-// 2500 * 2500 slices. This is probably way more than anyone would ever need...
-// 8 bytes per double * 5 doubles per slice * (2500^2) slices = 250 MB.
+// 2000 * 2000 slices. This is probably way more than anyone would ever need...
+// 8 bytes per double * 10 doubles per slice * (2000^2) slices = 320 MB.
 // Plus 9 elements for the first 9 parameters.
-#define MAX_ELEMENTS 6250009
+#define MAX_ELEMENTS 40000009
 
 // Maximum number of characters in any path string
 #define MAX_PATH_LENGTH 512

@@ -6,7 +6,7 @@
  */
 typedef struct {
     int custom;          // Whether to set custom params for each slice
-    int cylinder;        // Whether this is a cylindrical surface or not
+    int surface_type;    // Whether this is a cylindrical surface or not
     int n_each;          // Number of slices in a single row
     int n_rows;          // Number of rows
     int n_cols;          // Number of columns

@@ -29,7 +29,7 @@ static double ZMIN, ZMAX;
 // Need to keep track of whether parameters changed
 static IMAGE_SLICER_PARAMS P_OLD = {
         .custom = 0,
-        .cylinder = -1,
+        .surface_type = -1,
         .n_each = -1,
         .n_rows = -1,
         .n_cols = -1,
@@ -128,7 +128,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
                strcpy(UD->string,"active_y");
                break;
             case 3:
-               strcpy(UD->string,"cylinder");
+               strcpy(UD->string,"surface_type");
                break;
             case 4:
                strcpy(UD->string,"n_each");
@@ -280,7 +280,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[0] = 0;      // trace_walls
          FD->param[1] = 0;      // active_x
          FD->param[2] = 0;      // active_y
-         FD->param[3] = 0;      // cylinder
+         FD->param[3] = 0;      // surface_type
          FD->param[4] = 5;      // n_each
          FD->param[5] = 2;      // n_rows
          FD->param[6] = 1;      // n_cols
@@ -350,7 +350,7 @@ return 0;
 
 // Functions to convert between Zemax FIXED_DATA and image slicer params struct
 void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   FD->param[3] =  p->cylinder;
+   FD->param[3] =  p->surface_type;
    FD->param[4] =  p->n_each;
    FD->param[5] =  p->n_rows;
    FD->param[6] =  p->n_cols;
@@ -373,7 +373,7 @@ void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
 }
 
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   p->cylinder =     FD->param[3];
+   p->surface_type =     FD->param[3];
    p->n_each =       FD->param[4];
    p->n_rows =       FD->param[5];
    p->n_cols =       FD->param[6];
