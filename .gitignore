@@ -1,5 +1,6 @@
 # Python notebook for testing
 #*.ipynb
+*.DS_Store
 *.ipynb_checkpoints*
 src/usersurf.h
 
