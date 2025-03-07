@@ -52,6 +52,19 @@ class RayOut:
     mn: float
     nn: float
 
+@dataclass
+class SliceParams:
+    alpha: float
+    beta: float
+    gamma: float
+    c: float
+    k: float
+    zp: float
+    syx: float
+    syz: float
+    sxy: float
+    sxz: float
+
 def validate_slicer_params(p):
     """Returns True if all image slicer parameters are valid. Otherwise, modifies
     p to be valid and returns False.
@@ -381,7 +394,13 @@ def get_ray_bounds(ray_in, zmin, zmax, p):
     nc_min, ns_min = get_slicer_index(xmin, ymin, p)
     nc_max, ns_max = get_slicer_index(xmax, ymax, p)
 
-    return nc_min, ns_min, nc_max, ns_max
+    if xmin <= xmax: sgnc = 1
+    else: sgnc = -1
+
+    if ymin <= ymax: sgns = 1
+    else: sgns = -1
+
+    return nc_min, ns_min, nc_max, ns_max, sgnc, sgns
 
 def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
     """Returns True if the ray is in bounds at least some of the time.
@@ -404,11 +423,11 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
     -------
     """
     # Tolerance for accepting the transfer distance as valid
-    tol = 1e-11
+    tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
     # Get starting and ending rows and columns
-    nc_min, ns_min, nc_max, ns_max = get_ray_bounds(ray_in, zmin, zmax, p)
+    nc_min, ns_min, nc_max, ns_max, sgnc, sgns = get_ray_bounds(ray_in, zmin, zmax, p)
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
         return ray_out
     
@@ -419,14 +438,6 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
 
     dcol = abs(nc_max - nc_test)        # Number of col indices left to iterate
     dslice = abs(ns_max - ns_test)      # Number of slice (row) indices left to iterate
-
-    # Keep track of signs - which way to iterate
-    sgnc = 0
-    sgns = 0
-    if dcol > 0:
-        sgnc = (nc_max - nc_min) / dcol     
-    if dslice > 0:
-        sgns = (ns_max - ns_min) / dslice 
     
     slice_iter = 0       # Keep track of whether we're on the first slice in a column to check walls
 
@@ -493,7 +504,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
                         ynear = yt + tnear*m
                         znear = tnear*n
                         
-                        xfar = (nc_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2
+                        xfar = xnear + sgnc * p.gx_width
                         tfar = (xfar - xt) / l
                         yfar = yt + tfar*m
                         zfar = tfar*n
@@ -527,7 +538,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
                         xnear = xt + tnear*l
                         znear = tnear*n
                         
-                        yfar = (ns_test + 1) * p.dy + sgns * p.gy_width - ysize / 2
+                        yfar = ynear + sgns * p.gy_width
                         tfar = (yfar - yt) / m
                         xfar = xt + tfar*l
                         zfar = tfar*n

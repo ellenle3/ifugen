@@ -448,7 +448,8 @@ IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
     return sag - zs;
 }
 
-void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p) {
+void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, int *sgnc, int *sgns,
+RAY_IN ray_in, double zmin, double zmax, IMAGE_SLICER_PARAMS p) {
     double xmin, xmax, ymin, ymax;
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
@@ -471,10 +472,12 @@ void GetRayBounds(int *nc_min, int *ns_min, int *nc_max, int *ns_max, RAY_IN ray
         xmax = ray_in.xt + tmax*ray_in.l; ymax = ray_in.yt + tmax*ray_in.m;
     }
         
-
     // Get starting and ending rows and columns
     GetSlicerIndex(nc_min, ns_min, xmin, ymin, p);
     GetSlicerIndex(nc_max, ns_max, xmax, ymax, p);
+
+    *sgnc = (xmin <= xmax) ? 1 : -1;
+    *sgns = (ymin <= ymax) ? 1 : -1;
 }
 
 int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_PARAMS p) {
@@ -493,12 +496,12 @@ int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, IMAGE_SLICER_P
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, int trace_walls, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
 
     // Tolerance for accepting the transfer distance as valid
-    double tol = 1e-11;
+    double tol = 1e-12;
     ray_out->xs = ray_out->ys = ray_out->zs = NAN;
     ray_out->t = ray_out->ln = ray_out->mn = ray_out->nn = NAN;
 
-    int nc_min, ns_min, nc_max, ns_max;
-    GetRayBounds(&nc_min, &ns_min, &nc_max, &ns_max, ray_in, zmin, zmax, p);
+    int nc_min, ns_min, nc_max, ns_max, sgnc, sgns;
+    GetRayBounds(&nc_min, &ns_min, &nc_max, &ns_max, &sgnc, &sgns, ray_in, zmin, zmax, p);
 
     // Ray missed
     if (!IsRayInBounds(nc_min, ns_min, nc_max, ns_max, p)) return;
@@ -510,12 +513,6 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
 
     int dcol = abs(nc_max - nc_test);        // Number of col indices left to iterate
     int dslice = abs(ns_max - ns_test);      // Number of slice (row) indices left to iterate
-
-    // Keep track of signs - which way to iterate. Set to zero for now.
-    // If dcol is 0 then sgnc doesn't matter since we aren't iterating it anyway.
-    // Same goes for dslice and sgns.
-    int sgnc = (dcol > 0) ? (nc_max - nc_min) / dcol : 0;
-    int sgns = (dslice > 0) ? (ns_max - ns_min) / dslice : 0;
         
     int slice_iter = 0;       // Keep track of whether we're on the first slice in a column to check walls
     
@@ -599,7 +596,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
                         ynear = yt + tnear*m;
                         znear = tnear*n;
                         
-                        xfar = (nc_test + 1) * p.dx + sgnc * p.gx_width - xsize / 2;
+                        xfar = xnear + sgnc * p.gx_width;
                         tfar = (xfar - xt) / l;
                         yfar = yt + tfar*m;
                         zfar = tfar*n;
@@ -636,7 +633,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
                             xnear = xt + tnear*l;
                             znear = tnear*n;
                             
-                            yfar = (ns_test + 1) * p.dy + sgns * p.gy_width - ysize / 2;
+                            yfar = ynear + sgns * p.gy_width;
                             tfar = (yfar - yt) / m;
                             xfar = xt + tfar*l;
                             zfar = tfar*n;
