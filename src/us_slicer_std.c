@@ -206,7 +206,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params);
 
-         if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
+         if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0... should I return -1?
          else {
             UD->sag1 = sag;
             UD->sag2 = sag;

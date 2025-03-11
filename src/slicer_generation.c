@@ -397,8 +397,8 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
     // Safeguard in case the user attempts to initialize an obscenely large number
     // of slices
     if (nx > 30000 || ny > 40000) {
-        nx = 30000; // 5,000 columns???
-        ny = 40000; // Implies 5,000 slices per column which seems excessive...
+        nx = 30000; // Implies 5,000 columns
+        ny = 40000; // 5,000 slices per column...
     }
 
     // Generally the number of points shouldn't be a problem but dynamically allocate
@@ -431,7 +431,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
             }
         }
     }
-
+    
     free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values

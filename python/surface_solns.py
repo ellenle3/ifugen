@@ -1,5 +1,20 @@
 import numpy as np
+from dataclasses import dataclass
 from scipy.optimize import newton
+
+@dataclass
+class SliceParams:
+    """Class for storing parameters of a single slice."""
+    alpha: float
+    beta: float
+    gamma: float
+    c: float
+    k: float
+    zp: float
+    syx: float
+    syz: float
+    sxy: float
+    sxz: float
 
 
 def convert_angle(t):
@@ -37,7 +52,21 @@ def conic_2d_off_axis_distance(c, alpha, beta):
     x0 = np.sin(beta) / ( c * (1+np.cos(beta)) )
     return x0, y0
     
-def conic_2d_sag(x, y, c, k, alpha, beta, gamma):
+def conic_2d_sag(x, y, pslice):
+    """Returns the sag of a rotationally symmetric conic.
+    """
+
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    c = pslice.c
+    k = pslice.k
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     # Keep track of the angle, which determines which solution of
     # the quadratic is valid
     alpha = convert_angle(alpha) * np.pi/180
@@ -72,7 +101,7 @@ def conic_2d_sag(x, y, c, k, alpha, beta, gamma):
     # purposes. We will not ray trace these regions
     return np.where(bsol**2-4*asol*csol < 0, 0, 2*csol/(-bsol + sgn*np.sqrt(bsol*bsol - 4*asol*csol)))
 
-def conic_2d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
+def conic_2d_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance. Because the equation for t is a quadratic,
     there are two possible solutions. We almost always want the solution that
     corresponds to a smaller value of t (+ )
@@ -81,6 +110,18 @@ def conic_2d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
 
     See Cheatham 1980.
     """
+    
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    c = pslice.c
+    k = pslice.k
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
@@ -106,9 +147,21 @@ def conic_2d_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         
     return gsol/(-fsol + sgn*np.sqrt(fsol*fsol - dsol*gsol))
 
-def conic_2d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
+def conic_2d_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
     """
+
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    c = pslice.c
+    k = pslice.k
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     # Check where the derivative is undefined!!!
     
     alpha = convert_angle(alpha) * np.pi/180
@@ -162,11 +215,23 @@ def conic_2d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...
     return dervx / norm, dervy / norm, -1 / norm
 
-def conic_2d_critical_xy(c, k, alpha, beta, gamma):
+def conic_2d_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
 
     Check where this is undefined!
     """
+
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    c = pslice.c
+    k = pslice.k
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     # Tolerance for accepting root from secant method
     tol = 1e-13
 
@@ -180,23 +245,33 @@ def conic_2d_critical_xy(c, k, alpha, beta, gamma):
     gamma = convert_angle(gamma) * np.pi/180
 
     x0, y0 = conic_2d_off_axis_distance(c, alpha, beta)
-    xc = newton(conic_2d_dervx, x0, tol=tol, args=(-y0,  c, k, alpha, beta, gamma))
+    xc = newton(conic_2d_dervx, x0, tol=tol, args=(-y0, pslice))
     return xc, -y0
 
-def conic_2d_dervx(x, y, c, k, alpha, beta, gamma):
+def conic_2d_dervx(x, y, pslice):
     """Returns the partial derivative along x.
     """
-    dervx, dervy, _ = conic_2d_surface_normal(x, y, c, k, alpha, beta, gamma, normalize=False)
+    dervx, dervy, _ = conic_2d_surface_normal(x, y, pslice, normalize=False)
     return dervx
 
 
 # Solutions for planar surfaces
 
-def tilted_plane_sag(x, y, c, k, alpha, beta, gamma):
+def tilted_plane_sag(x, y, pslice):
     """
     c and k are not used, but are present so this function has the same number
     of parameters as conic_2d.
     """
+
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
@@ -211,9 +286,19 @@ def tilted_plane_sag(x, y, c, k, alpha, beta, gamma):
 
     return x * sinbg / (cosa*cosbg) - y * sina / cosa
 
-def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
+def tilted_plane_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance.
     """
+
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
@@ -233,9 +318,18 @@ def tilted_plane_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
         return np.nan
     return arg1 / arg2
 
-def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
+def tilted_plane_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
     """
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
@@ -259,7 +353,7 @@ def tilted_plane_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...
     return dervx / norm, dervy / norm, -1
 
-def tilted_plane_critical_xy(c, k, alpha, beta, gamma):
+def tilted_plane_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
     Planes do not have critical points.
     """

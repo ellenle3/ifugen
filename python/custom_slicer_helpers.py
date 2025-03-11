@@ -1,4 +1,5 @@
 import numpy as np
+from surface_solns import SliceParams
 
 def load_slice_params_file(file_num):
     """Load parameters from a txt file. The two lines of the file *must* be
@@ -75,4 +76,9 @@ def get_slice_params_custom(slice_num, col_num, custom_slice_params):
     c = custom_slice_params[start_idx + 3]
     k = custom_slice_params[start_idx + 4]
 
-    return alpha, beta, gamma, c, k
+    zp = 0
+    syx = 0
+    syz = 0
+    sxy = 0
+    sxz = 0
+    return SliceParams(alpha, beta, gamma, c, k, zp, syx, syz, sxy, sxz)
