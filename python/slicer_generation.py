@@ -23,6 +23,7 @@ class ImageSlicerParams:
     dsyz: float
     dsxy: float
     dsxz: float
+    du: float
     alpha_cen: float
     beta_cen: float
     gamma_cen: float
@@ -31,6 +32,7 @@ class ImageSlicerParams:
     syz_cen: float
     sxy_cen: float
     sxz_cen: float
+    u_cen: float
     dx: float
     dy: float
     c: float
@@ -94,7 +96,9 @@ def validate_slicer_params(p):
         p.angle_mode = 0
         is_valid = False
 
-    # Angles can be whatever since we will convert them to be +/- 180
+    # Angles can be whatever since we will convert them to be +/- 180. Changes
+    # in axes of rotation are also unrestricted. (Please don't enter an imaginary
+    # number or something else crazy.)
 
     if p.dx <= 0:
         p.dx = 1
@@ -162,6 +166,7 @@ def make_image_slicer_params_from_custom(custom_slice_params):
         dsyz = 0,
         dsxy = 0,
         dsxz = 0,
+        du = 0,
         alpha_cen = 0,
         beta_cen = 0,
         gamma_cen = 0,
@@ -170,6 +175,7 @@ def make_image_slicer_params_from_custom(custom_slice_params):
         syz_cen = 0,
         sxy_cen = 0,
         sxz_cen = 0,
+        u_cen = 0,
         c = 0,
         k = 0
     )
@@ -184,20 +190,23 @@ def get_slicer_size(p):
     xsize = (p.n_cols*p.dx + (p.n_cols-1)*p.gx_width)
     return xsize, ysize
 
-def get_slicer_index(x, y, p):
+def get_slicer_index(x, y, p, custom_slice_params):
     """Returns the column, slice index for a given x, y.
     """
     xsize, ysize = get_slicer_size(p)
     # Gets column and slice indices for a given x, y
-    col_num = (x + xsize/2) // (p.dx + p.gx_width)
     slice_num = (y + ysize/2) // (p.dy + p.gy_width)
+    row_num = slice_num // p.n_each
+    # Column index depends on how much the row is shifted (u)
+    u = get_u_for_row(row_num, p, custom_slice_params)
+    col_num = (x - u + xsize/2) // (p.dx + p.gx_width)
     return col_num, slice_num
 
-def is_inside_slicer_gap(x, y, p):
+def is_inside_slicer_gap(x, y, p, custom_slice_params):
     """Returns whether x, y is inside of a gap between columns (x) or slices (y).
     """
     xsize, ysize = get_slicer_size(p)
-    col_num, slice_num = get_slicer_index(x, y, p)
+    col_num, slice_num = get_slicer_index(x, y, p, custom_slice_params)
     # Check if x, y is inside of a gap
     ygap_bot = (slice_num + 1) * p.dy + slice_num*p.gy_width - ysize/2
     ygap_top = ygap_bot + p.gy_width
@@ -223,6 +232,35 @@ def get_paraxial_slice_index(p, active_x, active_y):
 
     return col_num, slice_num
 
+def get_min_max_u(p, custom_slice_params):
+    """Returns the maximum and minimum u values of the image slicer.
+    """
+    # you probably want to store
+    # this result so you don't have to do it every time a ray is traced
+    if p.custom:
+        u_all = custom_slice_params[9: 9 + p.n_rows]
+        umax = np.max(u_all)
+        umin = np.min(u_all)
+        return umin, umax
+
+    num_slices = p.n_each * p.n_rows
+    if num_slices < 2:
+        # Only one slice, so u is the same for all slices
+        return p.u_cen, p.u_cen
+
+    if p.angle_mode in [0,1]:
+        umin = get_u_for_row(0, p, custom_slice_params)
+        umax = get_u_for_row(p.n_rows - 1, p, custom_slice_params)
+    elif p.angle_mode in [2,3]:
+        umin = get_u_for_row(0, p, custom_slice_params)
+        umax = get_u_for_row(1, p, custom_slice_params)
+
+    # Swap if alternating negative
+    if p.du < 0:
+        umax, umin = umin, umax
+
+    return umin, umax
+
 def get_slice_params(slice_num, col_num, p, custom_slice_params):
     """Returns the angles alpha and beta for the slice number. Indexing starts at
     0 from the bottom (negative y direction) of the image slicer.
@@ -230,6 +268,31 @@ def get_slice_params(slice_num, col_num, p, custom_slice_params):
     if p.custom:
         return get_slice_params_custom(slice_num, col_num, custom_slice_params)
     return get_slice_params_standard(slice_num, col_num, p) 
+
+def get_u_for_row(row_num, p, custom_slice_params):
+    """Returns the u value for a given row number, which is the shift along the
+    x-axis. This needs to be computed seperately as it is used to calculate the
+    column index of the slice.
+    """
+    if p.custom:
+        return custom_slice_params[9 + row_num]
+    
+    # Similar to get_slice_params_standard
+    if p.n_rows % 2 == 0:
+        u_extra = p.du * (row_num - (p.n_rows-1)/2)
+    else:
+        u_extra = p.du * (row_num - p.n_rows//2)
+
+    # angle_mode also determines whether u should stack because the way gamma is
+    # constructed on the image slicer should determine how u is constructed on the
+    # subpupil mirrors. This somewhat restricts which surfaces can be defined in
+    # standard mode, but if this is insufficient the user can use custom mode instead.
+    if (p.angle_mode == 2 or p.angle_mode == 3):
+        if row_num % 2 == 0:
+            u_extra = -p.du/2
+        else:
+            u_extra = p.du/2
+    return p.u_cen + u_extra
 
 def get_slice_params_standard(slice_num, col_num, p):
     """Returns slice parameters for standard mode.
@@ -251,17 +314,33 @@ def get_slice_params_standard(slice_num, col_num, p):
     slice_num_row = slice_num - row_num*p.n_each
     # Set the angle beta for each row
     alpha, beta, gamma = 0, 0, 0
+    zp = p.zp_cen
+    u = get_u_for_row(row_num, p, [])
+
     if p.n_rows % 2 == 0:
-        alpha = p.alpha_cen + p.dalpha*(row_num - (p.n_rows-1)/2)
+        alpha = p.alpha_cen + p.dalpha * (row_num - (p.n_rows-1)/2)
+        syx = p.syx_cen + p.dsyx * (row_num - (p.n_rows-1)/2)
+        syz = p.syz_cen + p.dsyz * (row_num - (p.n_rows-1)/2)
+        zp += p.dzp_row * (row_num - (p.n_rows-1)/2)
         gamma_extra = p.gamma_offset * (row_num - (p.n_rows-1)/2)
+        
     else:
-        alpha = p.alpha_cen + p.dalpha*(row_num - p.n_rows//2)
+        alpha = p.alpha_cen + p.dalpha * (row_num - p.n_rows//2)
+        syx = p.syx_cen + p.dsyx * (row_num - p.n_rows//2)
+        syz = p.syz_cen + p.dsyz * (row_num - p.n_rows//2)
+        zp += p.dzp_row * (row_num - p.n_rows//2)
         gamma_extra = p.gamma_offset * (row_num - p.n_rows//2)
 
     if p.n_cols % 2 == 0:
-        beta = p.beta_cen + p.dbeta*(col_num - (p.n_cols-1)/2)
+        beta = p.beta_cen + p.dbeta * (col_num - (p.n_cols-1)/2)
+        sxy = p.sxy_cen + p.dsxy * (col_num - (p.n_cols-1)/2)
+        sxz = p.sxz_cen + p.dsxz * (col_num - (p.n_cols-1)/2)
+        zp += p.dzp_col * (col_num - (p.n_cols-1)/2)
     else:
-        beta = p.beta_cen + p.dbeta*(col_num - p.n_cols//2)
+        beta = p.beta_cen + p.dbeta * (col_num - p.n_cols//2)
+        sxy = p.sxy_cen + p.dsxy * (col_num - p.n_cols//2)
+        sxz = p.sxz_cen + p.dsxz * (col_num - p.n_cols//2)
+        zp += p.dzp_col * (col_num - p.n_cols//2)
 
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
@@ -293,12 +372,7 @@ def get_slice_params_standard(slice_num, col_num, p):
     elif (p.angle_mode == 1 or p.angle_mode == 3):
         gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
     
-    zp = 0
-    syx = 0
-    syz = 0
-    sxy = 0
-    sxz = 0
-    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz)
+    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
 
 def make_image_slicer(x, y, p, custom_slice_params):
     """Returns the sag of the image slicer at a given x, y.
@@ -320,20 +394,20 @@ def make_image_slicer(x, y, p, custom_slice_params):
     out: float
         Sag of the image slicer at x, y.
     """
-    # Get dimensions of the image slicer
-    xsize, ysize = get_slicer_size(p)
-    # x, y coordinate is out of bounds (x=0, y=0 is in the middle of the slicer)
-    if (abs(x) >= xsize/2 or abs(y) >= ysize/2):
+    # Check if out of bounds
+    col_num, slice_num = get_slicer_index(x, y, p, custom_slice_params)
+    row_num = slice_num // p.n_each
+    if (row_num < 0 or row_num >= p.n_rows) or (col_num < 0 or col_num >= p.n_cols):
         return np.nan
-    # Figure out which slice and column we are on to determine gaps
-    col_num, slice_num = get_slicer_index(x, y, p)
+    
     # If inside a gap, return the gap depth instead of a curved surface
-    in_xgap, in_ygap = is_inside_slicer_gap(x, y, p)
+    in_xgap, in_ygap = is_inside_slicer_gap(x, y, p, custom_slice_params)
     if in_xgap:
         return p.gx_depth
     if in_ygap:
         return p.gy_depth
-    # Inside a slice. From the slice number, determine the angles
+    
+    # Inside a slice. From the indices, determine the slice parameters
     slice_params = get_slice_params(slice_num, col_num, p, custom_slice_params)
     sag_func, _, _, _ = get_surface_funcs(slice_params.c, p)
     return sag_func(x, y, slice_params)
@@ -360,14 +434,14 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
         Maximum or minimum of the slice.
     """
     # If x0, y0 are inside gaps then we don't need to go further
-    in_xgap, in_ygap = is_inside_slicer_gap(x0, y0, p)
+    in_xgap, in_ygap = is_inside_slicer_gap(x0, y0, p, custom_slice_params)
     if in_xgap: return p.gx_depth
     if in_ygap: return p.gy_depth
 
     # Not inside a gap. We need to compute the sag at the bounds and
     # critical point(s) of the slice.
     # First, compute the bounds of the current slice
-    col_num, slice_num = get_slicer_index(x0, y0, p)
+    col_num, slice_num = get_slicer_index(x0, y0, p, custom_slice_params)
     xsize, ysize = get_slicer_size(p)
     slice_params = get_slice_params(slice_num, col_num, p, custom_slice_params)
     sag_func, junk1, junk2, critical_xy_func = get_surface_funcs(slice_params.c, p)
@@ -436,7 +510,7 @@ def transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params):
     sag = make_image_slicer(xs, ys, p, custom_slice_params)
     return sag - zs
 
-def get_ray_bounds(ray_in, zmin, zmax, p):
+def get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params):
     """Returns the starting and ending column, slice indices of the ray.
 
     Parameters
@@ -467,8 +541,8 @@ def get_ray_bounds(ray_in, zmin, zmax, p):
         xmax, ymax = ray_in.xt + tmax*ray_in.l, ray_in.yt + tmax*ray_in.m
 
     # Get starting and ending rows and columns
-    nc_min, ns_min = get_slicer_index(xmin, ymin, p)
-    nc_max, ns_max = get_slicer_index(xmax, ymax, p)
+    nc_min, ns_min = get_slicer_index(xmin, ymin, p, custom_slice_params)
+    nc_max, ns_max = get_slicer_index(xmax, ymax, p, custom_slice_params)
 
     if xmin <= xmax: sgnc = 1
     else: sgnc = -1
@@ -478,10 +552,12 @@ def get_ray_bounds(ray_in, zmin, zmax, p):
 
     return nc_min, ns_min, nc_max, ns_max, sgnc, sgns
 
-def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
+def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
     """Returns True if the ray is in bounds at least some of the time. This is done
     by checking whether or not the col, slice indices of the ray are always out
     of bounds of the image slicer.
+
+    NEED TO MODIFY THIS!!
 
     Parameters
     ----------
@@ -502,214 +578,348 @@ def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
         True if the ray is in bounds at least some of the time. False if the ray
         is never in bounds of the image slicer.
     """
-    if (nc_min < 0 and nc_max < 0) or (nc_min >= p.n_cols and nc_max >= p.n_cols):
-        # x-value of the ray is too high or low
+    dcol = math.ceil( abs(umax - umin) / p.dx )
+    col_min = -dcol
+    col_max = p.n_cols + dcol
+    if (nc_min < col_min and nc_max < col_min) or (nc_min >= col_max and nc_max >= col_max):
+        # x-value of the ray is too low or high
         return False
     
     n_sperc = p.n_each * p.n_rows  # number of slices per column
     if (ns_min < 0 and ns_max < 0) or (ns_min >= n_sperc and ns_max >= n_sperc):
-        # y-value of the ray is too high or low
+        # y-value of the ray is too low or high
         return False
     
     return True
 
-def ray_trace_slicer(ray_in, zmin, zmax, trace_walls, p, custom_slice_params):
-    """Computes the ray trace for the image slicer.
+def is_section_in_bounds(col_num, row_num, umin, umax, p, custom_slice_params):
+    """Checks whether the section is within the range of x- and y-values over
+    which the image slicer is defined.
+    
+    Note that this isn't as straightforward as checking whether nc and nr are within
+    expected values since the rows may be shifted in x with respect to each other.
+    For example, a ray may pass through an undefined region (nc = -1) but come back
+    to a defined region after crossing through this section.
+
+    """
+    # Checking row numbers is pretty straightforward
+    if row_num < 0 or row_num >= p.n_rows:
+        return False
+
+    # Column numbers require us to consider how each row is shifted
+    dcol = math.ceil( abs(umax - umin) / p.dx )
+    if (col_num < -dcol or col_num >= p.n_cols + dcol):
+        return False
+
+    return True
+
+def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
+    """
+
+    Returns
+    -------
+    ray_out: RayOut
+        Output ray parameters. Values are nan if the ray missed.
+    """
+
+    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
+
+    # Check if this slice is a solution. Get params for this slice and
+    # compute the transfer distance.
+    pslice = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+    sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
+
+    t = transfer_dist_func(xt, yt, l, m, n, pslice)
+    result = transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)
+
+    # Is this a valid zero to the transfer equation?
+    if abs(result) < tol:
+        # Yes - found a solution!
+        xs = xt + t*l
+        ys = yt + t*m
+        zs = t*n
+        ln, mn, nn = surf_normal_func(xs, ys, pslice, True)
+
+        # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
+        # equal to the gap depth then this may be the case.
+        in_xgap, in_ygap = is_inside_slicer_gap(xs, ys, p, custom_slice_params)
+        if (in_xgap or in_ygap):
+            return ray_out
+        
+        # Not in a gap. This slice is the solution.
+        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xs, ys, zs, t
+        ray_out.ln, ray_out.mn, ray_out.nn = ln, mn, nn
+        return ray_out
+    
+    return ray_out
+
+def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params):
+    """Checks whether a ray has intersected a wall between the current slice and
+    the next slice (between rows/slices).
 
     Parameters
     ----------
     ray_in: RayIn
-        Input ray to trace.
-    zmin: float
-        Global minimum of the image slicer.
-    zmax: float
-        Global maximum of the image slicer.
-    trace_walls: bool
-        If True, collisions with walls and gaps will be traced.
+        Input ray parameters.
+    ns_test: int
+        Slice index of the current slice.
+    nc_test: int
+        Column index of the current slice.
     p: ImageSlicerParams
-        Parameters of the image slicer.
-    custom_slice_params: array_like
-        Custom slice parameters. If p.custom = 0 (disabled), the parameter is
-        unused.
-    
+        Paramters of the image slicer.
+
     Returns
     -------
     ray_out: RayOut
-        Output ray parameters. These are the transferred coordinates, transfer
-        distance, and surface normals.
+        Output ray parameters. Values are nan if the ray missed.
+    """
+    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
+
+    xsize, ysize = get_slicer_size(p)
+    sag_func, _, _, _ = get_surface_funcs(p.c, p)
+
+    if (abs(m) > 1e-13):
+
+        # Ray coordinates on near wall
+        ynear = (ns_test + (1+sgns)/2) * p.dy + ns_test * p.gy_width - ysize / 2
+        tnear = (ynear - yt) / m
+        xnear = xt + tnear*l
+        znear = tnear*n
+        
+        # Ray coordinates on far wall
+        yfar = ynear + sgns * p.gy_width
+        tfar = (yfar - yt) / m
+        xfar = xt + tfar*l
+        zfar = tfar*n
+        
+        # Sag of near and far slices
+        pslice_near = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+        znear_slice = sag_func(xnear, ynear, pslice_near)
+
+        pslice_far = get_slice_params(ns_test + 1*sgns, nc_test, p, custom_slice_params)
+        zfar_slice = sag_func(xfar, yfar, pslice_far)
+
+        # Did it hit a near wall? This is only possible if the gap depth
+        # protrudes further than the near edge
+        if (znear_slice > p.gy_depth and p.gy_width > 0) and (znear < znear_slice and znear > p.gy_depth):
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
+            ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
+            return ray_out
+
+        # Did it hit a far wall?
+        if p.gy_width == 0: zcompare = znear_slice
+        else: zcompare = p.gy_depth
+        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
+            ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
+            return ray_out
+    
+    # Ray missed...
+    return ray_out
+
+def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params):
+    """Analagous to check_ywall_collision, but for the x walls (between columns).
+    """
+    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
+
+    xsize, ysize = get_slicer_size(p)
+    sag_func, _, _, _ = get_surface_funcs(p.c, p)
+
+    if abs(l) > 1e-13:
+        
+        # Ray coordinates on near wall
+        xnear = (nc_test + (1+sgnc)/2 ) * p.dx + nc_test * p.gx_width - xsize / 2
+        tnear = (xnear - xt) / l
+        ynear = yt + tnear*m
+        znear = tnear*n
+
+        # Ray coordinates on far wall
+        xfar = xnear + sgnc * p.gx_width
+        tfar = (xfar - xt) / l
+        yfar = yt + tfar*m
+        zfar = tfar*n
+
+        # Sag of near and far slices
+        pslice_near = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+        znear_slice = sag_func(xnear, ynear, pslice_near)
+
+        pslice_far = get_slice_params(ns_test, nc_test + 1*sgnc, p, custom_slice_params)
+        zfar_slice = sag_func(xfar, yfar, pslice_far)
+
+        # Did it hit a near wall? This is only possible if the gap depth
+        # protrudes further in -z than the near edge
+        # THIS IS ALSO POSSIBLE IF THE RAY APPROACHES FROM THE WRONG SIDE
+        # OF THE IMAGE SLICER! But this should never happen under normal circumstances.
+        if (znear_slice > p.gx_depth and p.gx_width > 0) and (znear < znear_slice and znear > p.gx_depth):
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
+            ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
+            return ray_out
+
+        # Did it hit a far wall?
+        if p.gx_width == 0: zcompare = znear_slice
+        else: zcompare = p.gx_depth
+        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
+            ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
+            return ray_out
+    
+    # Ray missed...
+    return ray_out
+
+def check_gap_collision(tol, ray_in, p, custom_slice_params):
+    """
+    """
+    ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
+
+    if (abs(n) > 1e-13):
+        
+        # Gaps between columns take precedence over gaps between slices in rows
+        t = p.gx_depth / n
+        if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
+            ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
+            return ray_out
+
+        t = p.gy_depth / n
+        if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
+            ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
+            return ray_out
+
+    return ray_out
+
+def calc_num_slices_to_check(ray_in, nc_test, ns_test, sgnc, sgns, x_test, y_test, p):
+    """
+
+    Returns
+    -------
+    n_stocheck: int
+        Number of slices to check in this section.∂
+    x_testnew: float
+    """
+    xt, yt = ray_in.xt, ray_in.yt
+    l, m, n = ray_in.l, ray_in.m, ray_in.n
+
+    # Ray in coming in straight-on in the z-direction. No need to change sections.
+    if (abs(l) < 1e-13 and abs(m) < 1e-13):
+        return 1, x_test, y_test
+    
+    # Avoid division by zero. Doesn't matter what exactly we set this to because
+    # the non-infinitesimal value of l or m will win out.
+    l = max(abs(l), 1e-13)
+    m = max(abs(m), 1e-13)
+    
+    # x- and y-coordinates of crossover points to the next section, incremented
+    # either column- or row-wise.
+    x_nextcol = nc_test * (p.dx + p.gx_width) + (1 + sgnc) * p.dx / 2
+    y_nextcol = yt + (x_nextcol - x_test) * m / l
+
+    nr = ns_test // p.n_each
+    y_nextrow = nr * p.n_each * (p.dy + p.gy_width) + (1 + sgns) * p.dy / 2
+    x_nextrow = xt + (y_nextrow - y_test) * l / m
+
+    # Whether the next section is incremented column- or row-wise depends on which
+    # distance is smaller
+    dtocol = np.sqrt((x_nextcol - x_test)**2 + (y_nextcol - y_test)**2)
+    dtorow = np.sqrt((x_nextrow - x_test)**2 + (y_nextrow - y_test)**2)
+    if dtocol <= dtorow:
+        # Crossing columns. Cap the number of slices to check to the number of slices
+        # within a single section.
+        n_stocheck = math.ceil(abs(y_nextcol - y_test) / (p.dy + p.gy_width))
+        n_stocheck = min(n_stocheck, p.n_each)
+        return n_stocheck, x_nextcol, y_nextcol
+    else:
+        # Crossing rows, same logic
+        n_stocheck = math.ceil(abs(y_nextrow - y_test) / (p.dy + p.gy_width))
+        n_stocheck = min(n_stocheck, p.n_each)
+        return n_stocheck, x_nextrow, y_nextrow
+
+def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slice_params):
+    """
     """
     # Tolerance for accepting the transfer distance as valid
     tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
 
     # Get starting and ending rows and columns
-    nc_min, ns_min, nc_max, ns_max, sgnc, sgns = get_ray_bounds(ray_in, zmin, zmax, p)
-    if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, p):
+    nc_min, ns_min, nc_max, ns_max, sgnc, sgns = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
+    if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
         return ray_out
     
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
     nc_test, ns_test = nc_min, ns_min
+    nr_test = ns_test // p.n_each
+
     x_test, y_test = ray_in.xt, ray_in.yt
-
-    dcol = abs(nc_max - nc_test)        # Number of col indices left to iterate
-    dslice = abs(ns_max - ns_test)      # Number of slice (row) indices left to iterate
     
-    slice_iter = 0       # Keep track of whether we're on the first slice in a column to check walls
-
-    xsize, ysize = get_slicer_size(p)
-    xt, yt = ray_in.xt, ray_in.yt
-    l, m, n = ray_in.l, ray_in.m, ray_in.n
-    
-    while dcol >= 0:
+    while is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
         
-        # How many slices do we need to check on this column?
-           
-        # No column switching needed, check all remaining slices
-        if (abs(l) < 1e-13 or dcol == 0):
-            n_sforc = dslice
+        # Number of slices to check in this section
+        n_stocheck, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, ns_test, sgns, sgnc, x_test, y_test, p)
 
-        # Ray can potentially switch columns
-        else:
-            # Crossover point between current column and next one
-            x_cross = nc_test * (p.dx + p.gx_width) + (1 + sgnc) * p.dx / 2
-            # y-intercept between ray and the next column to check
-            y_cross = yt + (x_cross - x_test) * m / l
-            # Number of slices to check
-            n_sforc = math.ceil(abs(y_cross - y_test) / (p.dy + p.gy_width))
-            x_test, y_test = x_cross, y_cross
-            
-        while (dslice >= 0 and n_sforc >= 0):
-            
-            if (nc_test >= 0 and ns_test >= 0):
-                # Check if out of bounds
-                pslice = get_slice_params(ns_test, nc_test, p, custom_slice_params)
-                sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
+        # Iterate slices within this section
+        for n in range(n_stocheck):
 
-                t = transfer_dist_func(xt, yt, l, m, n, pslice)
-                result = transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)
-                
-                # Check whether the transfer distance of the current slice is a valid
-                # zero of the transfer equation.
-                if abs(result) < tol:
-                    # Yes - found a solution!
-                    xs = xt + t*l
-                    ys = yt + t*m
-                    zs = t*n
-                    ln, mn, nn = surf_normal_func(xs, ys, pslice, True)
+            # Check whether each slice is a solution to the transfer equation
+            ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
+            if not np.isnan(ray_out.t):
+                # Found a solution with a slice.
+                return ray_out
 
-                    # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
-                    # equal to the gap depth then this may be the case.
-                    in_xgap, in_ygap = is_inside_slicer_gap(xs, ys, p)
-                    if (in_xgap or in_ygap):
-                        dslice = -1
-                        dcol = -1
-                        break
-
-                    ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xs, ys, zs, t
-                    ray_out.ln, ray_out.mn, ray_out.nn = ln, mn, nn
+            # Before going to the next slice, check if there is a collision with
+            # a wall. (Skip if this is the last slice in the section.)
+            if (trace_walls and n < n_stocheck - 1):
+                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
+                if not np.isnan(ray_out.t):
+                    # Found a wall collision.
                     return ray_out
-
-                # Check if the ray is hitting a wall after this slice
-                if trace_walls:
-
-                    # Going between columns. Skip if there are no columns left to iterate
-                    if (slice_iter == 0 and abs(l) > 1e-13 and dcol > 0):
-
-                        xnear = (nc_test + (1+sgnc)/2 ) * p.dx + nc_test * p.gx_width - xsize / 2
-                        tnear = (xnear - xt) / l
-                        ynear = yt + tnear*m
-                        znear = tnear*n
-
-                        xfar = xnear + sgnc * p.gx_width
-                        tfar = (xfar - xt) / l
-                        yfar = yt + tfar*m
-                        zfar = tfar*n
-                        print(nc_test, p.dx, xsize /2, xnear)
-
-                        znear_slice = sag_func(xnear, ynear, pslice)
-                        pslice = get_slice_params(ns_test, nc_test + 1*sgnc, p, custom_slice_params)
-                        zfar_slice = sag_func(xfar, yfar, pslice)
-
-                        # Did it hit a near wall? This is only possible if the gap depth
-                        # protrudes further in -z than the near edge
-                        # THIS IS ALSO POSSIBLE IF THE RAY APPROACHES FROM THE WRONG SIDE
-                        # OF THE IMAGE SLICER! But this should never happen under normal circumstances.
-                        if (znear_slice > p.gx_depth and p.gx_width > 0) and (znear < znear_slice and znear > p.gx_depth):
-                            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
-                            ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
-                            return ray_out
-
-                        # Did it hit a far wall?
-                        if p.gx_width == 0: zcompare = znear_slice
-                        else: zcompare = p.gx_depth
-                        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
-                            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
-                            ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
-                            return ray_out
-
-                
-                    # Not going between columns, check walls along y-axis instead. Same as above...
-                    elif (abs(m) > 1e-13 and dslice > 0):
-                        ynear = (ns_test + (1+sgns)/2) * p.dy + ns_test * p.gy_width - ysize / 2
-                        tnear = (ynear - yt) / m
-                        xnear = xt + tnear*l
-                        znear = tnear*n
-                        
-                        yfar = ynear + sgns * p.gy_width
-                        tfar = (yfar - yt) / m
-                        xfar = xt + tfar*l
-                        zfar = tfar*n
-                        
-                        znear_slice = sag_func(xnear, ynear, pslice)
-                        pslice = get_slice_params(ns_test + 1*sgns, nc_test, p, custom_slice_params)
-                        zfar_slice = sag_func(xfar, yfar, pslice)
-
-                        # Did it hit a near wall? This is only possible if the gap depth
-                        # protrudes further than the near edge
-                        if (znear_slice > p.gy_depth and p.gy_width > 0) and (znear < znear_slice and znear > p.gy_depth):
-                            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
-                            ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
-                            return ray_out
-
-                        # Did it hit a far wall?
-                        if p.gy_width == 0: zcompare = znear_slice
-                        else: zcompare = p.gy_depth
-                        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
-                            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
-                            ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
-                            return ray_out
-
-            # Not a solution - increment slice and try again.
-            slice_iter += 1
+            
+            # Increment the slice index
             ns_test += sgns
-            dslice -= 1
 
-        # The last slice index needs to be checked again when crossing over to the next column
-        slice_iter = 0
-        ns_test -= sgns
-        dslice += 1
-        # Go to the next column
-        nc_test += sgnc
-        dcol -= 1
+        # Finished iterating slices in this section but didn't find anything. What
+        # is the row, col index of the next section? Use x_test and y_test, which
+        # we updated at the beginning of the while loop.
+        nc_test_new, nr_test_new = get_slicer_index(x_test, y_test, p, custom_slice_params)
+        
+        # Before continuing, check walls between sections. (Skip if this is the
+        # last section to check.)
+        if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p, custom_slice_params) ):
 
+            # Section changed columns, check collision with x-wall
+            if nc_test_new != nc_test:
+                ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params)
+                if not np.isnan(ray_out.t):
+                    # Found a wall collision.
+                    return ray_out
+                
+            # Must have changed rows instead. Check collision with y-wall
+            else:
+                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
+                if not np.isnan(ray_out.t):
+                    # Found a wall collision.
+                    return ray_out
+                
+        nc_test = nc_test_new
+        nr_test = nr_test_new
+    
     # If none of the above worked then we probably hit a gap
-    if (not trace_walls or abs(n) < 1e-13):
-        return ray_out
-
-    # Gaps between columns take precedence over gaps between slices in rows
-    t = p.gx_depth / n
-    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
-        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
-        ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
-        return ray_out
-
-    t = p.gy_depth / n
-    if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
-        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
-        ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
-        return ray_out
+    if trace_walls:
+        ray_out = check_gap_collision(tol, ray_in, p, custom_slice_params)
+        if not np.isnan(ray_out.t):
+            # Found a gap collision.
+            return ray_out
 
     # If none of that worked then this is a bizarre edge case, e.g., the direction cosine is less than 1E-13
     # but it grazed off of a wall somehow. Sweep this ray under the rug and say that it missed...
+    # ray_out will be filled with NaN values at this point.
     return ray_out    # Phew!

@@ -542,7 +542,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, i
         // Ray can potentially switch columns
         else {
             // Crossover point between current column and next one
-            x_cross = nc_test * (p.dx + p.gx_width) + (1 + sgnc) * p.dx / 2;
+            x_cross = nc_test * (p.dx + p.gx_width) + (1 + sgnc) * p.dx / 2 - xsize / 2;
             // y-intercept between ray and the next column to check
             y_cross = yt + (x_cross - x_test) * m / l;
             // Number of slices to check

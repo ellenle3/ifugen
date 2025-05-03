@@ -2,27 +2,28 @@ import numpy as np
 from surface_solns import SliceParams
 
 def load_slice_params_file(file_num):
-    """Load parameters from a txt file. The two lines of the file *must* be
+    """Load parameters from a txt file. The three lines of the file *must* be
     as such:
 
-    n_slices_per_col n_cols surface_type
+    n_rows n_cols surface_type
     dx dy gx_width gx_depth gy_width gy_depth
+    u0 u1 u2 ... uN
 
     Entires are space delimited. All entries in the first line must be integers
     and all remaining entries must be floats. solution refers to what type of
     surface to use: 0 for 2D conic, 1 for cylinder. From then on, the entires must
     be as follows:
 
-    alpha beta gamma c k
+    alpha beta gamma c k zp syx syz sxy sxz
 
-    The number of entires *must* be equal to n_slices_per_col * n_cols. The row
+    The number of entires *must* be equal to n_rows * n_cols. The row
     at slice_num * col_num + 2 corresponds to the entries for that slice and column
     index (plus 2 to account for the first two rows of data). For entries that are
     missing, all values are replaced by zeros. Excess parameters are truncated.
     
     Returns
     -------
-    slice_param_arr: nd.array of shape (n_slices_per_col * n_cols, 6)
+    slice_param_arr: nd.array of shape (n_rows * n_cols, 6)
         Array of parameters for each slice.
     p: ImageSlicerParams
         Contains data from the first two rows.
@@ -37,14 +38,17 @@ def load_slice_params_file(file_num):
         data.append([float(num) for num in split_line])
 
     # Set the first 9 entries to the parameters listed in the first two lines
-    n_slices_per_col, n_cols, _ = data[0]
-    n_slices_per_col = int(n_slices_per_col)
+    n_rows, n_cols, _ = data[0]
+    n_rows = int(n_rows)
     n_cols = int(n_cols)
-    num_slices = n_slices_per_col * n_cols
-    custom_slice_params = np.zeros(5 * num_slices + 9)
+    num_slices = n_rows * n_cols
+
+    # Next row of entries are the shifts for each row
+    custom_slice_params = np.zeros(5 * num_slices + 9 + n_rows)
 
     custom_slice_params[:3] = data[0]
     custom_slice_params[3:9] = data[1]
+    custom_slice_params[9: 9 + n_rows] = data[2]
 
     # Set the remaining entries to the parameters for each slice. This isn't the
     # most efficient way to do this in Python, but it's more readable and is
@@ -81,4 +85,5 @@ def get_slice_params_custom(slice_num, col_num, custom_slice_params):
     syz = 0
     sxy = 0
     sxz = 0
-    return SliceParams(alpha, beta, gamma, c, k, zp, syx, syz, sxy, sxz)
+    u = 0
+    return SliceParams(alpha, beta, gamma, c, k, zp, syx, syz, sxy, sxz, u)

@@ -15,6 +15,7 @@ class SliceParams:
     syz: float
     sxy: float
     sxz: float
+    u: float
 
 
 def convert_angle(t):
