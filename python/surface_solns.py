@@ -67,6 +67,8 @@ def conic_2d_sag(x, y, pslice):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
+    x-= u
 
     # Keep track of the angle, which determines which solution of
     # the quadratic is valid
@@ -79,8 +81,6 @@ def conic_2d_sag(x, y, pslice):
         sgn = -1
         
     x0, y0 = conic_2d_off_axis_distance(c, alpha, beta)
-    #x0 -= sx
-    #x -= sx
 
     if (gamma == 0 and k == -1):
         # On-axis parabola
@@ -111,7 +111,6 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
 
     See Cheatham 1980.
     """
-    
     alpha = pslice.alpha
     beta = pslice.beta
     gamma = pslice.gamma
@@ -122,6 +121,7 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
@@ -162,6 +162,7 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     # Check where the derivative is undefined!!!
     
@@ -232,6 +233,7 @@ def conic_2d_critical_xy(pslice):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     # Tolerance for accepting root from secant method
     tol = 1e-13
@@ -272,6 +274,7 @@ def tilted_plane_sag(x, y, pslice):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
@@ -299,6 +302,7 @@ def tilted_plane_transfer(xt, yt, l, m, n, pslice):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180
@@ -330,6 +334,7 @@ def tilted_plane_surface_normal(x, y, pslice, normalize):
     syz = pslice.syz
     sxy = pslice.sxy
     sxz = pslice.sxz
+    u = pslice.u
 
     alpha = convert_angle(alpha) * np.pi/180
     beta = convert_angle(beta) * np.pi/180

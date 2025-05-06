@@ -685,7 +685,7 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
     if (abs(m) > 1e-13):
 
         # Ray coordinates on near wall
-        ynear = (ns_test + (1+sgns)/2) * p.dy + ns_test * p.gy_width - ysize / 2
+        ynear = (ns_test + (1 + sgns) / 2) * p.dy + ns_test * p.gy_width - ysize / 2
         tnear = (ynear - yt) / m
         xnear = xt + tnear*l
         znear = tnear*n
@@ -734,7 +734,7 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
     if abs(l) > 1e-13:
         
         # Ray coordinates on near wall
-        xnear = (nc_test + (1+sgnc)/2 ) * p.dx + nc_test * p.gx_width - xsize / 2
+        xnear = (nc_test + (1 + sgnc) / 2) * p.dx + nc_test * p.gx_width - xsize / 2
         tnear = (xnear - xt) / l
         ynear = yt + tnear*m
         znear = tnear*n
@@ -796,7 +796,7 @@ def check_gap_collision(tol, ray_in, p, custom_slice_params):
 
     return ray_out
 
-def calc_num_slices_to_check(ray_in, nc_test, ns_test, sgnc, sgns, x_test, y_test, p):
+def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p):
     """
 
     Returns
@@ -810,37 +810,43 @@ def calc_num_slices_to_check(ray_in, nc_test, ns_test, sgnc, sgns, x_test, y_tes
 
     # Ray in coming in straight-on in the z-direction. No need to change sections.
     if (abs(l) < 1e-13 and abs(m) < 1e-13):
-        return 1, x_test, y_test
+        return 1, nc_test, nr_test, x_test, y_test
     
     # Avoid division by zero. Doesn't matter what exactly we set this to because
     # the non-infinitesimal value of l or m will win out.
     l = max(abs(l), 1e-13)
     m = max(abs(m), 1e-13)
+
+    xsize, ysize = get_slicer_size(p)
     
     # x- and y-coordinates of crossover points to the next section, incremented
     # either column- or row-wise.
-    x_nextcol = nc_test * (p.dx + p.gx_width) + (1 + sgnc) * p.dx / 2
+    x_nextcol = (nc_test + (1 + sgnc) / 2) * (p.dx + p.gx_width) - xsize / 2
     y_nextcol = yt + (x_nextcol - x_test) * m / l
 
-    nr = ns_test // p.n_each
-    y_nextrow = nr * p.n_each * (p.dy + p.gy_width) + (1 + sgns) * p.dy / 2
+    y_nextrow = (nr_test + (1 + sgns) / 2) * p.n_each * (p.dy + p.gy_width) - ysize / 2
     x_nextrow = xt + (y_nextrow - y_test) * l / m
 
     # Whether the next section is incremented column- or row-wise depends on which
     # distance is smaller
     dtocol = np.sqrt((x_nextcol - x_test)**2 + (y_nextcol - y_test)**2)
     dtorow = np.sqrt((x_nextrow - x_test)**2 + (y_nextrow - y_test)**2)
+
     if dtocol <= dtorow:
         # Crossing columns. Cap the number of slices to check to the number of slices
-        # within a single section.
+        # within a single section, but always check at least 1.
         n_stocheck = math.ceil(abs(y_nextcol - y_test) / (p.dy + p.gy_width))
-        n_stocheck = min(n_stocheck, p.n_each)
-        return n_stocheck, x_nextcol, y_nextcol
+        n_stocheck = max( min(n_stocheck, p.n_each), 1 )
+        nc_new = nc_test + sgnc
+        nr_new = nr_test
+        return n_stocheck, nc_new, nr_new, x_nextcol, y_nextcol
     else:
         # Crossing rows, same logic
         n_stocheck = math.ceil(abs(y_nextrow - y_test) / (p.dy + p.gy_width))
-        n_stocheck = min(n_stocheck, p.n_each)
-        return n_stocheck, x_nextrow, y_nextrow
+        n_stocheck = max( min(n_stocheck, p.n_each), 1 )
+        nc_new = nc_test
+        nr_new = nr_test + sgns
+        return n_stocheck, nc_new, nr_new, x_nextrow, y_nextrow
 
 def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slice_params):
     """
@@ -853,22 +859,22 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     nc_min, ns_min, nc_max, ns_max, sgnc, sgns = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
         return ray_out
-    
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
     nc_test, ns_test = nc_min, ns_min
     nr_test = ns_test // p.n_each
 
     x_test, y_test = ray_in.xt, ray_in.yt
-    
-    while is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
-        
-        # Number of slices to check in this section
-        n_stocheck, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, ns_test, sgns, sgnc, x_test, y_test, p)
+    # If starting index isn't in bounds, set it to where it will be in bounds
+    while not is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
+        n_stocheck, nc_test, nr_test, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p)
+        ns_test = nr_test * p.n_each
 
+    while is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
+        # Number of slices to check in this section
+        n_stocheck, nc_test_new, nr_test_new, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p)
         # Iterate slices within this section
         for n in range(n_stocheck):
-
             # Check whether each slice is a solution to the transfer equation
             ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
             if not np.isnan(ray_out.t):
@@ -885,12 +891,10 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             
             # Increment the slice index
             ns_test += sgns
-
-        # Finished iterating slices in this section but didn't find anything. What
-        # is the row, col index of the next section? Use x_test and y_test, which
-        # we updated at the beginning of the while loop.
-        nc_test_new, nr_test_new = get_slicer_index(x_test, y_test, p, custom_slice_params)
         
+        # Need to double check the last slice index in the next section
+        ns_test -= 1
+
         # Before continuing, check walls between sections. (Skip if this is the
         # last section to check.)
         if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p, custom_slice_params) ):
