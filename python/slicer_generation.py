@@ -550,7 +550,7 @@ def get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params):
     if ymin <= ymax: sgns = 1
     else: sgns = -1
 
-    return nc_min, ns_min, nc_max, ns_max, sgnc, sgns
+    return (nc_min, ns_min, nc_max, ns_max), (sgnc, sgns), (xmin, ymin), (xmax, ymax)
 
 def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
     """Returns True if the ray is in bounds at least some of the time. This is done
@@ -592,7 +592,7 @@ def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
     
     return True
 
-def is_section_in_bounds(col_num, row_num, umin, umax, p, custom_slice_params):
+def is_section_in_bounds(col_num, row_num, umin, umax, p):
     """Checks whether the section is within the range of x- and y-values over
     which the image slicer is defined.
     
@@ -796,17 +796,16 @@ def check_gap_collision(tol, ray_in, p, custom_slice_params):
 
     return ray_out
 
-def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p):
+def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params):
     """
 
     Returns
     -------
     n_stocheck: int
-        Number of slices to check in this section.∂
+        Number of slices to check in this section.
     x_testnew: float
     """
-    xt, yt = ray_in.xt, ray_in.yt
-    l, m, n = ray_in.l, ray_in.m, ray_in.n
+    l, m = ray_in.l, ray_in.m
 
     # Ray in coming in straight-on in the z-direction. No need to change sections.
     if (abs(l) < 1e-13 and abs(m) < 1e-13):
@@ -814,18 +813,19 @@ def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_tes
     
     # Avoid division by zero. Doesn't matter what exactly we set this to because
     # the non-infinitesimal value of l or m will win out.
-    l = max(abs(l), 1e-13)
-    m = max(abs(m), 1e-13)
-
+    if abs(l) < 1e-13:
+        l = 1e-13
+    if abs(m) < 1e-13:
+        m = 1e-13
     xsize, ysize = get_slicer_size(p)
     
     # x- and y-coordinates of crossover points to the next section, incremented
     # either column- or row-wise.
     x_nextcol = (nc_test + (1 + sgnc) / 2) * (p.dx + p.gx_width) - xsize / 2
-    y_nextcol = yt + (x_nextcol - x_test) * m / l
+    y_nextcol = y_test + (x_nextcol - x_test) * m / l
 
     y_nextrow = (nr_test + (1 + sgns) / 2) * p.n_each * (p.dy + p.gy_width) - ysize / 2
-    x_nextrow = xt + (y_nextrow - y_test) * l / m
+    x_nextrow = x_test + (y_nextrow - y_test) * l / m
 
     # Whether the next section is incremented column- or row-wise depends on which
     # distance is smaller
@@ -833,17 +833,25 @@ def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_tes
     dtorow = np.sqrt((x_nextrow - x_test)**2 + (y_nextrow - y_test)**2)
 
     if dtocol <= dtorow:
-        # Crossing columns. Cap the number of slices to check to the number of slices
-        # within a single section, but always check at least 1.
-        n_stocheck = math.ceil(abs(y_nextcol - y_test) / (p.dy + p.gy_width))
-        n_stocheck = max( min(n_stocheck, p.n_each), 1 )
+        # Crossing columns. Number of slices to check can be found by taking the
+        # difference between starting and ending slice indices. For nc2 and ns2,
+        # subtract an infinitesimal value from the coordinates to ensure that they
+        # are in the same section as (x_test, y_test).
+        ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
+        ns2 = get_slicer_index(x_nextcol - 1e-13, y_nextcol - 1e-13, p, custom_slice_params)[1]
+        n_stocheck = math.ceil( abs(ns2 - ns1) + 1)
+        # Cap the number of slices to the number of slices within a single section
+        n_stocheck = min(n_stocheck, p.n_each)
         nc_new = nc_test + sgnc
         nr_new = nr_test
         return n_stocheck, nc_new, nr_new, x_nextcol, y_nextcol
+    
     else:
         # Crossing rows, same logic
-        n_stocheck = math.ceil(abs(y_nextrow - y_test) / (p.dy + p.gy_width))
-        n_stocheck = max( min(n_stocheck, p.n_each), 1 )
+        ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
+        ns2 = get_slicer_index(x_nextrow - 1e-13, y_nextrow - 1e-13, p, custom_slice_params)[1]
+        n_stocheck = math.ceil( abs(ns2 - ns1) + 1)
+        n_stocheck = min(n_stocheck, p.n_each)
         nc_new = nc_test
         nr_new = nr_test + sgns
         return n_stocheck, nc_new, nr_new, x_nextrow, y_nextrow
@@ -854,29 +862,36 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     # Tolerance for accepting the transfer distance as valid
     tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
-
     # Get starting and ending rows and columns
-    nc_min, ns_min, nc_max, ns_max, sgnc, sgns = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
+    indices, signs, coordsmin, _ = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
+    nc_min, ns_min, nc_max, ns_max = indices
+    sgnc, sgns = signs
+    xmin, ymin = coordsmin
+
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
         return ray_out
     # Ray is in bounds at least some of the time. Start from the min col and slice
     # indices and check solutions until we hit the max
     nc_test, ns_test = nc_min, ns_min
-    nr_test = ns_test // p.n_each
-
-    x_test, y_test = ray_in.xt, ray_in.yt
+    nr_test = ns_min // p.n_each
+    x_test, y_test = xmin, ymin
+    
     # If starting index isn't in bounds, set it to where it will be in bounds
-    while not is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
-        n_stocheck, nc_test, nr_test, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p)
-        ns_test = nr_test * p.n_each
+    while not is_section_in_bounds(nc_test, nr_test, umin, umax, p):
+        n_stocheck, nc_test, nr_test, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params)
+    ns_test = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
 
-    while is_section_in_bounds(nc_test, nr_test, umin, umax, p, custom_slice_params):
+    nc_test_new, nr_test_new = -1, -1
+
+    while is_section_in_bounds(nc_test, nr_test, umin, umax, p) and nc_test_new != nc_test and nr_test_new != nr_test:
         # Number of slices to check in this section
-        n_stocheck, nc_test_new, nr_test_new, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p)
+        n_stocheck, nc_test_new, nr_test_new, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params)
+
         # Iterate slices within this section
         for n in range(n_stocheck):
             # Check whether each slice is a solution to the transfer equation
             ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
+
             if not np.isnan(ray_out.t):
                 # Found a solution with a slice.
                 return ray_out
@@ -891,13 +906,10 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             
             # Increment the slice index
             ns_test += sgns
-        
-        # Need to double check the last slice index in the next section
-        ns_test -= 1
 
         # Before continuing, check walls between sections. (Skip if this is the
         # last section to check.)
-        if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p, custom_slice_params) ):
+        if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p) and nc_test_new != nc_test and nr_test_new != nr_test):
 
             # Section changed columns, check collision with x-wall
             if nc_test_new != nc_test:
@@ -912,10 +924,15 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
                     return ray_out
-                
+
+        # If crossing columns, need to double check the last slice index in the
+        # next section
+        if nc_test_new != nc_test:
+            ns_test -= sgns
+
         nc_test = nc_test_new
         nr_test = nr_test_new
-    
+
     # If none of the above worked then we probably hit a gap
     if trace_walls:
         ray_out = check_gap_collision(tol, ray_in, p, custom_slice_params)
