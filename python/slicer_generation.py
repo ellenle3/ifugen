@@ -399,12 +399,17 @@ def make_image_slicer(x, y, p, custom_slice_params):
     row_num = slice_num // p.n_each
     if (row_num < 0 or row_num >= p.n_rows) or (col_num < 0 or col_num >= p.n_cols):
         return np.nan
-    
-    # If inside a gap, return the gap depth instead of a curved surface
+
+    # If inside a gap, return the gap depth instead of a curved surface unless
+    # at the outer edge (in which case it should be considered out of bounds)
     in_xgap, in_ygap = is_inside_slicer_gap(x, y, p, custom_slice_params)
     if in_xgap:
+        if col_num == p.n_cols - 1:
+            return np.nan
         return p.gx_depth
     if in_ygap:
+        if slice_num == p.n_each * p.n_rows - 1:
+            return np.nan
         return p.gy_depth
     
     # Inside a slice. From the indices, determine the slice parameters
@@ -679,22 +684,22 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
     xt, yt = ray_in.xt, ray_in.yt
     l, m, n = ray_in.l, ray_in.m, ray_in.n
 
-    xsize, ysize = get_slicer_size(p)
-    sag_func, _, _, _ = get_surface_funcs(p.c, p)
+    ysize = get_slicer_size(p)[1]
+    sag_func = get_surface_funcs(p.c, p)[0]
 
     if (abs(m) > 1e-13):
 
         # Ray coordinates on near wall
         ynear = (ns_test + (1 + sgns) / 2) * p.dy + ns_test * p.gy_width - ysize / 2
         tnear = (ynear - yt) / m
-        xnear = xt + tnear*l
-        znear = tnear*n
+        xnear = xt + tnear * l
+        znear = tnear * n
         
         # Ray coordinates on far wall
         yfar = ynear + sgns * p.gy_width
         tfar = (yfar - yt) / m
-        xfar = xt + tfar*l
-        zfar = tfar*n
+        xfar = xt + tfar * l
+        zfar = tfar * n
         
         # Sag of near and far slices
         pslice_near = get_slice_params(ns_test, nc_test, p, custom_slice_params)
@@ -705,7 +710,7 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
 
         # Did it hit a near wall? This is only possible if the gap depth
         # protrudes further than the near edge
-        if (znear_slice > p.gy_depth and p.gy_width > 0) and (znear < znear_slice and znear > p.gy_depth):
+        if (znear_slice > p.gy_depth and p.gy_width > 0) and (znear <= znear_slice and znear >= p.gy_depth):
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
             ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
             return ray_out
@@ -713,7 +718,7 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
         # Did it hit a far wall?
         if p.gy_width == 0: zcompare = znear_slice
         else: zcompare = p.gy_depth
-        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
+        if ((zfar >= zfar_slice and zfar <= zcompare) or (zfar <= zfar_slice and zfar >= zcompare)):
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
             ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
             return ray_out
@@ -728,8 +733,8 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
     xt, yt = ray_in.xt, ray_in.yt
     l, m, n = ray_in.l, ray_in.m, ray_in.n
 
-    xsize, ysize = get_slicer_size(p)
-    sag_func, _, _, _ = get_surface_funcs(p.c, p)
+    xsize = get_slicer_size(p)[0]
+    sag_func = get_surface_funcs(p.c, p)[0]
 
     if abs(l) > 1e-13:
         
@@ -756,7 +761,7 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
         # protrudes further in -z than the near edge
         # THIS IS ALSO POSSIBLE IF THE RAY APPROACHES FROM THE WRONG SIDE
         # OF THE IMAGE SLICER! But this should never happen under normal circumstances.
-        if (znear_slice > p.gx_depth and p.gx_width > 0) and (znear < znear_slice and znear > p.gx_depth):
+        if (znear_slice > p.gx_depth and p.gx_width > 0) and (znear <= znear_slice and znear >= p.gx_depth):
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xnear, ynear, znear, tnear
             ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
             return ray_out
@@ -764,7 +769,7 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
         # Did it hit a far wall?
         if p.gx_width == 0: zcompare = znear_slice
         else: zcompare = p.gx_depth
-        if ((zfar > zfar_slice and zfar < zcompare) or (zfar < zfar_slice and zfar > zcompare)):
+        if ((zfar >= zfar_slice and zfar <= zcompare) or (zfar <= zfar_slice and zfar >= zcompare)):
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xfar, yfar, zfar, tfar
             ray_out.ln, ray_out.mn, ray_out.nn = -1*sgnc, 0, 0
             return ray_out
@@ -781,35 +786,39 @@ def check_gap_collision(tol, ray_in, p, custom_slice_params):
 
     if (abs(n) > 1e-13):
         
-        # Gaps between columns take precedence over gaps between slices in rows
+        # Gaps between columns take precedence over gaps between slices in rows,
+        # so check for those first.
         t = p.gx_depth / n
         if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
             ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
             return ray_out
 
+        # Maybe a y-gap instead?
         t = p.gy_depth / n
         if abs(transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)) < tol:
             ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
             ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
             return ray_out
-
+    
+    # Didn't find a gap collision
     return ray_out
 
-def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params):
+def calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p):
     """
 
     Returns
     -------
-    n_stocheck: int
-        Number of slices to check in this section.
-    x_testnew: float
+    x_next, y_next: float
+        Coordinates to go next.
+    code: int
+        0 if next coordinate corresponds to zmax, 1 if next column, 2 if next row.
     """
     l, m = ray_in.l, ray_in.m
 
     # Ray in coming in straight-on in the z-direction. No need to change sections.
     if (abs(l) < 1e-13 and abs(m) < 1e-13):
-        return 1, nc_test, nr_test, x_test, y_test
+        return xmax, ymax, 0
     
     # Avoid division by zero. Doesn't matter what exactly we set this to because
     # the non-infinitesimal value of l or m will win out.
@@ -831,30 +840,45 @@ def calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_tes
     # distance is smaller
     dtocol = np.sqrt((x_nextcol - x_test)**2 + (y_nextcol - y_test)**2)
     dtorow = np.sqrt((x_nextrow - x_test)**2 + (y_nextrow - y_test)**2)
+    dtomax = np.sqrt((xmax - x_test)**2 + (ymax - y_test)**2)
 
-    if dtocol <= dtorow:
-        # Crossing columns. Number of slices to check can be found by taking the
-        # difference between starting and ending slice indices. For nc2 and ns2,
-        # subtract an infinitesimal value from the coordinates to ensure that they
-        # are in the same section as (x_test, y_test).
-        ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
-        ns2 = get_slicer_index(x_nextcol - 1e-13, y_nextcol - 1e-13, p, custom_slice_params)[1]
-        n_stocheck = math.ceil( abs(ns2 - ns1) + 1)
-        # Cap the number of slices to the number of slices within a single section
-        n_stocheck = min(n_stocheck, p.n_each)
-        nc_new = nc_test + sgnc
-        nr_new = nr_test
-        return n_stocheck, nc_new, nr_new, x_nextcol, y_nextcol
-    
+    if dtomax <= dtocol and dtomax <= dtorow:
+        # Stay in this section
+        return xmax, ymax, 0
+    elif dtocol <= dtorow and dtocol <= dtomax:
+        # Go to next column
+        return x_nextcol, y_nextcol, 1
     else:
-        # Crossing rows, same logic
-        ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
-        ns2 = get_slicer_index(x_nextrow - 1e-13, y_nextrow - 1e-13, p, custom_slice_params)[1]
-        n_stocheck = math.ceil( abs(ns2 - ns1) + 1)
-        n_stocheck = min(n_stocheck, p.n_each)
-        nc_new = nc_test
-        nr_new = nr_test + sgns
-        return n_stocheck, nc_new, nr_new, x_nextrow, y_nextrow
+        # Go to next row
+        return x_nextrow, y_nextrow, 2
+    
+def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params):
+
+    # Number of slices to check can be found by taking the difference between
+    # starting and ending slice indices. For nc2 and ns2, subtract an infinitesimal
+    # value from the coordinates to ensure that they are in the same section as (x_test, y_test).
+    ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
+    ns2 = get_slicer_index(x_next - 1e-13*sgnc, y_next - 1e-13*sgns, p, custom_slice_params)[1]
+    n_stocheck = int( abs(ns2 - ns1) + 1 )
+    # Cap the number of slices to the number of slices within a single section
+    n_stocheck = min(n_stocheck, p.n_each)
+
+    match code:
+        case 0:
+            # Stay in this section
+            nc_new = nc_test
+            nr_new = nr_test
+        case 1:
+            # Go to next column
+            nc_new = nc_test + sgnc
+            nr_new = nr_test
+        case 2:
+            # Go to next row
+            nc_new = nc_test
+            nr_new = nr_test + sgns
+            
+    return n_stocheck, nc_new, nr_new
+    
 
 def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slice_params):
     """
@@ -863,10 +887,11 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     # Get starting and ending rows and columns
-    indices, signs, coordsmin, _ = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
+    indices, signs, coords_min, coords_max = get_ray_bounds(ray_in, zmin, zmax, p, custom_slice_params)
     nc_min, ns_min, nc_max, ns_max = indices
     sgnc, sgns = signs
-    xmin, ymin = coordsmin
+    xmin, ymin = coords_min
+    xmax, ymax = coords_max
 
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
         return ray_out
@@ -878,14 +903,19 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     
     # If starting index isn't in bounds, set it to where it will be in bounds
     while not is_section_in_bounds(nc_test, nr_test, umin, umax, p):
-        n_stocheck, nc_test, nr_test, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params)
+        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p)
+        n_stocheck, nc_test, nr_test = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params)  # ugh
+        x_test, y_test = x_next, y_next
+
     ns_test = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
-
     nc_test_new, nr_test_new = -1, -1
+    is_same_section = False
 
-    while is_section_in_bounds(nc_test, nr_test, umin, umax, p) and nc_test_new != nc_test and nr_test_new != nr_test:
+    while is_section_in_bounds(nc_test, nr_test, umin, umax, p) and not is_same_section:
         # Number of slices to check in this section
-        n_stocheck, nc_test_new, nr_test_new, x_test, y_test = calc_num_slices_to_check(ray_in, nc_test, nr_test, sgnc, sgns, x_test, y_test, p, custom_slice_params)
+        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p)
+        n_stocheck, nc_test_new, nr_test_new = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params)
+        x_test, y_test = x_next, y_next
 
         # Iterate slices within this section
         for n in range(n_stocheck):
@@ -893,12 +923,12 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
 
             if not np.isnan(ray_out.t):
-                # Found a solution with a slice.
+                # Found a solution within a slice.
                 return ray_out
 
             # Before going to the next slice, check if there is a collision with
-            # a wall. (Skip if this is the last slice in the section.)
-            if (trace_walls and n < n_stocheck - 1):
+            # a wall. Skip if this is the last slice in the section.
+            if trace_walls and (ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
                 ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
@@ -909,7 +939,9 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
 
         # Before continuing, check walls between sections. (Skip if this is the
         # last section to check.)
-        if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p) and nc_test_new != nc_test and nr_test_new != nr_test):
+        is_same_section = (nc_test_new == nc_test and nr_test_new == nr_test)
+
+        if ( trace_walls and is_section_in_bounds(nc_test_new, nr_test_new, umin, umax, p) and not is_same_section ):
 
             # Section changed columns, check collision with x-wall
             if nc_test_new != nc_test:
@@ -940,7 +972,8 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             # Found a gap collision.
             return ray_out
 
-    # If none of that worked then this is a bizarre edge case, e.g., the direction cosine is less than 1E-13
-    # but it grazed off of a wall somehow. Sweep this ray under the rug and say that it missed...
-    # ray_out will be filled with NaN values at this point.
+    # If none of that worked then this is a bizarre edge case, e.g., the direction
+    # cosine is less than 1E-13 but it grazed off of a wall somehow. Sweep this ray
+    # under the rug and say that it missed... ray_out will be filled with NaN values
+    # at this point.
     return ray_out    # Phew!
