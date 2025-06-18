@@ -223,25 +223,25 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // Calculate transfer distance based on these parameters
 
-         UD->ln =  0.0;
-         UD->mn =  0.0;
-         UD->nn = -1.0;
-         power = (FD->n2 - FD->n1)*FD->cv;
-         if ((UD->n) != 0.0)
-         	{
-            (UD->l) = (UD->l)/(UD->n);
-            (UD->m) = (UD->m)/(UD->n);
+         // UD->ln =  0.0;
+         // UD->mn =  0.0;
+         // UD->nn = -1.0;
+         // power = (FD->n2 - FD->n1)*FD->cv;
+         // if ((UD->n) != 0.0)
+         // 	{
+         //    (UD->l) = (UD->l)/(UD->n);
+         //    (UD->m) = (UD->m)/(UD->n);
 
-            (UD->l) = (FD->n1*(UD->l) - (UD->x)*power)/(FD->n2);
-            (UD->m) = (FD->n1*(UD->m) - (UD->y)*power)/(FD->n2);
+         //    (UD->l) = (FD->n1*(UD->l) - (UD->x)*power)/(FD->n2);
+         //    (UD->m) = (FD->n1*(UD->m) - (UD->y)*power)/(FD->n2);
 
-            /* normalize */
-            (UD->n) = sqrt(1/(1 + (UD->l)*(UD->l) + (UD->m)*(UD->m) ) );
-            /* de-paraxialize */
-            (UD->l) = (UD->l)*(UD->n);
-            (UD->m) = (UD->m)*(UD->n);
-            }
-         break;
+         //    /* normalize */
+         //    (UD->n) = sqrt(1/(1 + (UD->l)*(UD->l) + (UD->m)*(UD->m) ) );
+         //    /* de-paraxialize */
+         //    (UD->l) = (UD->l)*(UD->n);
+         //    (UD->m) = (UD->m)*(UD->n);
+         //    }
+         // break;
 
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
