@@ -217,16 +217,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* x, y, z, and the path are unaffected, at least for this surface type */
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          /* paraxial surfaces are always planes with the following normals */
-
-         // Use active_x and active_y to get the central slice if there are an
-         // odd number of slices
-
-         // Calculate transfer distance based on these parameters
-
-         // UD->ln =  0.0;
-         // UD->mn =  0.0;
-         // UD->nn = -1.0;
-         // power = (FD->n2 - FD->n1)*FD->cv;
+         
+         UD->ln =  0.0;
+         UD->mn =  0.0;
+         UD->nn = -1.0;
+         power = (FD->n2 - FD->n1)*FD->cv;
+         // 
          // if ((UD->n) != 0.0)
          // 	{
          //    (UD->l) = (UD->l)/(UD->n);
