@@ -373,15 +373,26 @@ def tilted_plane_sag(x, y, pslice):
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
 
-    sina = np.sin(alpha)
     cosa = np.cos(alpha)
-    sinbg = np.sin(beta + gamma)
+    tana = np.tan(alpha)
     cosbg = np.cos(beta + gamma)
+    tanbg = np.tan(beta + gamma)
+
     # Cap to prevent these from exploding
     if abs(cosa) < 1e-13: cosa = 1e-13
     if abs(cosbg) < 1e-13: cosbg = 1e-13
 
-    return x * sinbg / (cosa*cosbg) - y * sina / cosa
+    seca = 1 / cosa
+    secbg = 1 / cosbg
+
+    z = (
+        secbg * (sxz - syz - sxz * seca + (y - sxy) * tana)
+        - (x - syx + u) * tanbg
+        + syz
+        + zp
+    )
+
+    return z
 
 def tilted_plane_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance.
@@ -401,20 +412,27 @@ def tilted_plane_transfer(xt, yt, l, m, n, pslice):
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
 
-    sina = np.sin(alpha)
     cosa = np.cos(alpha)
-    sinbg = np.sin(beta + gamma)
+    tana = np.tan(alpha)
     cosbg = np.cos(beta + gamma)
+    tanbg = np.tan(beta + gamma)
+
     # Cap to prevent these from exploding
     if abs(cosa) < 1e-13: cosa = 1e-13
     if abs(cosbg) < 1e-13: cosbg = 1e-13
 
-    arg1 = xt * sinbg / (cosa * cosbg) - yt * sina / cosa
-    arg2 = n - l * sinbg / (cosa * cosbg) + m * sina / cosa
-    
-    if abs(arg2) < 1e-13:
+    seca = 1 / cosa
+    secbg = 1 / cosbg
+
+    arg1 = secbg * (sxz - syz - sxz * seca + (yt - sxy) * tana)
+    arg2 = (xt - syx + u) * tanbg
+    arg3 = syz + zp
+
+    den = n - m * secbg * tana + l * tanbg
+    if abs(den) < 1e-13:
         return np.nan
-    return arg1 / arg2
+
+    return (arg1 - arg2 + arg3) / den
 
 def tilted_plane_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
@@ -433,16 +451,19 @@ def tilted_plane_surface_normal(x, y, pslice, normalize):
     beta = convert_angle(beta) * np.pi/180
     gamma = convert_angle(gamma) * np.pi/180
     
-    sina = np.sin(alpha)
     cosa = np.cos(alpha)
-    sinbg = np.sin(beta + gamma)
+    tana = np.tan(alpha)
     cosbg = np.cos(beta + gamma)
+    tanbg = np.tan(beta + gamma)
+
     # Cap to prevent these from exploding
     if abs(cosa) < 1e-13: cosa = 1e-13
     if abs(cosbg) < 1e-13: cosbg = 1e-13
 
-    dervx = sinbg / (cosa * cosbg)
-    dervy = -sina / cosa
+    secbg = 1 / cosbg
+
+    dervx = -tanbg
+    dervy = secbg * tana
     
     norm = 1
     if normalize:
