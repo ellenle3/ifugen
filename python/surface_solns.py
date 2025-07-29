@@ -146,7 +146,7 @@ def conic_2d_sag(x, y, pslice):
 
     # In regions where the roots are undefined, set the sag to 0 for drawing
     # purposes. We will not ray trace these regions
-    return np.where( B*B - A*C < 0, 0, 2*C /(-B + sgn*np.sqrt(B*B - A*C)))
+    return np.where( B*B - A*C < 0, 0, C /(-B + sgn*np.sqrt(B*B - A*C)))
 
 def conic_2d_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance. Because the equation for t is a quadratic,
