@@ -925,13 +925,14 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
 
         # Iterate slices within this section
         for n in range(n_stocheck):
+
             # Check whether each slice is a solution to the transfer equation
             ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
 
             if not np.isnan(ray_out.t):
                 # Found a solution within a slice.
                 return ray_out
-
+            
             # Before going to the next slice, check if there is a collision with
             # a wall. Skip if this is the last slice in the section.
             if trace_walls and (ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):

@@ -48,7 +48,7 @@ def calc_quadratic_derv(sgn, A, B, C, dA, dB, dC):
     dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / np.sqrt(B*B - A*C)
     return (Eta * dC - C * dEta) / (Eta * Eta)
 
-# Solutions for 3D conic
+# Solutions for 2D conic
 
 def conic_2d_off_axis_distance(c, k, alpha, beta):
     """Off-axis distances.
@@ -82,7 +82,6 @@ def conic_2d_off_axis_distance(c, k, alpha, beta):
 def conic_2d_sag(x, y, pslice):
     """Returns the sag of a rotationally symmetric conic.
     """
-
     alpha = pslice.alpha
     beta = pslice.beta
     gamma = pslice.gamma
@@ -105,16 +104,17 @@ def conic_2d_sag(x, y, pslice):
         sgn = 1
     else:
         sgn = -1
+    if k < -1: sgn *= -1
         
     x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
 
-    if (gamma == 0 and k == -1):
-        # On-axis parabola
+    if k == -1:
+        # Parabola handled separately
         x -= x0
         y -= y0
         return c*(x*x + y*y) / 2
     
-    v1 = syx - x0
+    v1 = syx + x0
     v2 = u - syx
     v3 = syz + zp
 
@@ -124,25 +124,26 @@ def conic_2d_sag(x, y, pslice):
     sin2g = np.sin(2*gamma)
 
     A = c * (1 + k) * (2 + k + k * cos2g)
-    B = (1 + k) * (
-        2 * (c * (1 + k) * syz - 1) * cosg
-        - c * (
+
+    B = - (1 + k) * (
+        -2 * (-1 + c * (1 + k) * syz) * cosg
+        + c * (
             (2 + k) * v3
             + k * v3 * cos2g
             + 2 * v1 * sing
-            - k * (x + v2) * sin2g
+            - k * (v2 + x) * sin2g
         )
     )
+
     C = (1 + k) * (
         -4 * syz
-        + 2 * c * (v1**2 + (1 + k) * syz**2 + (y - y0)**2)
+        + 2 * c * ((1 + k) * syz**2 + v1**2 + (y + y0)**2)
         + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * x + x**2)
-        + 4 * cosg * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x))
-        - c * k * cos2g * (v2 - v3 + x) * (v2 + v3 + x)
-        + 4 * sing * (c * (1 + k) * syz * (v2 + x) + c * v1 * v3 - x - v2)
+        + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x)) * cosg
+        - c * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
+        + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
         - 2 * c * k * v3 * (v2 + x) * sin2g
     )
-
 
     # In regions where the roots are undefined, set the sag to 0 for drawing
     # purposes. We will not ray trace these regions
@@ -176,10 +177,15 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
         sgn = 1
     else:
         sgn = -1
-        
+    if k < -1: sgn *= -1
+
     x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
 
-    v1 = syx - x0
+    if k == -1:
+        # Parabola handled separately
+        pass
+
+    v1 = syx + x0
     v2 = u - syx
     v3 = syz + zp
 
@@ -188,33 +194,31 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
     sing = np.sin(gamma)
     sin2g = np.sin(2*gamma)
 
-    D = c * k * (
-        2 + k * (
-            l**2 + n**2 + (n**2 - l**2) * cos2g + l * n * sin2g
-        )
-    )
+    D = 2 * c * k * (n * cosg + l * sing)**2 + 2 * c * (l**2 + m**2 + n**2)
+
     F = (
-        c * ((2 + k) * (2 * l * v2 + 2 * l * xt - n * v3) + 4 * m * (yt - y0))
-        + 2 * cosg * (n * c * syz * (1 + k) - n + 2 * c * l * v1)
-        - c * k * cos2g * (n * v3 + 2 * l * (v2 + xt))
-        + 2 * sing * (2 * l * c * syz * (1 + k) - 2 * l - c * n * v1)
-        + c * k * sin2g * (n * v2 + n * xt - 2 * l * v3)
+        c * (-(2 + k) * n * v3 + (2 + k) * l * (v2 + xt) + 2 * m * (y0 + yt))
+        + 2 * (n * (-1 + c * (1 + k) * syz) + c * l * v1) * cosg
+        - c * k * (n * v3 + l * (v2 + xt)) * cos2g
+        + 2 * (l * (-1 + c * (1 + k) * syz) - c * n * v1) * sing
+        + c * k * (-l * v3 + n * (v2 + xt)) * sin2g
     )
+
     G = (
         -4 * syz
-        + 2 * c * (v1**2 + (1 + k) * syz**2 + (yt - y0)**2)
+        + 2 * c * ((1 + k) * syz**2 + v1**2 + (y0 + yt)**2)
         + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * xt + xt**2)
-        + 4 * cosg * (v3 - c * syz * v3 * (1 + k) + c * v1 * (v2 + xt))
-        - c * k * cos2g * (v2 - v3 + xt) * (v2 + v3 + xt)
-        + 4 * sing * (c * syz * (1 + k) * (v2 + xt) + c * v1 * v3 - v2 - xt)
+        + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + xt)) * cosg
+        - c * k * (v2 - v3 + xt) * (v2 + v3 + xt) * cos2g
+        + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - xt + c * (1 + k) * syz * xt) * sing
         - 2 * c * k * v3 * (v2 + xt) * sin2g
     )
 
     # Ray missed this surface
-    if F**2-D*G < 0:
+    if F*F - D*G < 0:
         return np.nan
         
-    return 2 * G / ( -F + sgn * np.sqrt(F * F - 4 * D * G) )
+    return G / ( -F + sgn * np.sqrt(F * F - D * G) )
 
 def conic_2d_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
@@ -242,18 +246,19 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
         sgn = 1
     else:
         sgn = -1
+    if k < -1: sgn *= -1
     
     x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
 
-    if (gamma == 0 and k == -1):
+    if k == -1:
+        # Parabola handled separately
         x -= x0
         y -= y0
         dervx = c*x
         dervy = c*y
 
     else: 
-
-        v1 = syx - x0
+        v1 = syx + x0
         v2 = u - syx
         v3 = syz + zp
 
@@ -263,22 +268,24 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
         sin2g = np.sin(2*gamma)
 
         A = c * (1 + k) * (2 + k + k * cos2g)
-        B = (1 + k) * (
-            2 * (c * (1 + k) * syz - 1) * cosg
-            - c * (
+
+        B = - (1 + k) * (
+            -2 * (-1 + c * (1 + k) * syz) * cosg
+            + c * (
                 (2 + k) * v3
                 + k * v3 * cos2g
                 + 2 * v1 * sing
-                - k * (x + v2) * sin2g
+                - k * (v2 + x) * sin2g
             )
         )
+
         C = (1 + k) * (
             -4 * syz
-            + 2 * c * (v1**2 + (1 + k) * syz**2 + (y - y0)**2)
+            + 2 * c * ((1 + k) * syz**2 + v1**2 + (y + y0)**2)
             + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * x + x**2)
-            + 4 * cosg * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x))
-            - c * k * cos2g * (v2 - v3 + x) * (v2 + v3 + x)
-            + 4 * sing * (c * (1 + k) * syz * (v2 + x) + c * v1 * v3 - x - v2)
+            + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x)) * cosg
+            - c * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
+            + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
             - 2 * c * k * v3 * (v2 + x) * sin2g
         )
 
@@ -287,17 +294,19 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
             return np.nan, np.nan, np.nan
         
         dAx = 0
-        dBx = c * k * (1 + k) * sin2g
-        dCx = 2 * (1 + k) * (
-            c * (2 + k) * (v2 + x)
-            - c * k * (v2 + x) * cos2g
-            + 2 * (c * syz * (1 + k) - 1) * sing
-            + 2 * c * cosg * (v1 - k * v3 * sing)
+        dBx = -c * k * (1 + k) * sin2g
+        dCx = (1 + k) * (
+            2 * c * (2 + k) * (v2 + x)
+            + 4 * c * v1 * cosg
+            - c * k * (v2 - v3 + x) * cos2g
+            - c * k * (v2 + v3 + x) * cos2g
+            - 4 * (-1 + c * (1 + k) * syz) * sing
+            + 2 * c * k * v3 * sin2g
         )
-    
+
         dAy = 0
         dBy = 0
-        dCy = 4 * c * (1 + k) * (y - y0)
+        dCy = 4 * c * (1 + k) * (y + y0)
 
         dervx = calc_quadratic_derv(sgn, A, B, C, dAx, dBx, dCx)
         dervy = calc_quadratic_derv(sgn, A, B, C, dAy, dBy, dCy)
