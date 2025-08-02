@@ -44,8 +44,11 @@ def calc_quadratic_derv(sgn, A, B, C, dA, dB, dC):
     dA: float
         Derivative of A.
     """
-    Eta = -B + sgn * np.sqrt(B*B - A*C)
-    dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / np.sqrt(B*B - A*C)
+    discrim = B*B - A*C
+    if discrim < 0:
+        return np.nan  # Derivative is undefined
+    Eta = -B + sgn * np.sqrt(discrim)
+    dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / np.sqrt(discrim)
     return (Eta * dC - C * dEta) / (Eta * Eta)
 
 # Solutions for 2D conic
@@ -165,10 +168,11 @@ def conic_2d_sag(x, y, pslice):
             + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
             - 2 * c * k * v3 * (v2 + x) * sin2g
         )
+    discrim = B*B - A*C
 
     # In regions where the roots are undefined, set the sag to 0 for drawing
     # purposes. We will not ray trace these regions
-    return np.where( B*B - A*C < 0, 0, C /(-B + sgn*np.sqrt(B*B - A*C)))
+    return np.where( discrim < 0, 0, C /(-B + sgn*np.sqrt(discrim)))
 
 def conic_2d_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance. Because the equation for t is a quadratic,
@@ -252,12 +256,13 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
             + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - xt + c * (1 + k) * syz * xt) * sing
             - 2 * c * k * v3 * (v2 + xt) * sin2g
         )
+    discrim = F*F - D*G
 
     # Ray missed this surface
-    if F*F - D*G < 0:
+    if discrim < 0:
         return np.nan
-        
-    return G / ( -F + sgn * np.sqrt(F * F - D * G) )
+
+    return G / ( -F + sgn * np.sqrt(discrim) )
 
 def conic_2d_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
@@ -364,10 +369,6 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
         dBy = 0
         dCy = 4 * c * (1 + k) * (y + y0)
     
-    # Partial derivatves are undefined - no surface normal
-    if (B*B - A*C) <= 0:
-        return np.nan, np.nan, np.nan
-
     dervx = calc_quadratic_derv(sgn, A, B, C, dAx, dBx, dCx)
     dervy = calc_quadratic_derv(sgn, A, B, C, dAy, dBy, dCy)
 

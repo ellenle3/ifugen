@@ -2,12 +2,44 @@
 #ifndef SAG_RAY_SOLNS_H
 #define SAG_RAY_SOLNS_H
 
+/**
+ * @brief A struct to store the parameters of a slice.
+ */
+typedef struct {
+    double alpha;
+    double beta;
+    double gamma;
+    double cv;  
+    double k;
+    double zp;
+    double syx;
+    double syz; 
+    double sxy;
+    double sxz;
+    double u;  
+} SLICE_PARAMS;
+
 /** @brief Converts an angle to be between -180 and 180 degrees.
 *   @param t Angle in degrees.
 *   @return The converted angle.
 **/
 double ConvertAngle(double t);
 
+/**
+ * @brief Computes the derivative of the solution to a quadratic:
+ *       C / -(B + sgn * sqrt(B*B - A*C))
+ *
+ * @param sgn Sign of the derivative.
+ * @param A Coefficient of the quadratic term.
+ * @param B Coefficient of the linear term.
+ * @param C Constant term.
+ * @param dA Derivative of A.
+ * @param dB Derivative of B.
+ * @param dC Derivative of C.
+ * @return double
+ */
+double CalcQuadraticDerv(int sgn, double A, double B, double C, double dA, double dB,
+    double dC);
 
 // Conic solutions (cv != 0)
 
@@ -20,21 +52,17 @@ double ConvertAngle(double t);
  * @param alpha Off-axis angle on the y-axis in degrees.
  * @param beta Off-axis angle on the x-axis in degrees.
  */
-void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta);
+void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double alpha, double beta);
 
 /**
  * @brief Computes an axially symmetric conic rotated about the global y-axis
  * 
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param cv Curvature of the surface.
- * @param k Conic constant.
- * @param alpha Off-axis angle on the y-axis in degrees.
- * @param beta Off-axis angle on the x-axis in degrees.
- * @param gamma Angle of rotation about the y-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @return double Sag at the given point.
  */
-double Conic2DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DSag(double x, double y, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the ray transfer distance for a rotated conic.
@@ -44,14 +72,10 @@ double Conic2DSag(double x, double y, double cv, double k, double alpha, double 
  * @param l Direction cosine along the x-axis.
  * @param m Direction cosine along the y-axis.
  * @param n Direction cosine along the z-axis.
- * @param cv Curvature of the surface.
- * @param k Conic constant.
- * @param alpha Off-axis angle on the y-axis in degrees.
- * @param beta Off-axis angle on the x-axis in degrees.
- * @param gamma Angle of rotation about the y-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @return double Transfer distance for the given ray to the surface.
  */
-double Conic2DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the surface normal vectors for a rotated conic. This is the
@@ -62,14 +86,10 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, doubl
  * @param nn Pointer for z-component of the normal vector.
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param cv Curvature of the surface.
- * @param k Conic constant.
- * @param alpha Off-axis angle on the y-axis in degrees.
- * @param beta Off-axis angle on the x-axis in degrees.
- * @param gamma Angle of rotation about the y-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @param normalize If 1, normalizes the vector. If 0, does not normalize.
  */
-void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
+void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
 
 /**
  * @brief Partial derivative about x for the rotated conic sag. This is a wrapper
@@ -78,27 +98,19 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
  * 
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param cv Curvature of the surface.
- * @param k Conic constant.
- * @param alpha Off-axis angle on the y-axis in degrees.
- * @param beta Off-axis angle on the x-axis in degrees.
- * @param gamma Angle of rotation about the y-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @return double Partial derivative of the sag with respect to x.
  */
-double Conic2DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+double Conic2DDervX(double x, double y, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the critical points (dz/dx = 0, dz/dy = 0) for a rotated conic.
  * 
  * @param xc Pointer for the x-coordinate of the critical point.
  * @param yc Pointer for the y-coordinate of the critical point.
- * @param cv Curvature of the surface.
- * @param k Conic constant.
- * @param alpha Off-axis angle on the y-axis in degrees.
- * @param beta Off-axis angle on the x-axis in degrees.
- * @param gamma Angle of rotation about the y-axis in degrees.
+ * @param pslice Parameters that define this slice.
  */
-void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma);
+void Conic2DCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
 
 
 // Tilted plane solutions (cv = 0)
@@ -109,14 +121,10 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
  * 
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param cv Not used.
- * @param k Not used.
- * @param alpha Angle about the global y-axis in degrees.
- * @param beta Angle about the global x-axis in degrees.
- * @param gamma Additional angle about the global x-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @return double Sag at the given point.
  */
-double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, double beta, double gamma);
+double TiltedPlaneSag(double x, double y, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the transfer distance for a tilted plane. Some parameters are
@@ -128,14 +136,10 @@ double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, dou
  * @param l Direction cosine along the x-axis.
  * @param m Direction cosine along the y-axis.
  * @param n Direction cosine along the z-axis.
- * @param cv Not used
- * @param k Not used.
- * @param alpha Angle about the global y-axis in degrees.
- * @param beta Angle about the global x-axis in degrees.
- * @param gamma Additional angle about the global x-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @return double Transfer distance for the given ray to the surface.
  */
-double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma);
+double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the surface normal vectors for a tilted plane. Some parameters
@@ -147,14 +151,10 @@ double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, d
  * @param nn Pointer for z-component of the normal vector.
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param cv Not used.
- * @param k Not used.
- * @param alpha Angle about the global y-axis in degrees.
- * @param beta Angle about the global x-axis in degrees.
- * @param gamma Additional angle about the global x-axis in degrees.
+ * @param pslice Parameters that define this slice.
  * @param normalize If 1, normalizes the vector. If 0, does not normalize.
  */
-void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize);
+void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
 
 /**
  * @brief Sets xc and yc to NAN. This function would normally compute the critical
@@ -163,12 +163,8 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
  * 
  * @param xc Pointer for the x-coordinate of the critical point.
  * @param yc Pointer for the y-coordinate of the critical point.
- * @param cv Not used.
- * @param k Not used.
- * @param alpha Not used.
- * @param beta Not used.
- * @param gamma Not used.
+ * @param pslice Parameters that define this slice.
  */
-void TiltedPlaneCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma);
+void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
 
 #endif

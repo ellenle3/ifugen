@@ -20,15 +20,52 @@ double ConvertAngle(double t) {
     return t;
 }
 
+double CalcQuadraticDerv(int sgn, double A, double B, double C,
+                         double dA, double dB, double dC) {
+
+    double discrim = B * B - A * C;
+
+    // Guard against invalid sqrt
+    if (discrim < 0.0) return NAN;
+
+    double sqrt_disc = sqrt(discrim);
+    double Eta = -B + sgn * sqrt_disc;
+
+    // Derivative of Eta
+    double dEta = -dB + sgn * (2.0 * B * dB - C * dA - A * dC) / (2.0 * sqrt_disc);
+
+    // Final derivative expression
+    return (Eta * dC - C * dEta) / (Eta * Eta);
+}
+
+
 // 2D conic solutions - planes (cv -> 0) are handled differently, see next section
 
 // Determine the off-axis distance. If the curvature is near-zero, this is
 // basically a plane. Set a limit to how small cv can be. In practice the
 // user should not set a non-zero off-axis distance if the surface is a plane.
-void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double alpha, double beta) {
-    if (fabs(cv) < 1E-13) cv = 1E-13;
-    *y0 = sin(alpha) / ( cv * (1 + cos(alpha)) );  // Angles must be in radians
-    *x0 = sin(beta) / ( cv * (1 + cos(beta)) );
+void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double alpha, double beta) {
+    if (fabs(c) < 1E-13) c = 1E-13;
+
+    // y0: off-axis distance in y direction
+    if (alpha == 0.0) {
+        *y0 = 0.0;
+    } else {
+        double tana = tan(alpha);
+        double num = (k - 1.0) + sqrt(4.0 + tana * tana * (3.0 - k));
+        double den = tana * tana + (1.0 + k);
+        *y0 = (tana / (2.0 * c)) * (num / den);
+    }
+
+    // x0: off-axis distance in x direction
+    if (beta == 0.0) {
+        *x0 = 0.0;
+    } else {
+        double tanb = tan(beta);
+        double num = (k - 1.0) + sqrt(4.0 + tanb * tanb * (3.0 - k));
+        double den = tanb * tanb + (1.0 + k);
+        *x0 = (tanb / (2.0 * c)) * (num / den);
+    }
 }
 
 // This is the sag for a conic surface translated by x0 and y0, and then rotated
@@ -36,37 +73,80 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double alpha, dou
 // transformations backward, i.e., undoing the rotation and then the translation.
 // The reason for this is that the sag is easier to solve for this way, but it
 // is equivalent. Refer to the derivation for more informaiton.
-double Conic2DSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
+double Conic2DSag(double x, double y, SLICE_PARAMS pslice) {
+    x -= pslice.u;
 
-    // The value of gamma determines which solution of the quadratic to use
-    int sgn;
-    if (fabs(gamma) <= M_PI/2) sgn = 1;
-    else sgn = -1;
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
+
+    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
+    if (pslice.k < -1.0) sgn *= -1;
 
     double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, pslice.cv, pslice.k, alpha, beta);
 
-    if (k == -1 && gamma == 0) {
-        x -= x0; y -= y0;
-        return cv * (x*x + y*y) / 2;
+    double v1 = pslice.syx + x0;
+    double v2 = pslice.u - pslice.syx;
+    double v3 = pslice.syz + pslice.zp;
+
+    double cosg = cos(gamma);
+    double cos2g = cos(2.0 * gamma);
+    double sing = sin(gamma);
+    double sin2g = sin(2.0 * gamma);
+
+    double A, B, C;
+    double cv = pslice.cv;
+
+    if (pslice.k == -1.0) {
+        A = cv * sing * sing;
+
+        B = -(
+            cosg
+            + cv * (v2 + x) * cosg * sing
+            + cv * sing * (v1 + v3 * sing)
+        );
+
+        C = (
+            -2.0 * pslice.syz
+            + cv * (v1 * v1 + (y + y0) * (y + y0))
+            + 2.0 * (v3 + cv * v1 * (v2 + x)) * cosg
+            + cv * (v2 + x) * (v2 + x) * cosg * cosg
+            - 2.0 * (v2 - cv * v1 * v3 + x) * sing
+            + cv * v3 * v3 * sing * sing
+            + cv * v3 * (v2 + x) * sin2g
+        );
+    } else {
+        A = cv * (1.0 + pslice.k) * (2.0 + pslice.k + pslice.k * cos2g);
+
+        B = -(1.0 + pslice.k) * (
+            -2.0 * (-1.0 + cv * (1.0 + pslice.k) * pslice.syz) * cosg
+            + cv * (
+                (2.0 + pslice.k) * v3
+                + pslice.k * v3 * cos2g
+                + 2.0 * v1 * sing
+                - pslice.k * (v2 + x) * sin2g
+            )
+        );
+
+        C = (1.0 + pslice.k) * (
+            -4.0 * pslice.syz
+            + 2.0 * cv * ((1.0 + pslice.k) * pslice.syz * pslice.syz + v1 * v1 + (y + y0) * (y + y0))
+            + cv * (2.0 + pslice.k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * x + x * x)
+            + 4.0 * (v3 - cv * (1.0 + pslice.k) * pslice.syz * v3 + cv * v1 * (v2 + x)) * cosg
+            - cv * pslice.k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
+            + 4.0 * ((-1.0 + cv * (1.0 + pslice.k) * pslice.syz) * v2 + cv * v1 * v3 - x + cv * (1.0 + pslice.k) * pslice.syz * x) * sing
+            - 2.0 * cv * pslice.k * v3 * (v2 + x) * sin2g
+        );
     }
 
-    // Rotate about the x-axis
-    double cosg = cos(gamma), cosg2 = cosg*cosg;
-    double sing = sin(gamma), sing2 = sing*sing;
+    double discrim = B * B - A * C;
 
-    double asol = cv*(sing2 + (k+1)*cosg2);
-    double bsol = 2*cv*sing*(x*k*cosg - x0) - 2*cosg;
-    double csol = cv*k*x*x*sing2 - 2*x*sing + 2*cv*x0*x*cosg + cv*(x*x + x0*x0 + (y-y0)*(y-y0));
+    if (discrim < 0.0) return 0.0;
 
-    // Invalid solution, sag is undefined here
-    if (bsol*bsol - 4*asol*csol < 0 || fabs(2*asol) < 1E-13) return NAN;
-
-    return (2*csol) / (-bsol + sgn*sqrt(bsol*bsol - 4*asol*csol));
+    return C / (-B + sgn * sqrt(discrim));
 }
+
 
 // The transfer distance is obtained by solving the system of equations
 //     x_s = x_t + t*l
@@ -75,103 +155,185 @@ double Conic2DSag(double x, double y, double cv, double k, double alpha, double 
 // where the ray starts at (x_t, y_t, 0) with direction cosines (l, m, n) and is 
 // propagated to the surface at (x_s, y_s, z_s). This function computes an analytic
 // expression for t.
-double Conic2DTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
+double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice) {
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
 
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
+    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
+    if (pslice.k < -1.0) sgn *= -1;
 
-    // The value of gamma determines which solution of the quadratic to use, as
-    // with the sag
-    int sgn;
-    if (fabs(gamma) <= M_PI/2) sgn = 1;
-    else sgn = -1;
-        
     double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, pslice.cv, pslice.k, alpha, beta);
 
-    double cosg = cos(gamma), cosg2 = cosg*cosg;
-    double sing = sin(gamma), sing2 = sing*sing;
-    
-    double dsol = cv + cv*k*(n*n*cosg2 + l*l*sing2 + 2*l*n*sing*cosg);
-    double fsol = cv*l*(xt*(1+k*sing2)+x0*cosg) - l*sing + cv*m*(yt-y0) + cv*n*sing*(k*xt*cosg-x0) - n*cosg;
-    double gsol = cv*(xt*xt + x0*x0 + (yt-y0)*(yt-y0)) + 2*cv*x0*xt*cosg + xt*sing*(cv*k*xt*sing-2);
+    double v1 = pslice.syx + x0;
+    double v2 = pslice.u - pslice.syx;
+    double v3 = pslice.syz + pslice.zp;
 
-    // Ray missed this surface
-    if (fsol*fsol - dsol*gsol < 0) return NAN;
-        
-    return gsol/(-fsol + sgn*sqrt(fsol*fsol - dsol*gsol));
+    double cosg = cos(gamma);
+    double sing = sin(gamma);
+    double cos2g = cos(2.0 * gamma);
+    double sin2g = sin(2.0 * gamma);
+
+    double D, F, G;
+    double cv = pslice.cv;
+
+    if (pslice.k == -1.0) {
+        D = cv * (m * m + (l * cosg - n * sing) * (l * cosg - n * sing));
+
+        F = (
+            cv * m * (y0 + yt)
+            + cv * l * (v2 + xt) * cosg * cosg
+            - sing * (l + cv * n * v1 + cv * n * v3 * sing)
+            - cosg * (n - cv * l * v1 + cv * (-l * v3 + n * (v2 + xt)) * sing)
+        );
+
+        G = (
+            -2.0 * pslice.syz
+            + cv * (v1 * v1 + (y0 + yt) * (y0 + yt))
+            + 2.0 * (v3 + cv * v1 * (v2 + xt)) * cosg
+            + cv * (v2 + xt) * (v2 + xt) * cosg * cosg
+            - 2.0 * (v2 - cv * v1 * v3 + xt) * sing
+            + cv * v3 * v3 * sing * sing
+            + cv * v3 * (v2 + xt) * sin2g
+        );
+    } else {
+        D = 2.0 * cv * pslice.k * (n * cosg + l * sing) * (n * cosg + l * sing)
+            + 2.0 * cv * (l * l + m * m + n * n);
+
+        F = (
+            cv * (-(2.0 + pslice.k) * n * v3 + (2.0 + pslice.k) * l * (v2 + xt) + 2.0 * m * (y0 + yt))
+            + 2.0 * (n * (-1.0 + cv * (1.0 + pslice.k) * pslice.syz) + cv * l * v1) * cosg
+            - cv * pslice.k * (n * v3 + l * (v2 + xt)) * cos2g
+            + 2.0 * (l * (-1.0 + cv * (1.0 + pslice.k) * pslice.syz) - cv * n * v1) * sing
+            + cv * pslice.k * (-l * v3 + n * (v2 + xt)) * sin2g
+        );
+
+        G = (
+            -4.0 * pslice.syz
+            + 2.0 * cv * ((1.0 + pslice.k) * pslice.syz * pslice.syz + v1 * v1 + (y0 + yt) * (y0 + yt))
+            + cv * (2.0 + pslice.k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * xt + xt * xt)
+            + 4.0 * (v3 - cv * (1.0 + pslice.k) * pslice.syz * v3 + cv * v1 * (v2 + xt)) * cosg
+            - cv * pslice.k * (v2 - v3 + xt) * (v2 + v3 + xt) * cos2g
+            + 4.0 * ((-1.0 + cv * (1.0 + pslice.k) * pslice.syz) * v2 + cv * v1 * v3 - xt + cv * (1.0 + pslice.k) * pslice.syz * xt) * sing
+            - 2.0 * cv * pslice.k * v3 * (v2 + xt) * sin2g
+        );
+    }
+
+    double discrim = F * F - D * G;
+
+    if (discrim < 0.0)
+        return NAN;
+
+    return G / (-F + sgn * sqrt(discrim));
 }
 
 
 // The normal vectors are obtained by taking the gradient of the sag function.
 // We need these along with the transfer distance to perform the ray refraction.
-void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
+void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
 
-    // The sag depends on the value of gamma, so preseve the sign here
-    int sgn;
-    if (fabs(gamma) <= M_PI/2) sgn = 1;
-    else sgn = -1;
+    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
+    if (pslice.k < -1.0) sgn *= -1;
 
     double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, pslice.cv, pslice.k, alpha, beta);
 
-    double dervx, dervy;
-    if (k == -1 && gamma == 0) {
-        x -= x0; y -= y0;
-        dervx = cv * x;
-        dervy = cv * y;
+    double v1 = pslice.syx + x0;
+    double v2 = pslice.u - pslice.syx;
+    double v3 = pslice.syz + pslice.zp;
+
+    double cosg = cos(gamma);
+    double sing = sin(gamma);
+    double cos2g = cos(2.0 * gamma);
+    double sin2g = sin(2.0 * gamma);
+
+    double A, B, C;
+    double dAx = 0, dAy = 0, dBx = 0, dBy = 0, dCx = 0, dCy = 0;
+    double cv = pslice.cv;
+    double k = pslice.k;
+
+    if (k == -1.0) {
+        // Parabolic case
+        A = cv * sing * sing;
+
+        B = -(
+            cosg
+            + cv * (v2 + x) * cosg * sing
+            + cv * sing * (v1 + v3 * sing)
+        );
+
+        C = (
+            -2.0 * pslice.syz
+            + cv * (v1 * v1 + (y + y0) * (y + y0))
+            + 2.0 * (v3 + cv * v1 * (v2 + x)) * cosg
+            + cv * (v2 + x) * (v2 + x) * cosg * cosg
+            - 2.0 * (v2 - cv * v1 * v3 + x) * sing
+            + cv * v3 * v3 * sing * sing
+            + cv * v3 * (v2 + x) * sin2g
+        );
+
+        dBx = -cv * cosg * sing;
+        dCx = -2.0 * sing + 2.0 * cv * cosg * (v1 + (v2 + x) * cosg + v3 * sing);
+        dCy = 2.0 * cv * (y + y0);
+    } else {
+        // Non-parabolic conic
+        A = cv * (1.0 + k) * (2.0 + k + k * cos2g);
+
+        B = - (1.0 + k) * (
+            -2.0 * (-1.0 + cv * (1.0 + k) * pslice.syz) * cosg
+            + cv * (
+                (2.0 + k) * v3
+                + k * v3 * cos2g
+                + 2.0 * v1 * sing
+                - k * (v2 + x) * sin2g
+            )
+        );
+
+        C = (1.0 + k) * (
+            -4.0 * pslice.syz
+            + 2.0 * cv * ((1.0 + k) * pslice.syz * pslice.syz + v1 * v1 + (y + y0) * (y + y0))
+            + cv * (2.0 + k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * x + x * x)
+            + 4.0 * (v3 - cv * (1.0 + k) * pslice.syz * v3 + cv * v1 * (v2 + x)) * cosg
+            - cv * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
+            + 4.0 * ((-1.0 + cv * (1.0 + k) * pslice.syz) * v2 + cv * v1 * v3 - x + cv * (1.0 + k) * pslice.syz * x) * sing
+            - 2.0 * cv * k * v3 * (v2 + x) * sin2g
+        );
+
+        dBx = -cv * k * (1.0 + k) * sin2g;
+        dCx = (1.0 + k) * (
+            2.0 * cv * (2.0 + k) * (v2 + x)
+            + 4.0 * cv * v1 * cosg
+            - 2.0 * cv * k * (v2 + x) * cos2g
+            - 2.0 * cv * k * (v2 - v3 + x) * cos2g
+            - 4.0 * (-1.0 + cv * (1.0 + k) * pslice.syz) * sing
+            + 2.0 * cv * k * v3 * sin2g
+        );
+        dCy = 4.0 * cv * (1.0 + k) * (y + y0);
     }
-    
-    else {
-        double cosg = cos(gamma), cosg2 = cosg*cosg;
-        double sing = sin(gamma), sing2 = sing*sing;
-        double asol = cv*(sing2 + (k+1)*cosg2);
-        double bsol = 2*cv*sing*(x*k*cosg - x0) - 2*cosg;
-        double csol = cv*k*x*x*sing2 - 2*x*sing + 2*cv*x0*x*cosg + cv*(x*x + x0*x0 + (y-y0)*(y-y0));
 
-        double arg0 = bsol*bsol - 4*asol*csol;
-        if (arg0 <= 0) {
-            *ln = *mn = *nn = NAN;
-            return;
-        }
-        double eta = sqrt(arg0);
-        double denom = -bsol + sgn*eta;
+    double dervx = calc_quadratic_derv(sgn, A, B, C, dAx, dBx, dCx);
+    double dervy = calc_quadratic_derv(sgn, A, B, C, dAy, dBy, dCy);
 
-        // Partial derivative with respect to x
-        double arg1 = 4 * (cv*x*(1+k*sing2) + cv*x0*cosg - sing) / denom;
-        double arg2 = 4 * csol / (denom*denom);
-        double arg3 = -cv*k*sing*cosg;
-        double arg4 = cv*k*bsol*sing*cosg - 2*asol*(cv*x*(1+k*sing2) + cv*x0*cosg - sing);
-        dervx = arg1 - arg2 * (arg3 + sgn * arg4 / eta);
-
-        // ...with respect to y
-        arg1 = 4*cv*(y-y0) / denom;
-        arg2 = 2*asol*csol / (eta*denom);
-        dervy = arg1 * (1 + sgn*arg2);
+    double norm = 1.0;
+    if (normalize) {
+        norm = sqrt(dervx * dervx + dervy * dervy + 1.0);
     }
-    
-    
-    // Surface normals should be normalized. But if we do this, we lose the magnitude
-    // of the derivatives. So we can choose to normalize or not.
-    double norm = 1;
-    if (normalize) norm = sqrt(dervx*dervx + dervy*dervy + 1);
 
-    // d/dz is always equal to -1, no need to calculate it
-    // The sign in Zemax's example seems to be opposite of Shannon (1997)...
     *ln = dervx / norm;
     *mn = dervy / norm;
-    *nn = -1 / norm;
+    *nn = -1.0 / norm;
 }
+
 
 // Wrapper function to make accessing the partial derivative about x easier. This
 // is only used for the critical point calculation. 
-double Conic2DDervX(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
+double Conic2DDervX(double x, double y, SLICE_PARAMS pslice) {
     double dervx, dervy, dervz;
-    Conic2DSurfaceNormal(&dervx, &dervy, &dervz, x, y, cv, k, alpha, beta, gamma, 0);
+    Conic2DSurfaceNormal(&dervx, &dervy, &dervz, x, y, pslice, 0);
     return dervx;
 }
 
@@ -187,10 +349,16 @@ double Conic2DDervX(double x, double y, double cv, double k, double alpha, doubl
 // Also, we know that there can only be one critical point because an unrotated
 // conic has only one critical point. For there to be two, the sag would not be
 // a function anymore (multiple values of the sag for the same (x, y)).
-void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
+void Conic2DCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
     double tol = 1E-13;    // Tolerance for accepting root
     int niter_max = 50;    // Max number of iterations - under normal circumstances
                            // should converge quickly (10 iterations or less)
+
+    double cv = pslice.cv;
+    double k = pslice.k;
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
 
     // If the curvature is very small this is basically a plane. In this case
     // do not attempt to find critical points because the derivative is constant.
@@ -198,25 +366,21 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
         *yc = NAN; *xc = NAN;
         return;
     }
-
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
-
+    
     double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, alpha, beta);
+    Conic2DOffAxisDistance(&x0, &y0, cv, k, alpha, beta);
 
     // Perform secant method to find xc; it should be around x0 if gamma is not
     // huge. Use 5% the radius of curvature as initial guesses to compute the
     // first secant line.
-    double xc0 = x0 + 0.05 * 1/cv;
+    double xc0 = x0 + 0.05 * 1/pslice.cv;
     double xc1 = x0 - 0.05 * 1/cv;
     double xc2, dervx0, dervx1;
     double err = 1;
     int i = 1;
     while (err < tol && i < niter_max) {
-        dervx0 = Conic2DDervX(xc0, -y0, cv, k, alpha, beta, gamma);
-        dervx1 = Conic2DDervX(xc1, -y0, cv, k, alpha, beta, gamma);
+        dervx0 = Conic2DDervX(xc0, -y0, pslice);
+        dervx1 = Conic2DDervX(xc1, -y0, pslice);
         xc2 = (xc0 * dervx1 - xc1 * dervx0) / (dervx1 - dervx0);
         err = fabs(xc2 - xc1);
         xc0 = xc1; xc1 = xc2;
@@ -239,63 +403,100 @@ void Conic2DCriticalXY(double *xc, double *yc, double cv, double k, double alpha
 // The reason why beta and gamma are kept separate is that alpha and beta are
 // used to define the behavior of a given "section" of the image slicer. gamma
 // defines the tilt of each individual slice within that section.
-double TiltedPlaneSag(double x, double y, double cv, double k, double alpha, double beta, double gamma) {
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
-    
-    double sina = sin(alpha), cosa = cos(alpha);
-    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
-    // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) cosa = 1E-13;
-    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
+double TiltedPlaneSag(double x, double y, SLICE_PARAMS p) {
+    // Convert angles to radians
+    double cv = p.cv;
+    double k = p.k;
+    double alpha = ConvertAngle(p.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(p.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(p.gamma) * M_PI / 180.0;
 
-    return x * sinbg / (cosa*cosbg) - y * sina / cosa;
+    double cosa  = cos(alpha);
+    double tana  = tan(alpha);
+    double cosbg = cos(beta + gamma);
+    double tanbg = tan(beta + gamma);
+
+    // Cap to prevent explosion near grazing incidence
+    if (fabs(cosa) < 1e-13)  cosa = 1e-13;
+    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
+
+    double seca   = 1.0 / cosa;
+    double secbg  = 1.0 / cosbg;
+
+    double z = (
+        secbg * (p.sxz - p.syz - p.sxz * seca + (y - p.sxy) * tana)
+        - (x - p.syx + p.u) * tanbg
+        + p.syz
+        + p.zp
+    );
+
+    return z;
 }
+
 
 // See explanation for the transfer distance for the conic surface.
-double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, double cv, double k, double alpha, double beta, double gamma) {
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
-    
-    double sina = sin(alpha), cosa = cos(alpha);
-    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
-    // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) cosa = 1E-13;
-    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
+double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice) {
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
 
-    double arg1 = xt * sinbg / (cosa * cosbg) - yt * sina / cosa;
-    double arg2 = n - l * sinbg / (cosa * cosbg) + m * sina / cosa;
-    
-    if (fabs(arg2) < 1E-13) return NAN;
-    return arg1 / arg2;
+    double cosa  = cos(alpha);
+    double tana  = tan(alpha);
+    double cosbg = cos(beta + gamma);
+    double tanbg = tan(beta + gamma);
+
+    // Cap to prevent these from exploding
+    if (fabs(cosa) < 1e-13)  cosa = 1e-13;
+    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
+
+    double seca  = 1.0 / cosa;
+    double secbg = 1.0 / cosbg;
+
+    double arg1 = secbg * (pslice.sxz - pslice.syz - pslice.sxz * seca + (yt - pslice.sxy) * tana);
+    double arg2 = (xt - pslice.syx + pslice.u) * tanbg;
+    double arg3 = pslice.syz + pslice.zp;
+
+    double den = n - m * secbg * tana + l * tanbg;
+
+    if (fabs(den) < 1e-13) {
+        return NAN;  // handle division by zero gracefully
+    }
+
+    return (arg1 - arg2 + arg3) / den;
 }
 
+
 // See explanation for the surface normal for the conic surface.
-void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, double cv, double k, double alpha, double beta, double gamma, int normalize) {
-    alpha = ConvertAngle(alpha) * M_PI/180;
-    beta = ConvertAngle(beta) * M_PI/180;
-    gamma = ConvertAngle(gamma) * M_PI/180;
-    
-    double sina = sin(alpha), cosa = cos(alpha);
-    double sinbg = sin(beta + gamma), cosbg = cos(beta + gamma);
+void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
+
+    double cosa  = cos(alpha);
+    double tana  = tan(alpha);
+    double cosbg = cos(beta + gamma);
+    double tanbg = tan(beta + gamma);
+
     // Cap to prevent these from exploding
-    if (fabs(cosa) < 1E-13) cosa = 1E-13;
-    if (fabs(cosbg) < 1E-13) cosbg = 1E-13;
+    if (fabs(cosa) < 1e-13)  cosa  = 1e-13;
+    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
 
-    double dervx = sinbg / (cosa * cosbg);
-    double dervy = -sina / cosa;
+    double secbg = 1.0 / cosbg;
 
-    double norm = 1;
-    if (normalize) norm = sqrt(dervx*dervx + dervy*dervy + 1);
+    double dervx = -tanbg;
+    double dervy = secbg * tana;
+
+    double norm = 1.0;
+    if (normalize) {
+        norm = sqrt(dervx * dervx + dervy * dervy + 1.0);
+    }
 
     *ln = dervx / norm;
     *mn = dervy / norm;
-    *nn = -1 / norm;
+    *nn = -1.0;
 }
 
 // Planes have no critical points, so this does nothing.
-void TiltedPlaneCriticalXY(double *xc, double *yc, double cv, double k, double alpha, double beta, double gamma) {
+void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
      *xc = NAN; *yc = NAN;
 }
