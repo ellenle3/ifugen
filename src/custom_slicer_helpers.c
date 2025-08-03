@@ -1,6 +1,7 @@
 #define _CRT_SECURE_NO_DEPRECATE
 #include <stdio.h>
 #include <stdlib.h>
+#include "surface_solns.h"
 
 void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char params_dir[], int max_elements) {
 
@@ -86,15 +87,17 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char pa
     // Make sure to free the array when you're done!
 }
 
-void GetSliceParamsCustom(double* alpha, double* beta, double* gamma, double* cv, double* k,
-int slice_num, int col_num, double custom_slice_params[]) {
+SLICE_PARAMS GetSliceParamsCustom(int slice_num, int col_num, double custom_slice_params[]) {
 
     int n_slices_per_col = (int) custom_slice_params[0];
     int start_idx = 9 + 5 * (col_num * n_slices_per_col + slice_num);
 
-    *alpha = custom_slice_params[start_idx];
-    *beta = custom_slice_params[start_idx + 1];
-    *gamma = custom_slice_params[start_idx + 2];
-    *cv = custom_slice_params[start_idx + 3];
-    *k = custom_slice_params[start_idx + 4];
+    SLICE_PARAMS pslice;
+    pslice.alpha = custom_slice_params[start_idx];
+    pslice.beta = custom_slice_params[start_idx + 1];
+    pslice.gamma = custom_slice_params[start_idx + 2];
+    pslice.cv = custom_slice_params[start_idx + 3];
+    pslice.k = custom_slice_params[start_idx + 4];
+
+    return pslice;
 }

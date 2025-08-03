@@ -43,6 +43,19 @@ class ImageSlicerParams:
     gy_depth: float
 
 @dataclass
+class RayBounds:
+    """Class for storing the bounds of a ray."""
+    nc_min: int
+    ns_min: int
+    nc_max: int
+    ns_max: int
+    sgnc: int
+    sgns: int
+    xmin: float
+    ymin: float
+    xmax: float
+    ymax: float
+@dataclass
 class RayIn:
     """Class for storing input ray parameters."""
     xt: float   # x-coordinate at z = 0
@@ -246,7 +259,7 @@ def get_min_max_u(p, custom_slice_params):
 
     num_slices = p.n_each * p.n_rows
     if num_slices < 2:
-        # Only one slice, so u is the same for all slices
+        # Only one slice, so no need to compare
         return p.u_cen, p.u_cen
 
     if p.angle_mode in [0,1]:
@@ -315,33 +328,23 @@ def get_slice_params_standard(slice_num, col_num, p):
     slice_num_row = slice_num - row_num*p.n_each
     # Set the angle beta for each row
     alpha, beta, gamma = 0, 0, 0
-    zp = p.zp_cen
     u = get_u_for_row(row_num, p, [])
 
-    if p.n_rows % 2 == 0:
-        alpha = p.alpha_cen + p.dalpha * (row_num - (p.n_rows-1)/2)
-        syx = p.syx_cen + p.dsyx * (row_num - (p.n_rows-1)/2)
-        syz = p.syz_cen + p.dsyz * (row_num - (p.n_rows-1)/2)
-        zp += p.dzp_row * (row_num - (p.n_rows-1)/2)
-        gamma_extra = p.gamma_offset * (row_num - (p.n_rows-1)/2)
-        
-    else:
-        alpha = p.alpha_cen + p.dalpha * (row_num - p.n_rows//2)
-        syx = p.syx_cen + p.dsyx * (row_num - p.n_rows//2)
-        syz = p.syz_cen + p.dsyz * (row_num - p.n_rows//2)
-        zp += p.dzp_row * (row_num - p.n_rows//2)
-        gamma_extra = p.gamma_offset * (row_num - p.n_rows//2)
+    row_mid = (p.n_rows - 1) / 2 if p.n_rows % 2 == 0 else p.n_rows // 2
+    col_mid = (p.n_cols - 1) / 2 if p.n_cols % 2 == 0 else p.n_cols // 2
+    offset_row = row_num - row_mid
+    offset_col = col_num - col_mid
 
-    if p.n_cols % 2 == 0:
-        beta = p.beta_cen + p.dbeta * (col_num - (p.n_cols-1)/2)
-        sxy = p.sxy_cen + p.dsxy * (col_num - (p.n_cols-1)/2)
-        sxz = p.sxz_cen + p.dsxz * (col_num - (p.n_cols-1)/2)
-        zp += p.dzp_col * (col_num - (p.n_cols-1)/2)
-    else:
-        beta = p.beta_cen + p.dbeta * (col_num - p.n_cols//2)
-        sxy = p.sxy_cen + p.dsxy * (col_num - p.n_cols//2)
-        sxz = p.sxz_cen + p.dsxz * (col_num - p.n_cols//2)
-        zp += p.dzp_col * (col_num - p.n_cols//2)
+    alpha = p.alpha_cen + p.dalpha * offset_row
+    syx = p.syx_cen + p.dsyx * offset_row
+    syz = p.syz_cen + p.dsyz * offset_row
+    zp = p.zp_cen + p.dzp_row * offset_row
+    gamma_extra = p.gamma_offset * offset_row
+
+    beta = p.beta_cen + p.dbeta * offset_col
+    sxy = p.sxy_cen + p.dsxy * offset_col
+    sxz = p.sxz_cen + p.dsxz * offset_col
+    zp += p.dzp_col * offset_col
 
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
@@ -401,8 +404,8 @@ def make_image_slicer(x, y, p, custom_slice_params):
     if (row_num < 0 or row_num >= p.n_rows) or (col_num < 0 or col_num >= p.n_cols):
         return np.nan
 
-    # If inside a gap, return the gap depth instead of a curved surface unless
-    # at the outer edge (in which case it should be considered out of bounds)
+    # If inside a gap, return the gap depth unless at the outer edge (in which
+    # case it should be considered out of bounds)
     in_xgap, in_ygap = is_inside_slicer_gap(x, y, p, custom_slice_params)
     if in_xgap:
         if col_num == p.n_cols - 1:
@@ -508,12 +511,12 @@ def find_global_extrema_slicer(umin, umax, p, custom_slice_params):
     
     return zmin, zmax
 
-def transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params):
+def transfer_function(t, ray_in, p, custom_slice_params):
     """The roots of this function give the value of t.
     """
-    xs = xt + t*l
-    ys = yt + t*m
-    zs = t*n
+    xs = ray_in.xt + t*ray_in.l
+    ys = ray_in.yt + t*ray_in.m
+    zs = t*ray_in.n
     sag = make_image_slicer(xs, ys, p, custom_slice_params)
     return sag - zs
 
@@ -573,14 +576,12 @@ def get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params):
     if ymin <= ymax: sgns = 1
     else: sgns = -1
 
-    return (nc_min, ns_min, nc_max, ns_max), (sgnc, sgns), (xmin, ymin), (xmax, ymax)
+    return RayBounds(nc_min, ns_min, nc_max, ns_max, sgnc, sgns, xmin, ymin, xmax, ymax)
 
 def is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
     """Returns True if the ray is in bounds at least some of the time. This is done
     by checking whether or not the col, slice indices of the ray are always out
     of bounds of the image slicer.
-
-    NEED TO MODIFY THIS!!
 
     Parameters
     ----------
@@ -625,11 +626,10 @@ def is_section_in_bounds(col_num, row_num, umin, umax, p):
     to a defined region after crossing through this section.
 
     """
-    # Checking row numbers is pretty straightforward
     if row_num < 0 or row_num >= p.n_rows:
         return False
 
-    # Column numbers require us to consider how each row is shifted
+    # Column indices require us to consider how each row is shifted
     dcol = math.ceil( (umax - umin) / p.dx )
     if (col_num < -dcol or col_num >= p.n_cols + dcol):
         return False
@@ -655,9 +655,9 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
     sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
 
     t = transfer_dist_func(xt, yt, l, m, n, pslice)
-    result = transfer_equation(t, xt, yt, l, m, n, p, custom_slice_params)
+    result = transfer_function(t, ray_in, p, custom_slice_params)
 
-    # Is this a valid zero to the transfer equation?
+    # Is this a valid zero to the transfer function?
     if abs(result) < tol:
         # Yes - found a solution!
         xs = xt + t*l
@@ -893,11 +893,11 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     # Get starting and ending rows and columns
-    indices, signs, coords_min, coords_max = get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params)
-    nc_min, ns_min, nc_max, ns_max = indices
-    sgnc, sgns = signs
-    xmin, ymin = coords_min
-    xmax, ymax = coords_max
+    bounds = get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params)
+    nc_min, ns_min, nc_max, ns_max = bounds.nc_min, bounds.ns_min, bounds.nc_max, bounds.ns_max
+    sgnc, sgns = bounds.sgnc, bounds.sgns
+    xmin, ymin = bounds.xmin, bounds.ymin
+    xmax, ymax = bounds.xmax, bounds.ymax
 
     if not is_ray_in_bounds(nc_min, ns_min, nc_max, ns_max, umin, umax, p):
         return ray_out

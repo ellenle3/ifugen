@@ -3,21 +3,22 @@
 #define SAG_RAY_SOLNS_H
 
 /**
- * @brief A struct to store the parameters of a slice.
+ * @brief A struct to store the parameters of a single slice.
  */
 typedef struct {
-    double alpha;
-    double beta;
-    double gamma;
-    double cv;  
-    double k;
-    double zp;
-    double syx;
-    double syz; 
-    double sxy;
-    double sxz;
-    double u;  
+    double alpha;   // Off-axis angle along y-axis OR rotation about x-axis
+    double beta;    // Off-axis angle along x-axis OR rotation about y-axis
+    double gamma;   // Rotation about y-axis (may be combined with beta)
+    double cv;      // Curvature = 1/R, where R is the radius of curvature
+    double k;       // Conic constant
+    double zp;      // Shift along z-axis (piston)
+    double syx;     // x-coordinate of axis of rotation about y
+    double syz;     // z-coordinate of axis of rotation about y
+    double sxy;     // y-coordinate of axis of rotation about x (if applicable)
+    double sxz;     // z-coordinate of axis of rotation about x (if applicable)
+    double u;       // Row offset along x-axis
 } SLICE_PARAMS;
+
 
 /** @brief Converts an angle to be between -180 and 180 degrees.
 *   @param t Angle in degrees.

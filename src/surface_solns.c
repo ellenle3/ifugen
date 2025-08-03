@@ -24,17 +24,12 @@ double CalcQuadraticDerv(int sgn, double A, double B, double C,
                          double dA, double dB, double dC) {
 
     double discrim = B * B - A * C;
-
-    // Guard against invalid sqrt
     if (discrim < 0.0) return NAN;
 
     double sqrt_disc = sqrt(discrim);
     double Eta = -B + sgn * sqrt_disc;
-
-    // Derivative of Eta
     double dEta = -dB + sgn * (2.0 * B * dB - C * dA - A * dC) / (2.0 * sqrt_disc);
 
-    // Final derivative expression
     return (Eta * dC - C * dEta) / (Eta * Eta);
 }
 
@@ -42,12 +37,12 @@ double CalcQuadraticDerv(int sgn, double A, double B, double C,
 // 2D conic solutions - planes (cv -> 0) are handled differently, see next section
 
 // Determine the off-axis distance. If the curvature is near-zero, this is
-// basically a plane. Set a limit to how small cv can be. In practice the
-// user should not set a non-zero off-axis distance if the surface is a plane.
+// basically a plane. In practice the user should not set a non-zero off-axis
+// distance if the surface is a plane.
 void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double alpha, double beta) {
+    // Put a minimum on cv to prevent division by zero
     if (fabs(c) < 1E-13) c = 1E-13;
 
-    // y0: off-axis distance in y direction
     if (alpha == 0.0) {
         *y0 = 0.0;
     } else {
@@ -57,7 +52,7 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
         *y0 = (tana / (2.0 * c)) * (num / den);
     }
 
-    // x0: off-axis distance in x direction
+    // same as above but for x0 (beta)
     if (beta == 0.0) {
         *x0 = 0.0;
     } else {
@@ -99,6 +94,7 @@ double Conic2DSag(double x, double y, SLICE_PARAMS pslice) {
     double cv = pslice.cv;
 
     if (pslice.k == -1.0) {
+        // Parabola needs to be handled separately to avoid division by zero
         A = cv * sing * sing;
 
         B = -(
@@ -143,7 +139,6 @@ double Conic2DSag(double x, double y, SLICE_PARAMS pslice) {
     double discrim = B * B - A * C;
 
     if (discrim < 0.0) return 0.0;
-
     return C / (-B + sgn * sqrt(discrim));
 }
 
@@ -179,6 +174,7 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE
     double cv = pslice.cv;
 
     if (pslice.k == -1.0) {
+        // Parabola needs to be handled separately to avoid division by zero
         D = cv * (m * m + (l * cosg - n * sing) * (l * cosg - n * sing));
 
         F = (
@@ -197,6 +193,7 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE
             + cv * v3 * v3 * sing * sing
             + cv * v3 * (v2 + xt) * sin2g
         );
+
     } else {
         D = 2.0 * cv * pslice.k * (n * cosg + l * sing) * (n * cosg + l * sing)
             + 2.0 * cv * (l * l + m * m + n * n);
@@ -224,7 +221,6 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE
 
     if (discrim < 0.0)
         return NAN;
-
     return G / (-F + sgn * sqrt(discrim));
 }
 
@@ -257,7 +253,7 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
     double k = pslice.k;
 
     if (k == -1.0) {
-        // Parabolic case
+        // Parabola needs to be handled separately to avoid division by zero
         A = cv * sing * sing;
 
         B = -(
@@ -280,7 +276,6 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
         dCx = -2.0 * sing + 2.0 * cv * cosg * (v1 + (v2 + x) * cosg + v3 * sing);
         dCy = 2.0 * cv * (y + y0);
     } else {
-        // Non-parabolic conic
         A = cv * (1.0 + k) * (2.0 + k + k * cos2g);
 
         B = - (1.0 + k) * (
@@ -332,8 +327,8 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
 // Wrapper function to make accessing the partial derivative about x easier. This
 // is only used for the critical point calculation. 
 double Conic2DDervX(double x, double y, SLICE_PARAMS pslice) {
-    double dervx, dervy, dervz;
-    Conic2DSurfaceNormal(&dervx, &dervy, &dervz, x, y, pslice, 0);
+    double dervx, dervy, junk;
+    Conic2DSurfaceNormal(&dervx, &dervy, &junk, x, y, pslice, 0);
     return dervx;
 }
 
@@ -379,6 +374,7 @@ void Conic2DCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
     double err = 1;
     int i = 1;
     while (err < tol && i < niter_max) {
+        // Solution along y-direction is always -y0
         dervx0 = Conic2DDervX(xc0, -y0, pslice);
         dervx1 = Conic2DDervX(xc1, -y0, pslice);
         xc2 = (xc0 * dervx1 - xc1 * dervx0) / (dervx1 - dervx0);
@@ -416,7 +412,8 @@ double TiltedPlaneSag(double x, double y, SLICE_PARAMS p) {
     double cosbg = cos(beta + gamma);
     double tanbg = tan(beta + gamma);
 
-    // Cap to prevent explosion near grazing incidence
+    // Cap to prevent tangent from exploding. Angles should not be close to 90
+    // degrees, for which the plane is undefined...
     if (fabs(cosa) < 1e-13)  cosa = 1e-13;
     if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
 
@@ -445,7 +442,8 @@ double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, S
     double cosbg = cos(beta + gamma);
     double tanbg = tan(beta + gamma);
 
-    // Cap to prevent these from exploding
+    // Cap to prevent tangent from exploding. Angles should not be close to 90
+    // degrees, for which the plane is undefined...
     if (fabs(cosa) < 1e-13)  cosa = 1e-13;
     if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
 
@@ -477,7 +475,8 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
     double cosbg = cos(beta + gamma);
     double tanbg = tan(beta + gamma);
 
-    // Cap to prevent these from exploding
+    // Cap to prevent tangent from exploding. Angles should not be close to 90
+    // degrees, for which the plane is undefined...
     if (fabs(cosa) < 1e-13)  cosa  = 1e-13;
     if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
 
@@ -496,7 +495,7 @@ void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, doub
     *nn = -1.0;
 }
 
-// Planes have no critical points, so this does nothing.
+// Planes have no critical points.
 void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
      *xc = NAN; *yc = NAN;
 }

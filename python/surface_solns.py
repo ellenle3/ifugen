@@ -47,8 +47,9 @@ def calc_quadratic_derv(sgn, A, B, C, dA, dB, dC):
     discrim = B*B - A*C
     if discrim < 0:
         return np.nan  # Derivative is undefined
-    Eta = -B + sgn * np.sqrt(discrim)
-    dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / np.sqrt(discrim)
+    sqrt_disc = np.sqrt(discrim)
+    Eta = -B + sgn * sqrt_disc
+    dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / sqrt_disc
     return (Eta * dC - C * dEta) / (Eta * Eta)
 
 # Solutions for 2D conic
@@ -99,8 +100,6 @@ def conic_2d_sag(x, y, pslice):
     zp = pslice.zp
     syx = pslice.syx
     syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
     u = pslice.u
     x-= u
 
@@ -168,6 +167,7 @@ def conic_2d_sag(x, y, pslice):
             + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
             - 2 * c * k * v3 * (v2 + x) * sin2g
         )
+
     discrim = B*B - A*C
 
     # In regions where the roots are undefined, set the sag to 0 for drawing
@@ -191,8 +191,6 @@ def conic_2d_transfer(xt, yt, l, m, n, pslice):
     zp = pslice.zp
     syx = pslice.syx
     syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
     u = pslice.u
 
     alpha = convert_angle(alpha) * np.pi/180
@@ -276,8 +274,6 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
     zp = pslice.zp
     syx = pslice.syx
     syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
     u = pslice.u
 
     # Check where the derivative is undefined!!!
