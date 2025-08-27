@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "surface_solns.h"
 
-void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char params_dir[], int max_elements) {
+void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[], int max_elements) {
 
     if (file_num > 9999 || file_num < -999) {
         printf("Error: File number cannot exceed 4 digits\n");
@@ -53,19 +53,19 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char pa
 
     // Set all values to zero initially
     for (int i = 0; i < array_size; i++) {
-        custom_slice_params[i] = 0;
+        p_custom[i] = 0;
     }
 
     // Store first 9 parameters
-    custom_slice_params[0] = (double) n_slices_per_col;
-    custom_slice_params[1] = (double) n_cols;
-    custom_slice_params[2] = (double) surface_type;
-    custom_slice_params[3] = dx;
-    custom_slice_params[4] = dy;
-    custom_slice_params[5] = gx_width;
-    custom_slice_params[6] = gx_depth;
-    custom_slice_params[7] = gy_width;
-    custom_slice_params[8] = gy_depth;
+    p_custom[0] = (double) n_slices_per_col;
+    p_custom[1] = (double) n_cols;
+    p_custom[2] = (double) surface_type;
+    p_custom[3] = dx;
+    p_custom[4] = dy;
+    p_custom[5] = gx_width;
+    p_custom[6] = gx_depth;
+    p_custom[7] = gy_width;
+    p_custom[8] = gy_depth;
 
     // Read slice parameters
     double alpha, beta, gamma, cv, k;
@@ -73,11 +73,11 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char pa
     for (int i = 0; i < num_slices; i++) {
         if (fscanf(file, "%lf %lf %lf %lf %lf\n", &alpha, &beta, &gamma, &cv, &k) == 5) {
             base_idx = 9 + 5 * i;
-            custom_slice_params[base_idx] = alpha;
-            custom_slice_params[base_idx + 1] = beta;
-            custom_slice_params[base_idx + 2] = gamma;
-            custom_slice_params[base_idx + 3] = cv;
-            custom_slice_params[base_idx + 4] = k;
+            p_custom[base_idx] = alpha;
+            p_custom[base_idx + 1] = beta;
+            p_custom[base_idx + 2] = gamma;
+            p_custom[base_idx + 3] = cv;
+            p_custom[base_idx + 4] = k;
         } else {
             break; // Stop reading if fewer than expected values are found
         }
@@ -85,19 +85,4 @@ void LoadCustomParamsFromFile(double *custom_slice_params, int file_num, char pa
 
     fclose(file);
     // Make sure to free the array when you're done!
-}
-
-SLICE_PARAMS GetSliceParamsCustom(int slice_num, int col_num, double custom_slice_params[]) {
-
-    int n_slices_per_col = (int) custom_slice_params[0];
-    int start_idx = 9 + 5 * (col_num * n_slices_per_col + slice_num);
-
-    SLICE_PARAMS pslice;
-    pslice.alpha = custom_slice_params[start_idx];
-    pslice.beta = custom_slice_params[start_idx + 1];
-    pslice.gamma = custom_slice_params[start_idx + 2];
-    pslice.cv = custom_slice_params[start_idx + 3];
-    pslice.k = custom_slice_params[start_idx + 4];
-
-    return pslice;
 }

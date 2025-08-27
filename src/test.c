@@ -7,7 +7,7 @@
 
 #define MAX_ELEMENTS 6250009
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double custom_slice_params[]);
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]);
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p);
 void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p);
 void TestLoadCustomParams(FILE* fptr, int file_num);
@@ -46,7 +46,7 @@ int main() {
         .k = -1
     };
 
-    //double custom_slice_params[1] = {0};
+    //double p_custom[1] = {0};
     
     //TestImageSlicerSag(fptr, p);
     //TestGlobalExtrema(fptr, p);
@@ -62,7 +62,7 @@ int main() {
     fclose(fptr);
 }
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double custom_slice_params[]) {
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     
     // Compute test function over an array of points and save to a TXT file
     double xsize, ysize;
@@ -75,13 +75,13 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double custom_slice_p
     linspace(ypts, -ysize/2, ysize/2, ny);
 
     // for (int i = 0; i < nx; i++) {
-    //     output = ImageSlicerSag(xpts[i], ysize/2, p, custom_slice_params);
+    //     output = ImageSlicerSag(xpts[i], ysize/2, p, p_custom);
     //     fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ysize/2, output);
     // }
 
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
-            output = ImageSlicerSag(xpts[i], ypts[j], p, custom_slice_params);
+            output = ImageSlicerSag(xpts[i], ypts[j], p, p_custom);
             fprintf(fptr, "%.15f %.15f %.15f\n", xpts[i], ypts[j], output);
         }
     }
@@ -90,8 +90,8 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double custom_slice_p
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p) {
     
     double zmin, zmax;
-    double custom_slice_params[1] = {0};
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params);
+    double p_custom[1] = {0};
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
     fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
 
 }
@@ -102,8 +102,8 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
     RAY_OUT ray_out;
 
     double zmin, zmax, norm, l, m, n;
-    double custom_slice_params[1] = {0};
-    FindSlicerGlobalExtrema(&zmin, &zmax, p, custom_slice_params);
+    double p_custom[1] = {0};
+    FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
 
     int num = 2;
     double xpts[num]; double ypts[num];
@@ -129,7 +129,7 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
                         ray_in.l = l; ray_in.m = m; ray_in.n = n;
 
                         RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
-                        p, custom_slice_params);
+                        p, p_custom);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
                     }

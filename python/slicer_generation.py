@@ -138,13 +138,13 @@ def get_surface_funcs(c, p):
         return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
     # if p.surface_type:
     
-def make_image_slicer_params_from_custom(custom_slice_params):
+def make_image_slicer_params_from_custom(p_custom):
     """Returns an ImageSlicerParams object described by custom slice parameters
     loaded from a TXT file.
 
     Parameters
     ----------
-    custom_slice_params: array_like
+    p_custom: array_like
         A one-dimensional array containing parameters each slice as well as the
         configuration of the image slicer.
 
@@ -157,15 +157,15 @@ def make_image_slicer_params_from_custom(custom_slice_params):
     p = ImageSlicerParams(
         custom = 1,
         n_each = 1,
-        n_rows = custom_slice_params[0],
-        n_cols = custom_slice_params[1],
-        surface_type = custom_slice_params[2],
-        dx = custom_slice_params[3],
-        dy = custom_slice_params[4],
-        gx_width = custom_slice_params[5],
-        gx_depth = custom_slice_params[6],
-        gy_width = custom_slice_params[7],
-        gy_depth = custom_slice_params[8],
+        n_rows = p_custom[0],
+        n_cols = p_custom[1],
+        surface_type = p_custom[2],
+        dx = p_custom[3],
+        dy = p_custom[4],
+        gx_width = p_custom[5],
+        gx_depth = p_custom[6],
+        gy_width = p_custom[7],
+        gy_depth = p_custom[8],
 
         # These params are unused for custom slicers, set to 0
         angle_mode = 0,
@@ -203,7 +203,7 @@ def get_slicer_size(p):
     xsize = (p.n_cols*p.dx + (p.n_cols-1)*p.gx_width)
     return xsize, ysize
 
-def get_slicer_index(x, y, p, custom_slice_params):
+def get_slicer_index(x, y, p, p_custom):
     """Returns the column, slice index for a given x, y.
     """
     xsize, ysize = get_slicer_size(p)
@@ -211,21 +211,21 @@ def get_slicer_index(x, y, p, custom_slice_params):
     slice_num = (y + ysize/2) // (p.dy + p.gy_width)
     row_num = slice_num // p.n_each
     # Column index depends on how much the row is shifted (u)
-    u = get_u_for_row(row_num, p, custom_slice_params)
+    u = get_u_for_row(row_num, p, p_custom)
     col_num = (x - u + xsize/2) // (p.dx + p.gx_width)
     return col_num, slice_num
 
-def is_inside_slicer_gap(x, y, p, custom_slice_params):
+def is_inside_slicer_gap(x, y, p, p_custom):
     """Returns whether x, y is inside of a gap between columns (x) or slices (y).
     """
     xsize, ysize = get_slicer_size(p)
-    col_num, slice_num = get_slicer_index(x, y, p, custom_slice_params)
+    col_num, slice_num = get_slicer_index(x, y, p, p_custom)
     # Check if x, y is inside of a gap
     ygap_bot = (slice_num + 1) * p.dy + slice_num*p.gy_width - ysize/2
     ygap_top = ygap_bot + p.gy_width
     in_ygap = (y > ygap_bot and y <= ygap_top)
     
-    u = get_u_for_row(slice_num // p.n_each, p, custom_slice_params)
+    u = get_u_for_row(slice_num // p.n_each, p, p_custom)
     xgap_left = (col_num + 1) * p.dx + col_num*p.gx_width - xsize/2 + u
     xgap_right = xgap_left + p.gx_width
     in_xgap = (x > xgap_left and x <= xgap_right)
@@ -246,13 +246,13 @@ def get_paraxial_slice_index(p, active_x, active_y):
 
     return col_num, slice_num
 
-def get_min_max_u(p, custom_slice_params):
+def get_min_max_u(p, p_custom):
     """Returns the maximum and minimum u values of the image slicer.
     """
     # you probably want to store
     # this result so you don't have to do it every time a ray is traced
     if p.custom:
-        u_all = custom_slice_params[9: 9 + p.n_rows]
+        u_all = p_custom[9: 9 + p.n_rows]
         umax = np.max(u_all)
         umin = np.min(u_all)
         return umin, umax
@@ -263,11 +263,11 @@ def get_min_max_u(p, custom_slice_params):
         return p.u_cen, p.u_cen
 
     if p.angle_mode in [0,1]:
-        umin = get_u_for_row(0, p, custom_slice_params)
-        umax = get_u_for_row(p.n_rows - 1, p, custom_slice_params)
+        umin = get_u_for_row(0, p, p_custom)
+        umax = get_u_for_row(p.n_rows - 1, p, p_custom)
     elif p.angle_mode in [2,3]:
-        umin = get_u_for_row(0, p, custom_slice_params)
-        umax = get_u_for_row(1, p, custom_slice_params)
+        umin = get_u_for_row(0, p, p_custom)
+        umax = get_u_for_row(1, p, p_custom)
 
     # Swap if alternating negative
     if p.du < 0:
@@ -275,21 +275,21 @@ def get_min_max_u(p, custom_slice_params):
 
     return umin, umax
 
-def get_slice_params(slice_num, col_num, p, custom_slice_params):
+def get_slice_params(slice_num, col_num, p, p_custom):
     """Returns the angles alpha and beta for the slice number. Indexing starts at
     0 from the bottom (negative y direction) of the image slicer.
     """
     if p.custom:
-        return get_slice_params_custom(slice_num, col_num, custom_slice_params)
+        return get_slice_params_custom(slice_num, col_num, p_custom)
     return get_slice_params_standard(slice_num, col_num, p) 
 
-def get_u_for_row(row_num, p, custom_slice_params):
+def get_u_for_row(row_num, p, p_custom):
     """Returns the u value for a given row number, which is the shift along the
     x-axis. This needs to be computed seperately as it is used to calculate the
     column index of the slice.
     """
     if p.custom:
-        return custom_slice_params[9 + row_num]
+        return p_custom[9 + row_num]
     
     # Similar to get_slice_params_standard
     if p.n_rows % 2 == 0:
@@ -378,7 +378,7 @@ def get_slice_params_standard(slice_num, col_num, p):
     
     return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
 
-def make_image_slicer(x, y, p, custom_slice_params):
+def make_image_slicer(x, y, p, p_custom):
     """Returns the sag of the image slicer at a given x, y.
 
     Parameters
@@ -389,7 +389,7 @@ def make_image_slicer(x, y, p, custom_slice_params):
         y-coordinate to evaluate.
     p: ImageSlicerParams
         Parameters of the image slicer.
-    custom_slice_params: array_like
+    p_custom: array_like
         Custom slice parameters. If p.custom = 0 (disabled), the parameter is
         unused.
     
@@ -399,14 +399,14 @@ def make_image_slicer(x, y, p, custom_slice_params):
         Sag of the image slicer at x, y.
     """
     # Check if out of bounds
-    col_num, slice_num = get_slicer_index(x, y, p, custom_slice_params)
+    col_num, slice_num = get_slicer_index(x, y, p, p_custom)
     row_num = slice_num // p.n_each
     if (row_num < 0 or row_num >= p.n_rows) or (col_num < 0 or col_num >= p.n_cols):
         return np.nan
 
     # If inside a gap, return the gap depth unless at the outer edge (in which
     # case it should be considered out of bounds)
-    in_xgap, in_ygap = is_inside_slicer_gap(x, y, p, custom_slice_params)
+    in_xgap, in_ygap = is_inside_slicer_gap(x, y, p, p_custom)
     if in_xgap:
         if col_num == p.n_cols - 1:
             return np.nan
@@ -417,11 +417,11 @@ def make_image_slicer(x, y, p, custom_slice_params):
         return p.gy_depth
     
     # Inside a slice. From the indices, determine the slice parameters
-    slice_params = get_slice_params(slice_num, col_num, p, custom_slice_params)
+    slice_params = get_slice_params(slice_num, col_num, p, p_custom)
     sag_func, _, _, _ = get_surface_funcs(slice_params.c, p)
     return sag_func(x, y, slice_params)
 
-def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
+def find_bounded_extremum(x0, y0, mode, p, p_custom):
     """Returns the maximum or minimum of an individual slice. This function evaluates
     the sag at each of its four corner and at a critical point if it is within bounds.
 
@@ -433,7 +433,7 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
         True if max, False if min.
     p: ImageSlicerParams
         Parameters of the image slicer.
-    custom_slice_params: array_like
+    p_custom: array_like
         Custom slice parameters. If p.custom = 0 (disabled), the parameter is
         unused.
     
@@ -443,19 +443,19 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
         Maximum or minimum of the slice.
     """
     # If x0, y0 are inside gaps then we don't need to go further
-    in_xgap, in_ygap = is_inside_slicer_gap(x0, y0, p, custom_slice_params)
+    in_xgap, in_ygap = is_inside_slicer_gap(x0, y0, p, p_custom)
     if in_xgap: return p.gx_depth
     if in_ygap: return p.gy_depth
 
     # Not inside a gap. We need to compute the sag at the bounds and
     # critical point(s) of the slice.
     # First, compute the bounds of the current slice
-    col_num, slice_num = get_slicer_index(x0, y0, p, custom_slice_params)
+    col_num, slice_num = get_slicer_index(x0, y0, p, p_custom)
     xsize, ysize = get_slicer_size(p)
-    slice_params = get_slice_params(slice_num, col_num, p, custom_slice_params)
+    slice_params = get_slice_params(slice_num, col_num, p, p_custom)
     sag_func, junk1, junk2, critical_xy_func = get_surface_funcs(slice_params.c, p)
 
-    u = get_u_for_row(slice_num // p.n_each, p, custom_slice_params)
+    u = get_u_for_row(slice_num // p.n_each, p, p_custom)
     xlo = col_num * (p.dx + p.gx_width) - xsize/2 + u
     xhi = xlo + p.dx
     ylo = slice_num * (p.dy + p.gy_width) - ysize/2
@@ -486,7 +486,7 @@ def find_bounded_extremum(x0, y0, mode, p, custom_slice_params):
         return np.max(zsolns[:n_compare])
     return np.min(zsolns[:n_compare])
 
-def find_global_extrema_slicer(umin, umax, p, custom_slice_params):
+def find_global_extrema_slicer(umin, umax, p, p_custom):
     """Returns the global max and min of the image slicer.
     """
     # Determine which slice the global extrema are on. To do this, roughly sample
@@ -501,26 +501,26 @@ def find_global_extrema_slicer(umin, umax, p, custom_slice_params):
     x0_min, y0_min, z0_min = 0, 0, np.inf
     for x in xpts:
         for y in ypts:
-            z = make_image_slicer(x, y, p, custom_slice_params)
+            z = make_image_slicer(x, y, p, p_custom)
             # Update the (x,y) corresponding to the max and min values
             if z > z0_max: x0_max, y0_max, z0_max = x, y, z
             elif z < z0_min: x0_min, y0_min, z0_min = x, y, z
 
-    zmin = find_bounded_extremum(x0_min, y0_min, 0, p, custom_slice_params)
-    zmax = find_bounded_extremum(x0_max, y0_max, 1, p, custom_slice_params)
+    zmin = find_bounded_extremum(x0_min, y0_min, 0, p, p_custom)
+    zmax = find_bounded_extremum(x0_max, y0_max, 1, p, p_custom)
     
     return zmin, zmax
 
-def transfer_function(t, ray_in, p, custom_slice_params):
+def transfer_function(t, ray_in, p, p_custom):
     """The roots of this function give the value of t.
     """
     xs = ray_in.xt + t*ray_in.l
     ys = ray_in.yt + t*ray_in.m
     zs = t*ray_in.n
-    sag = make_image_slicer(xs, ys, p, custom_slice_params)
+    sag = make_image_slicer(xs, ys, p, p_custom)
     return sag - zs
 
-def get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params):
+def get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, p_custom):
     """Returns the starting and ending column, slice indices of the ray.
 
     Parameters
@@ -567,8 +567,8 @@ def get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params):
         xmax, ymax = ray_in.xt + tmax*ray_in.l, ray_in.yt + tmax*ray_in.m
 
     # Get starting and ending rows and columns
-    nc_min, ns_min = get_slicer_index(xmin, ymin, p, custom_slice_params)
-    nc_max, ns_max = get_slicer_index(xmax, ymax, p, custom_slice_params)
+    nc_min, ns_min = get_slicer_index(xmin, ymin, p, p_custom)
+    nc_max, ns_max = get_slicer_index(xmax, ymax, p, p_custom)
 
     if xmin <= xmax: sgnc = 1
     else: sgnc = -1
@@ -636,7 +636,7 @@ def is_section_in_bounds(col_num, row_num, umin, umax, p):
 
     return True
 
-def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
+def check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom):
     """
 
     Returns
@@ -651,11 +651,11 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
 
     # Check if this slice is a solution. Get params for this slice and
     # compute the transfer distance.
-    pslice = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+    pslice = get_slice_params(ns_test, nc_test, p, p_custom)
     sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
 
     t = transfer_dist_func(xt, yt, l, m, n, pslice)
-    result = transfer_function(t, ray_in, p, custom_slice_params)
+    result = transfer_function(t, ray_in, p, p_custom)
 
     # Is this a valid zero to the transfer function?
     if abs(result) < tol:
@@ -667,7 +667,7 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
 
         # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
         # equal to the gap depth then this may be the case.
-        in_xgap, in_ygap = is_inside_slicer_gap(xs, ys, p, custom_slice_params)
+        in_xgap, in_ygap = is_inside_slicer_gap(xs, ys, p, p_custom)
         if (in_xgap or in_ygap):
             return ray_out
         
@@ -678,7 +678,7 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params):
     
     return ray_out
 
-def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params):
+def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom):
     """Checks whether a ray has intersected a wall between the current slice and
     the next slice (between rows/slices).
 
@@ -720,10 +720,10 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
         zfar = tfar * n
         
         # Sag of near and far slices
-        pslice_near = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+        pslice_near = get_slice_params(ns_test, nc_test, p, p_custom)
         znear_slice = sag_func(xnear, ynear, pslice_near)
 
-        pslice_far = get_slice_params(ns_test + 1*sgns, nc_test, p, custom_slice_params)
+        pslice_far = get_slice_params(ns_test + 1*sgns, nc_test, p, p_custom)
         zfar_slice = sag_func(xfar, yfar, pslice_far)
 
         # Did it hit a near wall? This is only possible if the gap depth
@@ -750,7 +750,7 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params
     # Ray missed...
     return ray_out
 
-def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params):
+def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom):
     """Analagous to check_ywall_collision, but for the x walls (between columns).
     """
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
@@ -762,7 +762,7 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
 
     if abs(l) > 1e-13:
         
-        u = get_u_for_row(ns_test // p.n_each, p, custom_slice_params)
+        u = get_u_for_row(ns_test // p.n_each, p, p_custom)
         # Ray coordinates on near wall
         xnear = ((1 + sgnc) / 2) * p.dx + nc_test * (p.dx + p.gx_width) - xsize / 2 + u
         tnear = (xnear - xt) / l
@@ -776,10 +776,10 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
         zfar = tfar * n
 
         # Sag of near and far slices
-        pslice_near = get_slice_params(ns_test, nc_test, p, custom_slice_params)
+        pslice_near = get_slice_params(ns_test, nc_test, p, p_custom)
         znear_slice = sag_func(xnear, ynear, pslice_near)
 
-        pslice_far = get_slice_params(ns_test, nc_test + 1*sgnc, p, custom_slice_params)
+        pslice_far = get_slice_params(ns_test, nc_test + 1*sgnc, p, p_custom)
         zfar_slice = sag_func(xfar, yfar, pslice_far)
 
         # Did it hit a near wall? This is only possible if the gap depth
@@ -809,7 +809,7 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params
     # Ray missed...
     return ray_out
 
-def calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, custom_slice_params):
+def calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, p_custom):
     """
 
     Returns
@@ -835,7 +835,7 @@ def calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax,
     
     # x- and y-coordinates of crossover points to the next section, incremented
     # either column- or row-wise.
-    u = get_u_for_row(nr_test, p, custom_slice_params)
+    u = get_u_for_row(nr_test, p, p_custom)
     x_nextcol = (nc_test + (1 + sgnc) / 2) * (p.dx + p.gx_width) - xsize / 2 + u
     y_nextcol = y_test + (x_nextcol - x_test) * m / l
 
@@ -858,13 +858,13 @@ def calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax,
         # Go to next row
         return x_nextrow, y_nextrow, 2
     
-def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params):
+def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, p_custom):
 
     # Number of slices to check can be found by taking the difference between
     # starting and ending slice indices. For nc2 and ns2, subtract an infinitesimal
     # value from the coordinates to ensure that they are in the same section as (x_test, y_test).
-    ns1 = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
-    ns2 = get_slicer_index(x_next - 1e-13*sgnc, y_next - 1e-13*sgns, p, custom_slice_params)[1]
+    ns1 = get_slicer_index(x_test, y_test, p, p_custom)[1]
+    ns2 = get_slicer_index(x_next - 1e-13*sgnc, y_next - 1e-13*sgns, p, p_custom)[1]
     n_stocheck = int( abs(ns2 - ns1) + 1 )
     # Cap the number of slices to the number of slices within a single section
     n_stocheck = min(n_stocheck, p.n_each)
@@ -886,14 +886,14 @@ def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_nex
     return n_stocheck, nc_new, nr_new
     
 
-def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slice_params):
+def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
     """
     """
     # Tolerance for accepting the transfer distance as valid
     tol = 1e-12
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     # Get starting and ending rows and columns
-    bounds = get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, custom_slice_params)
+    bounds = get_ray_bounds(ray_in, umin, umax, zmin, zmax, p, p_custom)
     nc_min, ns_min, nc_max, ns_max = bounds.nc_min, bounds.ns_min, bounds.nc_max, bounds.ns_max
     sgnc, sgns = bounds.sgnc, bounds.sgns
     xmin, ymin = bounds.xmin, bounds.ymin
@@ -909,25 +909,25 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
     
     # If starting index isn't in bounds, set it to where it will be in bounds
     while not is_section_in_bounds(nc_test, nr_test, umin, umax, p):
-        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, custom_slice_params)
-        n_stocheck, nc_test, nr_test = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params)  # ugh
+        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, p_custom)
+        n_stocheck, nc_test, nr_test = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, p_custom)  # ugh
         x_test, y_test = x_next, y_next
 
-    ns_test = get_slicer_index(x_test, y_test, p, custom_slice_params)[1]
+    ns_test = get_slicer_index(x_test, y_test, p, p_custom)[1]
     nc_new, nr_new = -1, -1
     is_same_section = False
 
     while is_section_in_bounds(nc_test, nr_test, umin, umax, p) and not is_same_section:
         # Number of slices to check in this section
-        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, custom_slice_params)
-        n_stocheck, nc_new, nr_new = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, custom_slice_params)
+        x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, p_custom)
+        n_stocheck, nc_new, nr_new = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, p_custom)
         x_test, y_test = x_next, y_next
 
         # Iterate slices within this section
         for n in range(n_stocheck):
 
             # Check whether each slice is a solution to the transfer equation
-            ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, custom_slice_params)
+            ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom)
 
             if not np.isnan(ray_out.t):
                 # Found a solution within a slice.
@@ -936,7 +936,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             # Before going to the next slice, check if there is a collision with
             # a wall. Skip if this is the last slice in the section.
             if trace_walls and (ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
-                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
+                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
                     return ray_out
@@ -952,14 +952,14 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
 
             # Section changed columns, check collision with x-wall
             if nc_new != nc_test:
-                ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params)
+                ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
                     return ray_out
                 
             # Must have changed rows instead. Check collision with y-wall
             elif nr_new != nr_test:
-                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
+                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
                     return ray_out
@@ -968,14 +968,14 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, custom_slic
             else:
                 # Need to subtract off an infinitesimal amount if xmax and ymax
                 # correspond exactly to the b
-                in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-13*sgnc, y_test-1e-13*sgns, p, custom_slice_params)
+                in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-13*sgnc, y_test-1e-13*sgns, p, p_custom)
                 if in_xgap:
-                    ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, custom_slice_params)
+                    ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
                     if not np.isnan(ray_out.t):
                         # Found a wall collision.
                         return ray_out
                 elif in_ygap:
-                    ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, custom_slice_params)
+                    ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
                     if not np.isnan(ray_out.t):
                         # Found a wall collision.
                         return ray_out

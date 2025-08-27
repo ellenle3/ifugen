@@ -78,10 +78,10 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    };
 
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
-   // We will never need the custom_slice_params array in standard mode but we need
+   // We will never need the p_custom array in standard mode but we need
    // to pass it as an argument. It will never be accessed because p.custom will
    // always be set to 0.
-   double custom_slice_params[1] = {0};
+   double p_custom[1] = {0};
    p.custom = 0;
 
    // Store some other FD params
@@ -204,7 +204,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, custom_slice_params);
+         sag = ImageSlicerSag(UD->x, UD->y, p, p_custom);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0... should I return -1?
          else {
@@ -245,7 +245,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
          RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
-            p, custom_slice_params);
+            p, p_custom);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -308,7 +308,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          if ( !IsParametersEqual(p, P_OLD) ) {
             // Update global extrema
-            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, custom_slice_params);
+            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
             P_OLD = p;
          };
          break;

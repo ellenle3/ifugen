@@ -167,7 +167,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 					yend = yend + p.dy;
 
 					// Parameters for this slice
-					GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, custom_slice_params);
+					GetSliceParams(&alpha, &beta, &gamma, &cv, &k, slice_num, col_num, p, p_custom);
 					
 					for (i = 0; i < Nx; i++) {
 						
@@ -204,15 +204,15 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 							tri_list[num_triangles*10 + 9] = code1;
 							num_triangles++;
 
-							tri_list[num_triangles*10 + 0] = x2;  // x1
-							tri_list[num_triangles*10 + 1] = y1;  // y1
-							tri_list[num_triangles*10 + 2] = z2;  // z1
-							tri_list[num_triangles*10 + 3] = x1;  // x2
-							tri_list[num_triangles*10 + 4] = y2;  // y2
-							tri_list[num_triangles*10 + 5] = z3;  // z2
-							tri_list[num_triangles*10 + 6] = x2;  // x3
-							tri_list[num_triangles*10 + 7] = y2;  // y3
-							tri_list[num_triangles*10 + 8] = z4;  // z3
+							tri_list[num_triangles*10 + 0] = x2;
+							tri_list[num_triangles*10 + 1] = y1; 
+							tri_list[num_triangles*10 + 2] = z2;
+							tri_list[num_triangles*10 + 3] = x1;
+							tri_list[num_triangles*10 + 4] = y2;  
+							tri_list[num_triangles*10 + 5] = z3; 
+							tri_list[num_triangles*10 + 6] = x2;
+							tri_list[num_triangles*10 + 7] = y2;
+							tri_list[num_triangles*10 + 8] = z4;
 							tri_list[num_triangles*10 + 9] = code2;
 							num_triangles++;
 						}

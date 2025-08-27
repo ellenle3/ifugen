@@ -38,7 +38,7 @@ static int FILE_NUM_OLD = -999999999; // Store previous file number to check if 
 
 // Keep the custom slice parameters in a global array so we don't need to reload
 // the file every time this DLL is called.
-static double *CUSTOM_SLICE_PARAMS = NULL;
+static double *p_custom = NULL;
 static char PARAMS_DIR[MAX_PATH_LENGTH];
 
 
@@ -48,9 +48,9 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 	{
       case DLL_PROCESS_ATTACH:
 
-          CUSTOM_SLICE_PARAMS = (double*)malloc(MAX_ELEMENTS * sizeof(double));
+          p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
 
-         if (CUSTOM_SLICE_PARAMS == NULL) {
+         if (p_custom == NULL) {
             MessageBoxA(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
             return FALSE;
          }
@@ -75,7 +75,7 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
          break;
 
       case DLL_PROCESS_DETACH:
-         free(CUSTOM_SLICE_PARAMS);
+         free(p_custom);
          break;
 	}
 	return TRUE;
@@ -108,7 +108,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int file_num = FD->param[3];
 
    // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(CUSTOM_SLICE_PARAMS);
+   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(p_custom);
    ValidateSlicerParams(&p);
    p.custom = 1;
 
@@ -176,7 +176,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          UD->sag1 = 0.0;
          UD->sag2 = 0.0;
 
-         sag = ImageSlicerSag(UD->x, UD->y, p, CUSTOM_SLICE_PARAMS);
+         sag = ImageSlicerSag(UD->x, UD->y, p, p_custom);
 
          if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0
          else {
@@ -223,7 +223,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
          RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
-            p, CUSTOM_SLICE_PARAMS);
+            p, p_custom);
 
          // Ray missed if transfer distance or normal vector could not be computed
          if (isnan(ray_out.t) || isnan(ray_out.ln)) return (FD->surf);
@@ -265,9 +265,9 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          if ( FILE_NUM_OLD != file_num ) {
             // Update custom slice params and global extrema
-            LoadCustomParamsFromFile(CUSTOM_SLICE_PARAMS, file_num, PARAMS_DIR, MAX_ELEMENTS);
-            p = MakeSlicerParamsFromCustom(CUSTOM_SLICE_PARAMS);
-            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, CUSTOM_SLICE_PARAMS);
+            LoadCustomParamsFromFile(p_custom, file_num, PARAMS_DIR, MAX_ELEMENTS);
+            p = MakeSlicerParamsFromCustom(p_custom);
+            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
             FILE_NUM_OLD = file_num;
          };
 

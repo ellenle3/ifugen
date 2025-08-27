@@ -1,6 +1,6 @@
 
-#ifndef SAG_RAY_SOLNS_H
-#define SAG_RAY_SOLNS_H
+#ifndef SURFACE_SOLNS_H
+#define SURFACE_SOLNS_H
 
 /**
  * @brief A struct to store the parameters of a single slice.

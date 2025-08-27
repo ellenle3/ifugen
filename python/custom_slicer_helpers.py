@@ -44,11 +44,11 @@ def load_slice_params_file(file_num):
     num_slices = n_rows * n_cols
 
     # Next row of entries are the shifts for each row
-    custom_slice_params = np.zeros(5 * num_slices + 9 + n_rows)
+    p_custom = np.zeros(5 * num_slices + 9 + n_rows)
 
-    custom_slice_params[:3] = data[0]
-    custom_slice_params[3:9] = data[1]
-    custom_slice_params[9: 9 + n_rows] = data[2]
+    p_custom[:3] = data[0]
+    p_custom[3:9] = data[1]
+    p_custom[9: 9 + n_rows] = data[2]
 
     # Set the remaining entries to the parameters for each slice. This isn't the
     # most efficient way to do this in Python, but it's more readable and is
@@ -62,23 +62,23 @@ def load_slice_params_file(file_num):
             break
 
         base_idx = 9 + 5 * i
-        custom_slice_params[base_idx: base_idx + 5] = data[i + 2]
+        p_custom[base_idx: base_idx + 5] = data[i + 2]
     
-    return custom_slice_params
+    return p_custom
 
-def get_slice_params_custom(slice_num, col_num, custom_slice_params):
+def get_slice_params_custom(slice_num, col_num, p_custom):
     """Returns parameters that define a slice at a given col, slice index.
     """
     slice_num = int(slice_num)
     col_num = int(col_num)
-    n_slices_per_col = int(custom_slice_params[0])
+    n_slices_per_col = int(p_custom[0])
     start_idx = 9 + 5 * (col_num * n_slices_per_col + slice_num)
 
-    alpha = custom_slice_params[start_idx]
-    beta = custom_slice_params[start_idx + 1]
-    gamma = custom_slice_params[start_idx + 2]
-    c = custom_slice_params[start_idx + 3]
-    k = custom_slice_params[start_idx + 4]
+    alpha = p_custom[start_idx]
+    beta = p_custom[start_idx + 1]
+    gamma = p_custom[start_idx + 2]
+    c = p_custom[start_idx + 3]
+    k = p_custom[start_idx + 4]
 
     zp = 0
     syx = 0
