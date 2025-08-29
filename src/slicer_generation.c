@@ -149,7 +149,6 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]) {
 
 void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
 SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, SLICE_PARAMS pslice, IMAGE_SLICER_PARAMS p) {
-    // If the curvature is 0, then the image slicer is a plane
     if (pslice.cv == 0) {
         *sag_func = &TiltedPlaneSag;
         *transfer_dist_func = &TiltedPlaneTransfer;

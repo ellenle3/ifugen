@@ -4,24 +4,41 @@
 #ifndef TRIANGLES_H
 #define TRIANGLES_H
 
+typedef struct {
+    double x;
+    double y;
+    double z;
+} POINT3D;
+
 /**
- * @brief Represents a facet.
- * 
+ * @brief Represents a rectangular facet composed of two triangles. The first
+ * triangle is defined by points 1, 2, and 3; the second triangle is defined
+ * by points 2, 3, and 4.
  */
 typedef struct {
-    double x1;
-    double x2;
-    double y1;
-    double y2;
-    double za; // z-coordinate at (x1, y1)
-    double zb; // at (x2, y1)
-    double zc; // at (x1, y2)
-    double zd; // at (x2, y2)
-    double code1;
-    double code2;
+    POINT3D p1;
+    POINT3D p2;
+    POINT3D p3;
+    POINT3D p4;
+    double code_a;  // See Zemax example for how this 6-digit code is defined
+    double code_b;
 } FACET;
 
-int GetSliceGridIndex(int nc, int ns, int Nx, int Ny, int i, int j);
+/**
+ * @brief Line defined by two points (w1, z1) and (w2, z2).
+ */
+typedef struct {
+    double w1;
+    double z1;
+    double w2;
+    double z2;
+} LINE;
+
+void CrossoverPoint(double *wc, double* zc, LINE line1, LINE line2);
+
+void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet);
+
+int GetSliceGridIndex(int nc, int ns, int n_each, int Nx, int Ny, int i, int j);
 
 /**
  * @brief Evaluates the sag of every slice in the image slicer on a grid.
@@ -32,9 +49,7 @@ int GetSliceGridIndex(int nc, int ns, int Nx, int Ny, int i, int j);
  * @param p Image slicer parameters.
  * @param p_custom Custom slice parameters.
  */
-void EvalSliceGrid(double slice_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
-
-void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet);
+void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for the slices.
@@ -50,27 +65,35 @@ void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet);
  * @param p Image slicer parameters.
  * @param p_custom Custom slice parameters.
  */
-void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for walls along the x-direction.
  */
-void MakeXWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void MakeXWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for walls along the y-direction.
  */
-void MakeYWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void MakeYWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for gaps along the x-direction.
  */
-void MakeXGapTriangles(double *tri_list, int *num_triangles, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for gaps along the y-direction.
  */
-void MakeYGapTriangles(double *tri_list, int *num_triangles, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
+
+void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
+    int Nx, int Ny, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 /**
  * @brief Generates triangles for the outer shell.
