@@ -87,7 +87,78 @@ def conic_2d_off_axis_distance(c, k, alpha, beta):
         den = tanb*tanb + (1 + k)
         x0 = tanb / (2 * c) * num / den
 
+    # Make direction of effective rotation consistent with plane. For a reflective
+    # surface where alpha and/or beta apply a rotation rather than an OAD, the
+    # angles are effectively doubled.
+    if c <= 0:
+        x0 *= -1
+    else:
+        y0 *= -1
+
     return x0, y0
+
+def conic_2d_transformation(coords, pslice, direction, translate=True):
+    """Transforms the ray coordinates and direction cosines to the local
+    coordinate system of the slice.
+
+    Parameters
+    ----------
+    coords: array_like
+        Coordinates to be transformed.
+    pslice: SliceParams
+        The parameters of the slice.
+    direction: int
+        1 for forward transformation (global to local), -1 for inverse.
+    translate: bool, optional
+        If True, apply the translations. If False, only apply rotations.
+    """
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    u = pslice.u
+
+    alpha = convert_angle(alpha) * np.pi/180
+    beta = convert_angle(beta) * np.pi/180
+    gamma = convert_angle(gamma) * np.pi/180
+
+    x0, y0 = conic_2d_off_axis_distance(pslice.c, pslice.k, alpha, beta)
+    cosg = np.cos(gamma)
+    sing = np.sin(gamma)
+
+    # Transformation matrix
+    T = np.array([[1, 0, 0, -u],
+                  [0, 1, 0, 0],
+                  [0, 0, 1, zp],
+                  [0, 0, 0, 1]])
+    
+    Ry1 = np.array([[1, 0, 0, syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, syz],
+                    [0, 0, 0, 1]])
+    Ry2 = np.array([[cosg, 0, sing, 0],
+                    [0, 1, 0, 0],
+                    [-sing, 0, cosg, 0],
+                    [0, 0, 0, 1]])
+    Ry3 = np.array([[1, 0, 0, -syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, -syz],
+                    [0, 0, 0, 1]])
+    Ry = Ry3 @ Ry2 @ Ry1
+
+    TOAD = np.array([[1, 0, 0, -x0],
+                     [0, 1, 0, -y0],
+                     [0, 0, 1, 0],
+                     [0, 0, 0, 1]])
+    
+    Atot = T @ Ry @ TOAD
+    append = 1 if translate else 0
+    if direction == -1:
+        Atot = np.linalg.inv(Atot)
+
+    return (Atot @ np.append(coords, append))[:3]
     
 def conic_2d_sag(x, y, pslice):
     """Returns the sag of a rotationally symmetric conic.
@@ -416,6 +487,74 @@ def conic_2d_dervx(x, y, pslice):
     return dervx
 
 # Solutions for planar surfaces
+
+def plane_transformation(coords, dir_cosines, pslice, direction):
+    """Transforms the ray coordinates and direction cosines to the local
+    coordinate system of the slice.
+    """
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+    u = pslice.u
+
+    alpha = convert_angle(alpha) * np.pi/180
+    beta = convert_angle(beta) * np.pi/180
+    gamma = convert_angle(gamma) * np.pi/180
+
+    cosa = np.cos(alpha)
+    sina = np.sin(alpha)
+    cosbg = np.cos(beta + gamma)
+    sinbg = np.sin(beta + gamma)
+
+    # Transformation matrix
+    T = np.array([[1, 0, 0, -u],
+                  [0, 1, 0, 0],
+                  [0, 0, 1, zp],
+                  [0, 0, 0, 1]])
+    
+    Ry1 = np.array([[1, 0, 0, syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, syz],
+                    [0, 0, 0, 1]])
+    Ry2 = np.array([[cosbg, 0, sinbg, 0],
+                    [0, 1, 0, 0],
+                    [-sinbg, 0, cosbg, 0],
+                    [0, 0, 0, 1]])
+    Ry3 = np.array([[1, 0, 0, -syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, -syz],
+                    [0, 0, 0, 1]])
+    Ry = Ry1 @ Ry2 @ Ry3
+
+    Rx1 = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, sxy],
+                    [0, 0, 1, sxz],
+                    [0, 0, 0, 1]])
+    Rx2 = np.array([[1, 0, 0, 0],
+                    [0, cosa, -sina, 0],
+                    [0, sina, cosa, 0],
+                    [0, 0, 0, 1]])
+    Rx3 = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, -sxy],
+                    [0, 0, 1, -sxz],
+                    [0, 0, 0, 1]])
+    Rx = Rx1 @ Rx2 @ Rx3
+
+    Atot = T @ Ry @ Rx
+    if direction == 1:
+        coords_out = Atot @ np.append(coords, 1)
+        cos_out = Atot @ np.append(dir_cosines, 0)
+    else:
+        Atotinv = np.linalg.inv(Atot)
+        coords_out = Atotinv @ np.append(coords, 1)
+        cos_out = Atotinv @ np.append(dir_cosines, 0)
+
+    return coords_out[:3], cos_out[:3]
 
 def tilted_plane_sag(x, y, pslice):
     """

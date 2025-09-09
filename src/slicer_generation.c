@@ -66,6 +66,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
         p1.dgamma == p2.dgamma &&
         p1.gamma_offset == p2.gamma_offset &&
 
+        p1.dzps == p2.dzps &&
         p1.dzp_col == p2.dzp_col &&
         p1.dzp_row == p2.dzp_row &&
         p1.dsyx == p2.dsyx &&
@@ -77,6 +78,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
         p1.alpha_cen == p2.alpha_cen &&
         p1.beta_cen == p2.beta_cen &&
         p1.gamma_cen == p2.gamma_cen &&
+        p1.zps_cen == p2.zps_cen &&
         p1.zp_cen == p2.zp_cen &&
         p1.syx_cen == p2.syx_cen &&
         p1.syz_cen == p2.syz_cen &&
@@ -127,6 +129,7 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]) {
     p.dbeta = 0;
     p.dgamma = 0;
     p.gamma_offset = 0;
+    p.dzps = 0;
     p.dzp_col = 0;
     p.dzp_row = 0;
     p.dsyx = 0;
@@ -137,6 +140,7 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]) {
     p.alpha_cen = 0;
     p.beta_cen = 0;
     p.gamma_cen = 0;
+    p.zps_cen = 0;
     p.zp_cen = 0;
     p.syx_cen = 0;
     p.syz_cen = 0;
@@ -339,8 +343,10 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
 
     double row_mid = (p.n_rows % 2 == 0) ? (p.n_rows - 1) / 2.0 : p.n_rows / 2;
     double col_mid = (p.n_cols % 2 == 0) ? (p.n_cols - 1) / 2.0 : p.n_cols / 2;
+    double slice_mid = (p.n_each % 2 == 0) ? (p.n_each - 1) / 2.0 : p.n_each / 2;
     double offset_row = row_num - row_mid;
     double offset_col = col_num - col_mid;
+    double offset_slice = slice_num_row - slice_mid;
 
     pslice.alpha = p.alpha_cen + p.dalpha * offset_row;
     pslice.syx = p.syx_cen + p.dsyx * offset_row;
@@ -352,6 +358,8 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     pslice.sxy = p.sxy_cen + p.dsxy * offset_col;
     pslice.sxz = p.sxz_cen + p.dsxz * offset_col;
     pslice.zp += p.dzp_col * offset_col;
+
+    pslice.zp += p.zps_cen + p.dzps * offset_slice;
 
     // Get the angles of the bottom- and top-most slices of the central row,
     // If n_rows is even, there are 2 rows straddling the x=0 center line,
@@ -1085,4 +1093,94 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, d
     // under the rug and say that it missed... ray_out will be filled with NaN values
     // at this point.
     return;  // 5 tumbleweeds roll by...
+}
+
+void ParaxialRayTraceSlicer(RAY_OUT *ray_out, double *l_out, double *m_out, double *n_out,
+    RAY_IN *ray_in, double n1, double n2, int active_x, int active_y,
+    IMAGE_SLICER_PARAMS p, double p_custom[]) 
+{
+    int nc, ns;
+    GetParaxialSliceIndex(&nc, &ns, active_x, active_y, p);
+    SLICE_PARAMS pslice = GetSliceParams(ns, nc, p, p_custom);
+
+    // Transform the ray into local coordinates
+    double coords[3]   = { ray_in->xt, ray_in->yt, 0.0 };
+    double cosines[3]  = { ray_in->l,  ray_in->m,  ray_in->n };
+    double coords_out[3], cosines_out[3];
+
+    Conic2DTransformation(coords_out, coords, pslice, 1, 1);   // forward, translate
+    Conic2DTransformation(cosines_out, cosines, pslice, 1, 0); // forward, no translate
+
+    // Power calculation
+    double power = (n2 - n1) * pslice.cv;
+    double powerx, powery;
+    if (p.surface_type == 0) {
+        powerx = power;
+        powery = power;
+    } else if (p.surface_type == 1) {    // cylindrical
+        powerx = power;
+        powery = 0.0;
+    } else {
+        powerx = power;
+        powery = power;
+    }
+
+    double x = coords_out[0];
+    double y = coords_out[1];
+    double z = coords_out[2];
+    double l = cosines_out[0];
+    double m = cosines_out[1];
+    double n = cosines_out[2];
+
+    if (fabs(n) < 1e-13) {
+        *ray_out = (RAY_OUT){NAN,NAN,NAN,NAN,NAN,NAN,NAN};
+        if (l_out) *l_out = NAN;
+        if (m_out) *m_out = NAN;
+        if (n_out) *n_out = NAN;
+        return;
+    }
+
+    // Convert to slopes
+    l /= n;
+    m /= n;
+
+    l = (n1 * l - x * powerx) / n2;
+    m = (n1 * m - y * powery) / n2;
+
+    // Convert back to direction cosines and normalize
+    n = sqrt(1.0 / (1.0 + l*l + m*m));
+    l *= n;
+    m *= n;
+
+    double coords_par[3]   = { x, y, z };
+    double cosines_par[3]  = { l, m, n };
+
+    // Transform back to global coordinates
+    double coords_back[3], cosines_back[3];
+    Conic2DTransformation(coords_back, coords_par, pslice, -1, 1);  // inverse, translate
+    Conic2DTransformation(cosines_back, cosines_par, pslice, -1, 0); // inverse, no translate
+
+    SAG_FUNC sag_func;
+    TRANSFER_DIST_FUNC transfer_dist_func;
+    SURF_NORMAL_FUNC surf_normal_func;
+    CRITICAL_XY_FUNC critical_xy_func;
+    GetSurfaceFuncs(&sag_func, &transfer_dist_func, &surf_normal_func,
+                    &critical_xy_func, pslice, p);
+
+    double ln, mn, nn;
+    surf_normal_func(&ln, &mn, &nn, x, y, pslice, 1);
+
+    // Fill ray_out with intersection coords and surface normals
+    ray_out->xs = coords_back[0];
+    ray_out->ys = coords_back[1];
+    ray_out->zs = coords_back[2];
+    ray_out->t  = 0.0;
+    ray_out->ln = ln;
+    ray_out->mn = mn;
+    ray_out->nn = nn;
+
+    // Return the modified (l,m,n) separately
+    if (l_out) *l_out = l;
+    if (m_out) *m_out = m;
+    if (n_out) *n_out = n;
 }

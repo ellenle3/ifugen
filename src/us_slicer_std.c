@@ -25,7 +25,7 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
 // necessary for us to store the global extrema without having to recalculate them
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
-static double ZMIN, ZMAX;
+static double ZMIN, ZMAX, UMIN, UMAX;
 // Need to keep track of whether parameters changed
 static IMAGE_SLICER_PARAMS P_OLD = {
         .custom = 0,
@@ -37,18 +37,33 @@ static IMAGE_SLICER_PARAMS P_OLD = {
         .dalpha = -1,
         .dbeta = -1,
         .dgamma = -1,
+        .gamma_offset = -1,
+        .dzps = -1,
+        .dzp_col = -1,
+        .dzp_row = -1,
+        .dsyx = -1,
+        .dsyz = -1,
+        .dsxy = -1,
+        .dsxz = -1,
+        .du = -1,
         .alpha_cen = -1,
         .beta_cen = -1,
         .gamma_cen = -1,
-        .gamma_offset = -1,
+        .zps_cen = -1,
+        .zp_cen = -1,
+        .syx_cen = -1,
+        .syz_cen = -1,
+        .sxy_cen = -1,
+        .sxz_cen = -1,
+        .u_cen = -1,
         .dx = -1,
         .dy = -1,
+        .cv = -1,
+        .k = -1,
         .gx_width = -1,
         .gx_depth = -1,
         .gy_width = -1,
-        .gy_depth = -1,
-        .cv = -1,
-        .k = -1
+        .gy_depth = -1
     };
 
 
@@ -59,7 +74,7 @@ BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   double power, sag;
+   double sag, l_par, m_par, n_par;
    RAY_IN ray_in = {
       .xt = 0,
       .yt = 0,
@@ -155,30 +170,75 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
                strcpy(UD->string,"gamma_offset");
                break;
             case 12:
-            	strcpy(UD->string,"alpha_cen");
+            	strcpy(UD->string,"dzps");
                break;
             case 13:
-            	strcpy(UD->string,"beta_cen");
+            	strcpy(UD->string,"dzp_col");
                break;
             case 14:
-            	strcpy(UD->string,"gamma_cen");
+            	strcpy(UD->string,"dzp_row");
                break;
             case 15:
-            	strcpy(UD->string,"dx");
+            	strcpy(UD->string,"dsyx");
                break;
             case 16:
-            	strcpy(UD->string,"dy");
+            	strcpy(UD->string,"dsyz");
                break;
             case 17:
-            	strcpy(UD->string,"gx_width");
+            	strcpy(UD->string,"dsxy");
                break;
             case 18:
-            	strcpy(UD->string,"gx_depth");
+            	strcpy(UD->string,"dsxz");
                break;
             case 19:
-            	strcpy(UD->string,"gy_width");
+            	strcpy(UD->string,"du");
                break;
             case 20:
+            	strcpy(UD->string,"alpha_cen");
+               break;
+            case 21:
+            	strcpy(UD->string,"beta_cen");
+               break;
+            case 22:
+            	strcpy(UD->string,"gamma_cen");
+               break;
+            case 23:
+            	strcpy(UD->string,"zps_cen");
+               break;
+            case 24:
+            	strcpy(UD->string,"zp_cen");
+               break;
+            case 25:
+            	strcpy(UD->string,"syx_cen");
+               break;
+            case 26:
+            	strcpy(UD->string,"syz_cen");
+               break;
+            case 27:
+            	strcpy(UD->string,"sxy_cen");
+               break;
+            case 28:
+            	strcpy(UD->string,"sxz_cen");
+               break;
+            case 29:
+            	strcpy(UD->string,"u_cen");
+               break;
+            case 30:
+            	strcpy(UD->string,"dx");
+               break;
+            case 31:
+            	strcpy(UD->string,"dy");
+               break;
+            case 32:
+            	strcpy(UD->string,"gx_width");
+               break;
+            case 33:
+            	strcpy(UD->string,"gx_depth");
+               break;
+            case 34:
+            	strcpy(UD->string,"gy_width");
+               break;
+            case 35:
             	strcpy(UD->string,"gy_depth");
                break;
             default:
@@ -206,7 +266,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          sag = ImageSlicerSag(UD->x, UD->y, p, p_custom);
 
-         if (isnan(sag)) return 0;    // Out of bounds, keep sag at 0... should I return -1?
+         if (isnan(sag)) return 0;    // Out of bounds
          else {
             UD->sag1 = sag;
             UD->sag2 = sag;
@@ -216,35 +276,27 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       	/* ZEMAX wants a paraxial ray trace to this surface */
          /* x, y, z, and the path are unaffected, at least for this surface type */
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
-         /* paraxial surfaces are always planes with the following normals */
-         
-         UD->ln =  0.0;
-         UD->mn =  0.0;
-         UD->nn = -1.0;
-         power = (FD->n2 - FD->n1)*FD->cv;
-         // 
-         // if ((UD->n) != 0.0)
-         // 	{
-         //    (UD->l) = (UD->l)/(UD->n);
-         //    (UD->m) = (UD->m)/(UD->n);
+         ray_in.xt = (UD->x); ray_in.yt = (UD->y);
+         ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
+         ParaxialRayTraceSlicer(&ray_out, ray_in, *l_par, *m_par, *n_par,
+            FD->n1, FD->n2, active_x, active_y, p, p_custom);
 
-         //    (UD->l) = (FD->n1*(UD->l) - (UD->x)*power)/(FD->n2);
-         //    (UD->m) = (FD->n1*(UD->m) - (UD->y)*power)/(FD->n2);
+         if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?
 
-         //    /* normalize */
-         //    (UD->n) = sqrt(1/(1 + (UD->l)*(UD->l) + (UD->m)*(UD->m) ) );
-         //    /* de-paraxialize */
-         //    (UD->l) = (UD->l)*(UD->n);
-         //    (UD->m) = (UD->m)*(UD->n);
-         //    }
-         // break;
+         UD->l = l_par,
+         UD->m = m_par;
+         UD->n = n_par;
+         UD->ln = ray_out.ln;
+         UD->mn = ray_out.mn;
+         UD->nn = ray_out.nn;
+         break;
 
       case 5:
       	/* ZEMAX wants a real ray trace to this surface */
          ray_in.xt = (UD->x); ray_in.yt = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
 
-         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
+         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, UMIN, UMAX, trace_walls,
             p, p_custom);
 
          // Ray missed if transfer distance or normal vector could not be computed
@@ -285,15 +337,30 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[9] = 4.0;    // dbeta
          FD->param[10] = 1.0;   // dgamma
          FD->param[11] = 0.0;   // gamma_offset
-         FD->param[12] = 0.0;   // alpha_cen
-         FD->param[13] = 0.0;   // beta_cen
-         FD->param[14] = 0.0;   // gamma_cen
-         FD->param[15] = 8.0;   // dx
-         FD->param[16] = 1.5;   // dy
-         FD->param[17] = 0.0;   // gx_width
-         FD->param[18] = 0.0;   // gx_depth
-         FD->param[19] = 0.0;   // gy_width
-         FD->param[20] = 0.0;   // gy_depth
+         FD->param[12] = 0.0;   // dzps
+         FD->param[13] = 0.0;   // dzp_col
+         FD->param[14] = 0.0;   // dzp_row
+         FD->param[15] = 0.0;   // dsyx
+         FD->param[16] = 0.0;   // dsyz
+         FD->param[17] = 0.0;   // dsxy
+         FD->param[18] = 0.0;   // dsxz
+         FD->param[19] = 0.0;   // du
+         FD->param[20] = 0.0;   // alpha_cen
+         FD->param[21] = 0.0;   // beta_cen
+         FD->param[22] = 0.0;   // gamma_cen
+         FD->param[23] = 0.0;   // zps_cen
+         FD->param[24] = 0.0;   // zp_cen
+         FD->param[25] = 0.0;   // syx_cen
+         FD->param[26] = 0.0;   // syz_cen
+         FD->param[27] = 0.0;   // sxy_cen
+         FD->param[28] = 0.0;   // sxz_cen
+         FD->param[29] = 0.0;   // u_cen
+         FD->param[30] = 8.0;   // dx
+         FD->param[31] = 1.5;   // dy
+         FD->param[32] = 0.0;   // gx_width
+         FD->param[33] = 0.0;   // gx_depth
+         FD->param[34] = 0.0;   // gy_width
+         FD->param[35] = 0.0;   // gy_depth
          FD->cv = -0.01;
          FD->k = 0;
 
@@ -302,13 +369,12 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
-
-         //if ( ValidateSlicerParams(&p) ) SetFDFromSlicerParams(&p, FD); // prevent illegal values
-         ValidateSlicerParams(&p);
+         ValidateSlicerParams(&p); // prevent illegal values - not allowed to modify FD here...
 
          if ( !IsParametersEqual(p, P_OLD) ) {
             // Update global extrema
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
+            GetMinMaxU(&UMIN, &UMAX, p, p_custom);
             P_OLD = p;
          };
          break;
@@ -355,21 +421,36 @@ void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    FD->param[9] =  p->dbeta;
    FD->param[10] = p->dgamma;
    FD->param[11] = p->gamma_offset;
-   FD->param[12] = p->alpha_cen;
-   FD->param[13] = p->beta_cen;
-   FD->param[14] = p->gamma_cen;
-   FD->param[15] = p->dx;
-   FD->param[16] = p->dy;
-   FD->param[17] = p->gx_width;
-   FD->param[18] = p->gx_depth;
-   FD->param[19] = p->gy_width;
-   FD->param[20] = p->gy_depth;
+   FD->param[12] = p->dzps;
+   FD->param[13] = p->dzp_col;
+   FD->param[14] = p->dzp_row;
+   FD->param[15] = p->dsyx;
+   FD->param[16] = p->dsyz;
+   FD->param[17] = p->dsxy;
+   FD->param[18] = p->dsxz;
+   FD->param[19] = p->du;
+   FD->param[20] = p->alpha_cen;
+   FD->param[21] = p->beta_cen;
+   FD->param[22] = p->gamma_cen;
+   FD->param[23] = p->zps_cen;
+   FD->param[24] = p->zp_cen;
+   FD->param[25] = p->syx_cen;
+   FD->param[26] = p->syz_cen;
+   FD->param[27] = p->sxy_cen;
+   FD->param[28] = p->sxz_cen;
+   FD->param[29] = p->u_cen;
+   FD->param[30] = p->dx;
+   FD->param[31] = p->dy;
+   FD->param[32] = p->gx_width;
+   FD->param[33] = p->gx_depth;
+   FD->param[34] = p->gy_width;
+   FD->param[35] = p->gy_depth;
    FD->cv = p->cv;
    FD->k = p->k;
 }
 
 void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
-   p->surface_type =     FD->param[3];
+   p->surface_type = FD->param[3];
    p->n_each =       FD->param[4];
    p->n_rows =       FD->param[5];
    p->n_cols =       FD->param[6];
@@ -378,15 +459,30 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    p->dbeta =        FD->param[9];
    p->dgamma =       FD->param[10];
    p->gamma_offset = FD->param[11];
-   p->alpha_cen =    FD->param[12];
-   p->beta_cen =     FD->param[13];
-   p->gamma_cen =    FD->param[14];
-   p->dx =           FD->param[15];
-   p->dy =           FD->param[16];
-   p->gx_width =     FD->param[17];
-   p->gx_depth =     FD->param[18];
-   p->gy_width =     FD->param[19];
-   p->gy_depth =     FD->param[20];
+   p->dzps =         FD->param[12];
+   p->dzp_col =      FD->param[13];
+   p->dzp_row =      FD->param[14];
+   p->dsyx =         FD->param[15];
+   p->dsyz =         FD->param[16];
+   p->dsxy =         FD->param[17];
+   p->dsxz =         FD->param[18];
+   p->du =           FD->param[19];
+   p->alpha_cen =    FD->param[20];
+   p->beta_cen =     FD->param[21];
+   p->gamma_cen =    FD->param[22];
+   p->zps_cen =      FD->param[23];
+   p->zp_cen =       FD->param[24];
+   p->syx_cen =      FD->param[25];
+   p->syz_cen =      FD->param[26];
+   p->sxy_cen =      FD->param[27];
+   p->sxz_cen =      FD->param[28];
+   p->u_cen =        FD->param[29];
+   p->dx =           FD->param[30];
+   p->dy =           FD->param[31];
+   p->gx_width =     FD->param[32];
+   p->gx_depth =     FD->param[33];
+   p->gy_width =     FD->param[34];
+   p->gy_depth =     FD->param[35];
    p->cv = FD->cv;
    p->k =  FD->k;
 }

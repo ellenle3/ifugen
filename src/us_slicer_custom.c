@@ -33,7 +33,7 @@ int Refract(double thisn, double nextn, double *l, double *m, double *n, double 
 // necessary for us to store the global extrema without having to recalculate them
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
-static double ZMIN, ZMAX;
+static double ZMIN, ZMAX, UMIN, UMAX;
 static int FILE_NUM_OLD = -999999999; // Store previous file number to check if it changed
 
 // Keep the custom slice parameters in a global array so we don't need to reload
@@ -121,7 +121,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             case 0:
             	/* ZEMAX wants to know the name of the surface */
 		         /* do not exceed 12 characters */
-		         strcpy(UD->string,"SlicerStd");
+		         strcpy(UD->string,"SlicerCustom");
                break;
             case 1:
             	/* ZEMAX wants to know if this surface is rotationally symmetric */
@@ -189,30 +189,19 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* x, y, z, and the path are unaffected, at least for this surface type */
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          /* paraxial surfaces are always planes with the following normals */
+         ray_in.xt = (UD->x); ray_in.yt = (UD->y);
+         ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
+         ParaxialRayTraceSlicer(&ray_out, ray_in, *l_par, *m_par, *n_par,
+            FD->n1, FD->n2, active_x, active_y, p, p_custom);
 
-         // Use active_x and active_y to get the central slice if there are an
-         // odd number of slices
+         if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?
 
-         // Calculate transfer distance based on these parameters
-
-         UD->ln =  0.0;
-         UD->mn =  0.0;
-         UD->nn = -1.0;
-         power = (FD->n2 - FD->n1)*FD->cv;
-         if ((UD->n) != 0.0)
-         	{
-            (UD->l) = (UD->l)/(UD->n);
-            (UD->m) = (UD->m)/(UD->n);
-
-            (UD->l) = (FD->n1*(UD->l) - (UD->x)*power)/(FD->n2);
-            (UD->m) = (FD->n1*(UD->m) - (UD->y)*power)/(FD->n2);
-
-            /* normalize */
-            (UD->n) = sqrt(1/(1 + (UD->l)*(UD->l) + (UD->m)*(UD->m) ) );
-            /* de-paraxialize */
-            (UD->l) = (UD->l)*(UD->n);
-            (UD->m) = (UD->m)*(UD->n);
-            }
+         UD->l = l_par,
+         UD->m = m_par;
+         UD->n = n_par;
+         UD->ln = ray_out.ln;
+         UD->mn = ray_out.mn;
+         UD->nn = ray_out.nn;
          break;
 
       case 5:
@@ -222,7 +211,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
          // The first thing this function does is reset the members of ray_out
          // to be all NANs
-         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, trace_walls,
+         RayTraceSlicer(&ray_out, ray_in, ZMIN, ZMAX, UMIN, UMAX, trace_walls,
             p, p_custom);
 
          // Ray missed if transfer distance or normal vector could not be computed
@@ -268,6 +257,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             LoadCustomParamsFromFile(p_custom, file_num, PARAMS_DIR, MAX_ELEMENTS);
             p = MakeSlicerParamsFromCustom(p_custom);
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
+            GetMinMaxU(&UMIN, &UMAX, p, p_custom);
             FILE_NUM_OLD = file_num;
          };
 

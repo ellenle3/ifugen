@@ -65,8 +65,13 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
         double den = tanb * tanb + (1.0 + k);
         *x0 = (tanb / (2.0 * c)) * (num / den);
     }
-}
 
+    // Make direction of effective rotation consistent with plane. For a reflective
+    // surface where alpha and/or beta apply a rotation rather than an OAD, the
+    // angles are effectively doubled.
+    if (c <= 0) {*x0 *=-1;}
+    else {*y0 *=-1;}
+}
 // Sag of a conic that has been transformed by applying an off-axis distance and
 // rotating about the global y-axis. Refer to the paper for a derivation.
 double Conic2DSag(double x, double y, SLICE_PARAMS pslice) {

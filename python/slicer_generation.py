@@ -17,6 +17,7 @@ class ImageSlicerParams:
     dbeta: float
     dgamma: float
     gamma_offset: float
+    dzps: float
     dzp_col: float
     dzp_row: float
     dsyx: float
@@ -27,6 +28,7 @@ class ImageSlicerParams:
     alpha_cen: float
     beta_cen: float
     gamma_cen: float
+    zps_cen: float
     zp_cen: float
     syx_cen: float
     syz_cen: float
@@ -173,6 +175,7 @@ def make_image_slicer_params_from_custom(p_custom):
         dbeta = 0,
         dgamma = 0,
         gamma_offset = 0,
+        dzps = 0,
         dzp_col = 0,
         dzp_row = 0,
         dsyx = 0,
@@ -183,6 +186,7 @@ def make_image_slicer_params_from_custom(p_custom):
         alpha_cen = 0,
         beta_cen = 0,
         gamma_cen = 0,
+        zps_cen = 0,
         zp_cen = 0,
         syx_cen = 0,
         syz_cen = 0,
@@ -332,8 +336,10 @@ def get_slice_params_standard(slice_num, col_num, p):
 
     row_mid = (p.n_rows - 1) / 2 if p.n_rows % 2 == 0 else p.n_rows // 2
     col_mid = (p.n_cols - 1) / 2 if p.n_cols % 2 == 0 else p.n_cols // 2
+    slice_mid = (p.n_each - 1) / 2 if p.n_each % 2 == 0 else p.n_each // 2
     offset_row = row_num - row_mid
     offset_col = col_num - col_mid
+    offset_slice = slice_num_row - slice_mid
 
     alpha = p.alpha_cen + p.dalpha * offset_row
     syx = p.syx_cen + p.dsyx * offset_row
@@ -345,6 +351,8 @@ def get_slice_params_standard(slice_num, col_num, p):
     sxy = p.sxy_cen + p.dsxy * offset_col
     sxz = p.sxz_cen + p.dsxz * offset_col
     zp += p.dzp_col * offset_col
+
+    zp += p.zps_cen + p.dzps * offset_slice
 
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
@@ -995,3 +1003,65 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
     # under the rug and say that it missed... ray_out will be filled with NaN values
     # at this point.
     return ray_out    # Phew!
+
+def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
+
+    nc, ns = get_paraxial_slice_index(p, active_x, active_y)
+    pslice = get_slice_params(ns, nc, p, p_custom)
+
+    # Transform the ray into the local coordinates of the slice
+    coords = np.array([ray_in.xt, ray_in.yt, 0])
+    cosines = np.array([ray_in.l, ray_in.m, ray_in.n])
+    coords_out = conic_2d_transformation(coords, pslice, 1, True)
+    cosines_out = conic_2d_transformation(cosines, pslice, 1, False)
+
+    power = (n2 - n1) * pslice.c
+    if p.surface_type == 0:
+        powerx = power
+        powery = power
+    elif p.surface_type == 1: # cylinder never has power along y-direction
+        powerx = power
+        powery = 0.0
+
+    x, y, z = coords_out
+    l, m, n = cosines_out
+
+    if abs(n) < 1e-13:
+        # Ray is traveling parallel to the surface. No refraction.
+        return RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
+    
+    # Convert to slopes
+    l /= n
+    m /= n
+
+    l = (n1 * l - x * powerx) / n2
+    m = (n1 * m - y * powery) / n2
+
+    # Convert back to direction cosines and normalize
+    n = np.sqrt(1/(1 + l*l + m*m))
+    l *= n
+    m *= n
+
+    coords_par = coords_out
+    cosines_par = np.array([l, m, n])
+
+    # Transform back to global coordinates
+    coords_back = conic_2d_transformation(coords_par, pslice, -1, True)
+    cosines_back = conic_2d_transformation(cosines_par, pslice, -1, False)
+
+    # Calculate surface normals normally. haha
+    sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
+    ln, mn, nn = surf_normal_func(x, y, pslice, True)
+
+    ray_out = RayOut(
+        xs=coords_back[0],
+        ys=coords_back[1],
+        zs=coords_back[2],
+        t=0,
+        # above should be same as input
+        ln=ln,
+        mn=mn,
+        nn=nn
+    )
+
+    return ray_out, l, m, n
