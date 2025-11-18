@@ -16,6 +16,25 @@ class SliceParams:
     sxy: float
     sxz: float
     u: float
+@dataclass
+class RayIn:
+    """Class for storing input ray parameters."""
+    xt: float   # x-coordinate at z = 0
+    yt: float   # y-coordinate at z = 0
+    l: float    # Direction cosine x
+    m: float    # Direction cosine y
+    n: float    # Direction cosine z
+
+@dataclass
+class RayOut:
+    """Class for storing output ray parameters."""
+    xs: float   # Transferred x at the surface
+    ys: float   # Transferred y at the surface
+    zs: float   # Transferred z at the surface, which is the sag
+    t: float    # Transfer distance
+    ln: float   # Surface normal x
+    mn: float   # Surface normal y
+    nn: float   # Surface normal z
 
 
 def convert_angle(t):
@@ -159,7 +178,63 @@ def conic_2d_transformation(coords, pslice, direction, translate=True):
         Atot = np.linalg.inv(Atot)
 
     return (Atot @ np.append(coords, append))[:3]
-    
+
+def conic_2d_transfer2():
+    pass
+
+def conic_2d_surface2():
+    pass
+
+def convert_ray_in_to_local(ray_in, pslice, transform_func):
+    """Converts a RayIn object from global to local coordinates.
+    """
+    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
+    cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
+    coords_local = transform_func(coords_global, pslice, 1, translate=True)
+    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
+
+    # RayIn is in local coordinates, but z needs to be set to 0. Transfer to z=0 plane.
+    t_new = coords_local[2] / cosines_local[2]  # t = z / n
+    xt_new = coords_local[0] - t_new * cosines_local[0] # xt = x - t * l
+    yt_new = coords_local[1] - t_new * cosines_local[1] # yt = y - t * m
+
+    return RayIn(
+        xt = xt_new,
+        yt = yt_new,
+        l = cosines_local[0],
+        m = cosines_local[1],
+        n = cosines_local[2]
+    )
+
+def slice_ray_trace(ray_in, pslice, transfer_func, surface_normal_func, transform_func):
+    # global to local
+    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
+    cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
+    coords_local = transform_func(coords_global, pslice, 1, translate=True)
+    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
+
+    # ray transfer
+    ray_in_local = RayIn(
+        xt = coords_local[0],
+        yt = coords_local[1],
+        zt = coords_local[2],
+        l = cosines_local[0],
+        m = cosines_local[1],
+        n = cosines_local[2]
+    )
+
+    # surface normals
+    # local to global
+    # populate rayout
+    pass
+
+def slice_sag(x, y, pslice, transfer_func):
+    # populate rayin with l=0, m=0, n=-1 (or +1)
+    # surface_normal_func = return all 0 without doing anything
+    # call slice_ray_trace
+    # extract zs from rayout and return
+    pass
+
 def conic_2d_sag(x, y, pslice):
     """Returns the sag of a rotationally symmetric conic.
     """
@@ -488,7 +563,7 @@ def conic_2d_dervx(x, y, pslice):
 
 # Solutions for planar surfaces
 
-def plane_transformation(coords, dir_cosines, pslice, direction):
+def plane_transformation(coords, pslice, direction, translate=True):
     """Transforms the ray coordinates and direction cosines to the local
     coordinate system of the slice.
     """
@@ -546,17 +621,13 @@ def plane_transformation(coords, dir_cosines, pslice, direction):
     Rx = Rx1 @ Rx2 @ Rx3
 
     Atot = T @ Ry @ Rx
-    if direction == 1:
-        coords_out = Atot @ np.append(coords, 1)
-        cos_out = Atot @ np.append(dir_cosines, 0)
-    else:
-        Atotinv = np.linalg.inv(Atot)
-        coords_out = Atotinv @ np.append(coords, 1)
-        cos_out = Atotinv @ np.append(dir_cosines, 0)
+    append = 1 if translate else 0
+    if direction == -1:
+        Atot = np.linalg.inv(Atot)
 
-    return coords_out[:3], cos_out[:3]
+    return (Atot @ np.append(coords, append))[:3]
 
-def tilted_plane_sag(x, y, pslice):
+def plane_sag(x, y, pslice):
     """
     c and k are not used, but are present so this function has the same number
     of parameters as conic_2d.
@@ -597,7 +668,7 @@ def tilted_plane_sag(x, y, pslice):
 
     return z
 
-def tilted_plane_transfer(xt, yt, l, m, n, pslice):
+def plane_transfer(xt, yt, l, m, n, pslice):
     """Returns the transfer distance.
     """
 
@@ -637,7 +708,7 @@ def tilted_plane_transfer(xt, yt, l, m, n, pslice):
 
     return (arg1 - arg2 + arg3) / den
 
-def tilted_plane_surface_normal(x, y, pslice, normalize):
+def plane_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
     """
     alpha = pslice.alpha
@@ -676,7 +747,7 @@ def tilted_plane_surface_normal(x, y, pslice, normalize):
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...
     return dervx / norm, dervy / norm, -1
 
-def tilted_plane_critical_xy(pslice):
+def plane_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
     Planes do not have critical points.
     """
@@ -686,14 +757,17 @@ def tilted_plane_critical_xy(pslice):
 
 # Solutions for generalized conic cylindrical surfaces
 
-def generalized_cylinder_sag(x, y, c, k, alpha, beta, gamma):
+def cylinder_transformation(coords, dir_cosines, pslice, direction):
     pass
 
-def generalized_cylinder_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
+def cylinder_sag(x, y, c, k, alpha, beta, gamma):
     pass
 
-def generalized_cylinder_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
+def cylinder_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
     pass
 
-def generalized_cylinder_critical_xy(c, k, alpha, beta, gamma):
+def cylinder_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
+    pass
+
+def cylinder_critical_xy(c, k, alpha, beta, gamma):
     pass

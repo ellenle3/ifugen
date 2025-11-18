@@ -57,25 +57,6 @@ class RayBounds:
     ymin: float
     xmax: float
     ymax: float
-@dataclass
-class RayIn:
-    """Class for storing input ray parameters."""
-    xt: float   # x-coordinate at z = 0
-    yt: float   # y-coordinate at z = 0
-    l: float    # Direction cosine x
-    m: float    # Direction cosine y
-    n: float    # Direction cosine z
-
-@dataclass
-class RayOut:
-    """Class for storing output ray parameters."""
-    xs: float   # Transferred x at the surface
-    ys: float   # Transferred y at the surface
-    zs: float   # Transferred z at the surface, which is the sag
-    t: float    # Transfer distance
-    ln: float   # Surface normal x
-    mn: float   # Surface normal y
-    nn: float   # Surface normal z
 
 def validate_slicer_params(p):
     """Returns True if all image slicer parameters are valid. Otherwise, modifies
@@ -135,10 +116,20 @@ def get_surface_funcs(c, p):
     """Returns sag and ray tracing functions for the surface type.
     """
     if c == 0:
-        return tilted_plane_sag, tilted_plane_transfer, tilted_plane_surface_normal, tilted_plane_critical_xy
+        return plane_sag, plane_transfer, plane_surface_normal, plane_critical_xy
+    elif p.surface_type == 1:
+        return cylinder_sag, cylinder_transfer, cylinder_surface_normal, cylinder_critical_xy
     else:
         return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
-    # if p.surface_type:
+
+def get_transformation(pslice, p):
+    if pslice.c == 0:
+        return plane_transformation
+    elif p.surface_type == 0:
+        return cylinder_transformation
+    else:
+        return conic_2d_transformation
+    
     
 def make_image_slicer_params_from_custom(p_custom):
     """Returns an ImageSlicerParams object described by custom slice parameters
