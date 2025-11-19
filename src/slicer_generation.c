@@ -243,15 +243,21 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS p, double p_cust
     
     // If using custom slice parameters, brute force search
     if (p.custom) {
-        double u_all[p.n_rows];
-        for (i = 0; i < p.n_rows; ++i) {
-            u_all[i] = p_custom[9 + i];
-        }
-        *umin = u_all[0];
-        *umax = u_all[0];
+        // double u_all[p.n_rows];  //u_all needs to be a constant length!
+        // for (i = 0; i < p.n_rows; ++i) {
+        //     u_all[i] = p_custom[9 + i];
+        // }
+        // *umin = u_all[0];
+        // *umax = u_all[0];
+        // for (i = 1; i < p.n_rows; ++i) {
+        //     if (u_all[i] < *umin) *umin = u_all[i];
+        //     if (u_all[i] > *umax) *umax = u_all[i];
+        // }
+        *umin = p_custom[9];
+        *umax = p_custom[9];
         for (i = 1; i < p.n_rows; ++i) {
-            if (u_all[i] < *umin) *umin = u_all[i];
-            if (u_all[i] > *umax) *umax = u_all[i];
+            if (p_custom[9 + i] < *umin) *umin = p_custom[9 + i];
+            if (p_custom[9 + i] > *umax) *umax = p_custom[9 + i];
         }
         return;
     }

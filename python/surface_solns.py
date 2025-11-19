@@ -19,8 +19,9 @@ class SliceParams:
 @dataclass
 class RayIn:
     """Class for storing input ray parameters."""
-    xt: float   # x-coordinate at z = 0
-    yt: float   # y-coordinate at z = 0
+    xt: float   # x-coordinate
+    yt: float   # y-coordinate
+    zt: float   # z-coordinate, usually = 0
     l: float    # Direction cosine x
     m: float    # Direction cosine y
     n: float    # Direction cosine z
@@ -71,50 +72,95 @@ def calc_quadratic_derv(sgn, A, B, C, dA, dB, dC):
     dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / sqrt_disc
     return (Eta * dC - C * dEta) / (Eta * Eta)
 
-# Solutions for 2D conic
-
-def conic_2d_off_axis_distance(c, k, alpha, beta):
-    """Off-axis distances.
-
-    Parameters
-    ----------
-    c: float
-        Curvature of the surface.
-    alpha: float
-        Angle in radians.
-    beta: float
-        Angle in radians.
+def no_surface_normal(x, y, pslice, normalize):
+    """Placeholder surface normal function when evaluating the sag.
     """
-    # Put a minimum on the curvature to prevent x0, y0 from going to infinity.
-    # In practice if c is close to 0, the user should be using the tilted plane
-    # solutions instead.
-    if (abs(c) < 1e-13): c = 1e-13
+    return np.nan, np.nan, np.nan
 
-    if alpha == 0:
-        y0 = 0
-    else:
-        tana = np.tan(alpha)
-        num = ( (k-1) + np.sqrt(4 + tana*tana * (3 - k)) )
-        den = tana*tana + (1 + k)
-        y0 = tana / (2 * c) * num / den
+def convert_ray_in_to_local(ray_in, pslice, transform_func):
+    """Converts an input ray from global to local coordinates.
+    """
+    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
+    cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
+    coords_local = transform_func(coords_global, pslice, 1, translate=True)
+    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
 
-    if beta == 0:
-        x0 = 0
-    else:
-        tanb = np.tan(beta)
-        num = ( (k-1) + np.sqrt(4 + tanb*tanb * (3 - k)) )
-        den = tanb*tanb + (1 + k)
-        x0 = tanb / (2 * c) * num / den
+    ray_in_local = RayIn(
+        xt = coords_local[0],
+        yt = coords_local[1],
+        zt = coords_local[2],
+        l = cosines_local[0],
+        m = cosines_local[1],
+        n = cosines_local[2]
+    )
+    return ray_in_local
 
-    # Make direction of effective rotation consistent with plane. For a reflective
-    # surface where alpha and/or beta apply a rotation rather than an OAD, the
-    # angles are effectively doubled.
-    if c <= 0:
-        x0 *= -1
-    else:
-        y0 *= -1
+def convert_ray_out_to_global(ray_out_local, pslice, transform_func):
+    """Converts an output ray from local to global coordinates.
+    """
+    coords_local = np.array([ray_out_local.xs, ray_out_local.ys, ray_out_local.zs])
+    normals_local = np.array([ray_out_local.ln, ray_out_local.mn, ray_out_local.nn])
+    coords_global = transform_func(coords_local, pslice, -1, translate=True)
+    normals_global = transform_func(normals_local, pslice, -1, translate=False)
 
-    return x0, y0
+    ray_out_global = RayOut(
+        xs = coords_global[0],
+        ys = coords_global[1],
+        zs = coords_global[2],
+        t = ray_out_local.t,
+        ln = normals_global[0],
+        mn = normals_global[1],
+        nn = normals_global[2]
+    )
+    return ray_out_global
+
+def slice_ray_trace(ray_in, pslice, transfer_func, surface_normal_func, transform_func):
+    # global to local
+    ray_in_local = convert_ray_in_to_local(ray_in, pslice, transform_func)
+
+    # ray trace in local coordinates
+    t = transfer_func(
+        ray_in_local.xt, ray_in_local.yt, ray_in_local.zt,
+        ray_in_local.l, ray_in_local.m, ray_in_local.n,
+        pslice
+    )
+    xs = ray_in_local.xt + ray_in_local.l * t
+    ys = ray_in_local.yt + ray_in_local.m * t
+    zs = ray_in_local.zt + ray_in_local.n * t
+    ln_local, mn_local, nn_local = surface_normal_func(
+        xs, ys, pslice, normalize=True
+    )
+
+    ray_out_local = RayOut(
+        xs = xs,
+        ys = ys,
+        zs = zs,
+        t = t,
+        ln = ln_local,
+        mn = mn_local,
+        nn = nn_local
+    )
+
+    # local to global
+    ray_out_global = convert_ray_out_to_global(ray_out_local, pslice, transform_func)
+
+    return ray_out_global
+
+def slice_sag(x, y, pslice, transfer_func):
+    # Evaluating the sag is a special case where the ray is coming in parallel 
+    # to the z-axis
+    ray_in = RayIn(
+        xt = x,
+        yt = y,
+        zt = 0,
+        l = 0,
+        m = 0,
+        n = 1
+    )
+    ray_out = slice_ray_trace(ray_in, pslice, transfer_func, no_surface_normal, plane_transformation)
+    return ray_out.zs
+
+# Solutions for 2D conic
 
 def conic_2d_transformation(coords, pslice, direction, translate=True):
     """Transforms the ray coordinates and direction cosines to the local
@@ -179,348 +225,81 @@ def conic_2d_transformation(coords, pslice, direction, translate=True):
 
     return (Atot @ np.append(coords, append))[:3]
 
-def conic_2d_transfer2():
-    pass
 
-def conic_2d_surface2():
-    pass
-
-def convert_ray_in_to_local(ray_in, pslice, transform_func):
-    """Converts a RayIn object from global to local coordinates.
-    """
-    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
-    cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
-    coords_local = transform_func(coords_global, pslice, 1, translate=True)
-    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
-
-    # RayIn is in local coordinates, but z needs to be set to 0. Transfer to z=0 plane.
-    t_new = coords_local[2] / cosines_local[2]  # t = z / n
-    xt_new = coords_local[0] - t_new * cosines_local[0] # xt = x - t * l
-    yt_new = coords_local[1] - t_new * cosines_local[1] # yt = y - t * m
-
-    return RayIn(
-        xt = xt_new,
-        yt = yt_new,
-        l = cosines_local[0],
-        m = cosines_local[1],
-        n = cosines_local[2]
-    )
-
-def slice_ray_trace(ray_in, pslice, transfer_func, surface_normal_func, transform_func):
-    # global to local
-    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
-    cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
-    coords_local = transform_func(coords_global, pslice, 1, translate=True)
-    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
-
-    # ray transfer
-    ray_in_local = RayIn(
-        xt = coords_local[0],
-        yt = coords_local[1],
-        zt = coords_local[2],
-        l = cosines_local[0],
-        m = cosines_local[1],
-        n = cosines_local[2]
-    )
-
-    # surface normals
-    # local to global
-    # populate rayout
-    pass
-
-def slice_sag(x, y, pslice, transfer_func):
-    # populate rayin with l=0, m=0, n=-1 (or +1)
-    # surface_normal_func = return all 0 without doing anything
-    # call slice_ray_trace
-    # extract zs from rayout and return
-    pass
-
-def conic_2d_sag(x, y, pslice):
-    """Returns the sag of a rotationally symmetric conic.
-    """
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    c = pslice.c
+def conic_2d_transfer(xt, yt, zt, l, m, n, pslice):
+    cv = pslice.c
     k = pslice.k
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    u = pslice.u
-    x-= u
 
-    # Keep track of the angle, which determines which solution of
-    # the quadratic is valid
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-    if abs(gamma) <= np.pi/2:
-        sgn = 1
-    else:
-        sgn = -1
-    if k < -1: sgn *= -1
-        
-    x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
-    
-    v1 = syx + x0
-    v2 = u - syx
-    v3 = syz + zp
-
-    cosg = np.cos(gamma)
-    cos2g = np.cos(2*gamma)
-    sing = np.sin(gamma)
-    sin2g = np.sin(2*gamma)
-
-    if k == -1:
-        # Parabola handled separately
-        A = c * sing**2
-
-        B = -(
-            cosg
-            + c * (v2 + x) * cosg * sing
-            + c * sing * (v1 + v3 * sing)
-        )
-
-        C = (
-            -2 * syz
-            + c * (v1**2 + (y + y0)**2)
-            + 2 * (v3 + c * v1 * (v2 + x)) * cosg
-            + c * (v2 + x)**2 * cosg**2
-            - 2 * (v2 - c * v1 * v3 + x) * sing
-            + c * v3**2 * sing**2
-            + c * v3 * (v2 + x) * sin2g
-        )
-
-    else:
-        A = c * (1 + k) * (2 + k + k * cos2g)
-
-        B = - (1 + k) * (
-            -2 * (-1 + c * (1 + k) * syz) * cosg
-            + c * (
-                (2 + k) * v3
-                + k * v3 * cos2g
-                + 2 * v1 * sing
-                - k * (v2 + x) * sin2g
-            )
-        )
-
-        C = (1 + k) * (
-            -4 * syz
-            + 2 * c * ((1 + k) * syz**2 + v1**2 + (y + y0)**2)
-            + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * x + x**2)
-            + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x)) * cosg
-            - c * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
-            + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
-            - 2 * c * k * v3 * (v2 + x) * sin2g
-        )
+    A = 1 + k*n*n
+    B = xt*l + yt*m + zt*n*(1 + k) - n/cv
+    C = xt*xt + yt*yt + zt*zt*(1 + k) - 2*zt/cv
 
     discrim = B*B - A*C
-
-    # In regions where the roots are undefined, set the sag to 0 for drawing
-    # purposes. We will not ray trace these regions
-    return np.where( discrim < 0, 0, C /(-B + sgn*np.sqrt(discrim)))
-
-def conic_2d_transfer(xt, yt, l, m, n, pslice):
-    """Returns the transfer distance. Because the equation for t is a quadratic,
-    there are two possible solutions. We almost always want the solution that
-    corresponds to a smaller value of t (+ )
-
-    Direction cosines must be normalized: l^2 + m^2 + n^2 = 1
-
-    See Cheatham 1980.
-    """
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    c = pslice.c
-    k = pslice.k
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    u = pslice.u
-
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-    if abs(gamma) <= np.pi/2:
-        sgn = 1
-    else:
-        sgn = -1
-    if k < -1: sgn *= -1
-
-    x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
-
-    v1 = syx + x0
-    v2 = u - syx
-    v3 = syz + zp
-
-    cosg = np.cos(gamma)
-    cos2g = np.cos(2*gamma)
-    sing = np.sin(gamma)
-    sin2g = np.sin(2*gamma)
-
-    if k == -1:
-        # Parabola handled separately
-        D = c * (m**2 + (l * cosg - n * sing)**2)
-
-        F = (
-            c * m * (y0 + yt)
-            + c * l * (v2 + xt) * cosg**2
-            - sing * (l + c * n * v1 + c * n * v3 * sing)
-            - cosg * (n - c * l * v1 + c * (-l * v3 + n * (v2 + xt)) * sing)
-        )
-
-        G = (
-            -2 * syz
-            + c * (v1**2 + (y0 + yt)**2)
-            + 2 * (v3 + c * v1 * (v2 + xt)) * cosg
-            + c * (v2 + xt)**2 * cosg**2
-            - 2 * (v2 - c * v1 * v3 + xt) * sing
-            + c * v3**2 * sing**2
-            + c * v3 * (v2 + xt) * sin2g
-        )
-    
-    else:
-        D = 2 * c * k * (n * cosg + l * sing)**2 + 2 * c * (l**2 + m**2 + n**2)
-
-        F = (
-            c * (-(2 + k) * n * v3 + (2 + k) * l * (v2 + xt) + 2 * m * (y0 + yt))
-            + 2 * (n * (-1 + c * (1 + k) * syz) + c * l * v1) * cosg
-            - c * k * (n * v3 + l * (v2 + xt)) * cos2g
-            + 2 * (l * (-1 + c * (1 + k) * syz) - c * n * v1) * sing
-            + c * k * (-l * v3 + n * (v2 + xt)) * sin2g
-        )
-
-        G = (
-            -4 * syz
-            + 2 * c * ((1 + k) * syz**2 + v1**2 + (y0 + yt)**2)
-            + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * xt + xt**2)
-            + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + xt)) * cosg
-            - c * k * (v2 - v3 + xt) * (v2 + v3 + xt) * cos2g
-            + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - xt + c * (1 + k) * syz * xt) * sing
-            - 2 * c * k * v3 * (v2 + xt) * sin2g
-        )
-    discrim = F*F - D*G
-
-    # Ray missed this surface
     if discrim < 0:
         return np.nan
-
-    return G / ( -F + sgn * np.sqrt(discrim) )
+    sgn = 1 if cv > 0 else -1
+    
+    return C / ( -B + sgn * np.sqrt(discrim) )
 
 def conic_2d_surface_normal(x, y, pslice, normalize):
-    """Returns the surface normal vector components (the gradient).
-    """
-
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    c = pslice.c
+    cv = pslice.c
     k = pslice.k
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    u = pslice.u
+    discrim = 1 - cv*cv*(1+k)*(x*x + y*y)
+    if discrim < 0:
+        return np.nan, np.nan, np.nan
+    denom = np.sqrt(discrim)
+    dervx = cv * x / denom
+    dervy = cv * y / denom
+    dervz = 1
 
-    # Check where the derivative is undefined!!!
-    
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-
-    if abs(gamma) <= np.pi/2:
-        sgn = 1
-    else:
-        sgn = -1
-    if k < -1: sgn *= -1
-    
-    x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
-
-    v1 = syx + x0
-    v2 = u - syx
-    v3 = syz + zp
-
-    cosg = np.cos(gamma)
-    cos2g = np.cos(2*gamma)
-    sing = np.sin(gamma)
-    sin2g = np.sin(2*gamma)
-
-    if k == -1:
-        # Parabola handled separately
-        A = c * sing**2
-
-        B = -(
-            cosg
-            + c * (v2 + x) * cosg * sing
-            + c * sing * (v1 + v3 * sing)
-        )
-
-        C = (
-            -2 * syz
-            + c * (v1**2 + (y + y0)**2)
-            + 2 * (v3 + c * v1 * (v2 + x)) * cosg
-            + c * (v2 + x)**2 * cosg**2
-            - 2 * (v2 - c * v1 * v3 + x) * sing
-            + c * v3**2 * sing**2
-            + c * v3 * (v2 + x) * sin2g
-        )
-        
-        dAx = 0
-        dBx = -c*cosg*sing
-        dCx = -2 * sing + 2 * c * cosg * (v1 + (v2 + x) * cosg + v3 * sing)
-
-        dAy = 0
-        dBy = 0
-        dCy = 2 * c * (y + y0)
-
-    else: 
-        A = c * (1 + k) * (2 + k + k * cos2g)
-
-        B = - (1 + k) * (
-            -2 * (-1 + c * (1 + k) * syz) * cosg
-            + c * (
-                (2 + k) * v3
-                + k * v3 * cos2g
-                + 2 * v1 * sing
-                - k * (v2 + x) * sin2g
-            )
-        )
-
-        C = (1 + k) * (
-            -4 * syz
-            + 2 * c * ((1 + k) * syz**2 + v1**2 + (y + y0)**2)
-            + c * (2 + k) * (v2**2 + v3**2 + 2 * v2 * x + x**2)
-            + 4 * (v3 - c * (1 + k) * syz * v3 + c * v1 * (v2 + x)) * cosg
-            - c * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
-            + 4 * ((-1 + c * (1 + k) * syz) * v2 + c * v1 * v3 - x + c * (1 + k) * syz * x) * sing
-            - 2 * c * k * v3 * (v2 + x) * sin2g
-        )
-        
-        dAx = 0
-        dBx = -c * k * (1 + k) * sin2g
-        dCx = (1 + k) * (
-            2 * c * (2 + k) * (v2 + x)
-            + 4 * c * v1 * cosg
-            - c * k * (v2 - v3 + x) * cos2g
-            - c * k * (v2 + v3 + x) * cos2g
-            - 4 * (-1 + c * (1 + k) * syz) * sing
-            + 2 * c * k * v3 * sin2g
-        )
-
-        dAy = 0
-        dBy = 0
-        dCy = 4 * c * (1 + k) * (y + y0)
-    
-    dervx = calc_quadratic_derv(sgn, A, B, C, dAx, dBx, dCx)
-    dervy = calc_quadratic_derv(sgn, A, B, C, dAy, dBy, dCy)
-
-    norm = 1
     if normalize:
-        norm = np.sqrt(dervx**2 + dervy**2 + 1)
+        norm = np.sqrt(dervx**2 + dervy**2 + dervz**2)
+        return dervx / norm, dervy / norm, dervz / norm
+    
+    return dervx, dervy, dervz
 
-    # d/dz is always equal to -1, no need to calculate it
-    # The sign in Zemax's example seems to be opposite of Shannon (1997)...
-    return dervx / norm, dervy / norm, -1 / norm
+def conic_2d_off_axis_distance(c, k, alpha, beta):
+    """Off-axis distances.
+
+    Parameters
+    ----------
+    c: float
+        Curvature of the surface.
+    alpha: float
+        Angle in radians.
+    beta: float
+        Angle in radians.
+    """
+    # Put a minimum on the curvature to prevent x0, y0 from going to infinity.
+    # In practice if c is close to 0, the user should be using the tilted plane
+    # solutions instead.
+    if (abs(c) < 1e-13): c = 1e-13
+
+    if alpha == 0:
+        y0 = 0
+    else:
+        tana = np.tan(alpha)
+        num = ( (k-1) + np.sqrt(4 + tana*tana * (3 - k)) )
+        den = tana*tana + (1 + k)
+        y0 = tana / (2 * c) * num / den
+
+    if beta == 0:
+        x0 = 0
+    else:
+        tanb = np.tan(beta)
+        num = ( (k-1) + np.sqrt(4 + tanb*tanb * (3 - k)) )
+        den = tanb*tanb + (1 + k)
+        x0 = tanb / (2 * c) * num / den
+
+    # Make direction of effective rotation consistent with plane. For a reflective
+    # surface where alpha and/or beta apply a rotation rather than an OAD, the
+    # angles are effectively doubled.
+    if c <= 0:
+        x0 *= -1
+    else:
+        y0 *= -1
+
+    return x0, y0
 
 def conic_2d_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
@@ -627,125 +406,19 @@ def plane_transformation(coords, pslice, direction, translate=True):
 
     return (Atot @ np.append(coords, append))[:3]
 
-def plane_sag(x, y, pslice):
-    """
-    c and k are not used, but are present so this function has the same number
-    of parameters as conic_2d.
-    """
-
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
-    u = pslice.u
-
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-
-    cosa = np.cos(alpha)
-    tana = np.tan(alpha)
-    cosbg = np.cos(beta + gamma)
-    tanbg = np.tan(beta + gamma)
-
-    # Cap to prevent these from exploding
-    if abs(cosa) < 1e-13: cosa = 1e-13
-    if abs(cosbg) < 1e-13: cosbg = 1e-13
-
-    seca = 1 / cosa
-    secbg = 1 / cosbg
-
-    z = (
-        secbg * (sxz - syz - sxz * seca + (y - sxy) * tana)
-        - (x - syx + u) * tanbg
-        + syz
-        + zp
-    )
-
-    return z
-
-def plane_transfer(xt, yt, l, m, n, pslice):
+def plane_transfer(xt, yt, zt, l, m, n, pslice):
     """Returns the transfer distance.
     """
-
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
-    u = pslice.u
-
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-
-    cosa = np.cos(alpha)
-    tana = np.tan(alpha)
-    cosbg = np.cos(beta + gamma)
-    tanbg = np.tan(beta + gamma)
-
-    # Cap to prevent these from exploding
-    if abs(cosa) < 1e-13: cosa = 1e-13
-    if abs(cosbg) < 1e-13: cosbg = 1e-13
-
-    seca = 1 / cosa
-    secbg = 1 / cosbg
-
-    arg1 = secbg * (sxz - syz - sxz * seca + (yt - sxy) * tana)
-    arg2 = (xt - syx + u) * tanbg
-    arg3 = syz + zp
-
-    den = n - m * secbg * tana + l * tanbg
-    if abs(den) < 1e-13:
-        return np.nan
-
-    return (arg1 - arg2 + arg3) / den
+    if n == 0:
+        return np.nan  # Ray is parallel to the plane
+    return -zt / n
 
 def plane_surface_normal(x, y, pslice, normalize):
     """Returns the surface normal vector components (the gradient).
     """
-    alpha = pslice.alpha
-    beta = pslice.beta
-    gamma = pslice.gamma
-    zp = pslice.zp
-    syx = pslice.syx
-    syz = pslice.syz
-    sxy = pslice.sxy
-    sxz = pslice.sxz
-    u = pslice.u
-
-    alpha = convert_angle(alpha) * np.pi/180
-    beta = convert_angle(beta) * np.pi/180
-    gamma = convert_angle(gamma) * np.pi/180
-    
-    cosa = np.cos(alpha)
-    tana = np.tan(alpha)
-    cosbg = np.cos(beta + gamma)
-    tanbg = np.tan(beta + gamma)
-
-    # Cap to prevent these from exploding
-    if abs(cosa) < 1e-13: cosa = 1e-13
-    if abs(cosbg) < 1e-13: cosbg = 1e-13
-
-    secbg = 1 / cosbg
-
-    dervx = -tanbg
-    dervy = secbg * tana
-    
-    norm = 1
-    if normalize:
-        norm = np.sqrt(dervx**2 + dervy**2 + 1)
-
     # d/dz is always equal to -1, no need to calculate it
     # The sign in Zemax's example seems to be opposite of Shannon (1997)...
-    return dervx / norm, dervy / norm, -1
+    return 0, 0, -1
 
 def plane_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
@@ -755,19 +428,45 @@ def plane_critical_xy(pslice):
     return np.nan, np.nan
 
 
-# Solutions for generalized conic cylindrical surfaces
+# Solutions for generalized conic cylindrical surfaces. These are similar to the
+# conicoid solutions.
 
 def cylinder_transformation(coords, dir_cosines, pslice, direction):
     pass
 
-def cylinder_sag(x, y, c, k, alpha, beta, gamma):
-    pass
+def cylinder_transfer(xt, yt, zt, l, m, n, pslice):
+    cv = pslice.c
+    k = pslice.k
 
-def cylinder_transfer(xt, yt, l, m, n, c, k, alpha, beta, gamma):
-    pass
+    A = 1 + k*n*n
+    B = xt*l + zt*n*(1 + k) - n/cv
+    C = xt*xt + zt*zt*(1 + k) - 2*zt/cv
 
-def cylinder_surface_normal(x, y, c, k, alpha, beta, gamma, normalize):
-    pass
+    discrim = B*B - A*C
+    if discrim < 0:
+        return np.nan
+    sgn = 1 if cv > 0 else -1
+    
+    return C / ( -B + sgn * np.sqrt(discrim) )
 
-def cylinder_critical_xy(c, k, alpha, beta, gamma):
+def cylinder_surface_normal(x, y, pslice, normalize):
+    cv = pslice.c
+    k = pslice.k
+    discrim = 1 - cv*cv*(1+k)*x*x
+    if discrim < 0:
+        return np.nan, np.nan, np.nan
+    denom = np.sqrt(discrim)
+    dervx = cv * x / denom
+    dervy = 0
+    dervz = 1
+
+    if normalize:
+        norm = np.sqrt(dervx**2 + dervy**2 + dervz**2)
+        return dervx / norm, dervy / norm, dervz / norm
+    
+    return dervx, dervy, dervz
+
+def cylinder_critical_xy(pslice):
+    # Strictly speaking, clyinders do not have critical points. But if the vertex
+    # is within the bounds of the slice...
     pass
