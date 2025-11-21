@@ -721,7 +721,7 @@ void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test
         int in_xgap, in_ygap;
         IsInsideSlicerGap(&in_xgap, &in_ygap, xs, ys, p, p_custom);
         if (in_xgap || in_ygap) {
-            return ray_out;
+            return;
         }
 
         // Not in a gap. This slice is the solution.
@@ -729,7 +729,7 @@ void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test
         ray_out->t  = t; ray_out->ln = ln; ray_out->mn = mn; ray_out->nn = nn;
     }
 
-    return ray_out;
+    return;
 }
 void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgns,
     IMAGE_SLICER_PARAMS p, void *p_custom){
@@ -776,7 +776,7 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             (znear <= znear_slice && znear >= p.gy_depth)) {
             ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear;
             ray_out->t = tnear; ray_out->ln = 0.0; ray_out->mn = -1.0 * sgns; ray_out->nn = 0.0;
-            return ray_out;
+            return;
         }
 
         // Check far wall collision
@@ -785,7 +785,7 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             (zfar <= zfar_slice && zfar >= zcompare)) {
             ray_out->xs = xfar; ray_out->ys = yfar; ray_out->zs = zfar;
             ray_out->t = tfar; ray_out->ln = 0.0; ray_out->mn = -1.0 * sgns; ray_out->nn = 0.0;
-            return ray_out;
+            return;
         }
 
         // gap
@@ -793,12 +793,12 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             double t = p.gx_depth / n;
             ray_out->xs = xt + t * l; ray_out->ys = yt + t * m; ray_out->zs = p.gx_depth;
             ray_out->t  = t; ray_out->ln = 0.0; ray_out->mn = 0.0; ray_out->nn = -1.0;
-            return ray_out;
+            return;
         }
     }
 
     // Ray missed
-    return ray_out;
+    return;
 }
 
 void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgnc,
@@ -846,7 +846,7 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             (znear <= znear_slice && znear >= p.gx_depth)) {
             ray_out->xs = xnear; ray_out->ys = ynear; ray_out->zs = znear;
             ray_out->t  = tnear; ray_out->ln = -1.0 * sgnc; ray_out->mn = 0.0; ray_out->nn = 0.0;
-            return ray_out;
+            return;
         }
 
         // Check far wall collision
@@ -855,7 +855,7 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             (zfar <= zfar_slice && zfar >= zcompare)) {
             ray_out->xs = xfar; ray_out->ys = yfar; ray_out->zs = zfar;
             ray_out->t  = tfar; ray_out->ln = -1.0 * sgnc; ray_out->mn = 0.0; ray_out->nn = 0.0;
-            return ray_out;
+            return;
         }
 
         // gap
@@ -863,11 +863,11 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
             double t = p.gy_depth / n;
             ray_out->xs = xt + t * l; ray_out->ys = yt + t * m; ray_out->zs = p.gy_depth;
             ray_out->t  = t; ray_out->ln = 0.0; ray_out->mn = 0.0; ray_out->nn = -1.0;
-            return ray_out;
+            return;
         }
     }
 
-    return ray_out;
+    return;
 }
 
 void CalcNextCoords(double *x_next, double *y_next, int *code, RAY_IN ray_in, int sgnc, int sgns, int nc_test, int nr_test,

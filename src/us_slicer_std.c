@@ -278,7 +278,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          ray_in.xt = (UD->x); ray_in.yt = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
-         ParaxialRayTraceSlicer(&ray_out, ray_in, &l_par, &m_par, &ßn_par,
+         ParaxialRayTraceSlicer(&ray_out, ray_in, &l_par, &m_par, &n_par,
             FD->n1, FD->n2, active_x, active_y, p, p_custom);
 
          if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?

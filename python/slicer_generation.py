@@ -112,24 +112,16 @@ def validate_slicer_params(p):
     # Gap depths can also be whatever, no limitations on c or k either
     return is_valid
 
-def get_surface_funcs(c, p):
+def get_surface_funcs(pslice, p):
     """Returns sag and ray tracing functions for the surface type.
     """
-    if c == 0:
-        return plane_sag, plane_transfer, plane_surface_normal, plane_critical_xy
-    elif p.surface_type == 1:
-        return cylinder_sag, cylinder_transfer, cylinder_surface_normal, cylinder_critical_xy
-    else:
-        return conic_2d_sag, conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy
 
-def get_transformation(pslice, p):
     if pslice.c == 0:
-        return plane_transformation
-    elif p.surface_type == 0:
-        return cylinder_transformation
+        return plane_transfer, plane_surface_normal, plane_critical_xy, plane_transformation
+    elif p.surface_type == 1:
+        return cylinder_transfer, cylinder_surface_normal, cylinder_critical_xy, cylinder_transformation
     else:
-        return conic_2d_transformation
-    
+        return conic_2d_transfer, conic_2d_surface_normal, conic_2d_critical_xy, conic_2d_transformation
     
 def make_image_slicer_params_from_custom(p_custom):
     """Returns an ImageSlicerParams object described by custom slice parameters
@@ -416,9 +408,9 @@ def make_image_slicer(x, y, p, p_custom):
         return p.gy_depth
     
     # Inside a slice. From the indices, determine the slice parameters
-    slice_params = get_slice_params(slice_num, col_num, p, p_custom)
-    sag_func, _, _, _ = get_surface_funcs(slice_params.c, p)
-    return sag_func(x, y, slice_params)
+    pslice = get_slice_params(slice_num, col_num, p, p_custom)
+    transfer_dist_func, junk1, junk2, transform_func = get_surface_funcs(pslice, p)
+    return slice_sag(x, y, pslice, transfer_dist_func, transform_func)
 
 def find_bounded_extremum(x0, y0, mode, p, p_custom):
     """Returns the maximum or minimum of an individual slice. This function evaluates
@@ -451,8 +443,8 @@ def find_bounded_extremum(x0, y0, mode, p, p_custom):
     # First, compute the bounds of the current slice
     col_num, slice_num = get_slicer_index(x0, y0, p, p_custom)
     xsize, ysize = get_slicer_size(p)
-    slice_params = get_slice_params(slice_num, col_num, p, p_custom)
-    sag_func, junk1, junk2, critical_xy_func = get_surface_funcs(slice_params.c, p)
+    pslice = get_slice_params(slice_num, col_num, p, p_custom)
+    transfer_dist_func, junk, critical_xy_func, transform_func = get_surface_funcs(pslice, p)
 
     u = get_u_for_row(slice_num // p.n_each, p, p_custom)
     xlo = col_num * (p.dx + p.gx_width) - xsize/2 + u
@@ -461,15 +453,15 @@ def find_bounded_extremum(x0, y0, mode, p, p_custom):
     yhi = ylo + p.dy
 
     # Compute critical point
-    xc, yc = critical_xy_func(slice_params)
+    xc, yc = critical_xy_func(pslice)
 
     # There are up to 5 points to compare depending on whether the critical
     # point is within bounds
     zsolns = np.zeros(5)
-    zsolns[0] = sag_func(xlo, ylo, slice_params)
-    zsolns[1] = sag_func(xlo, yhi, slice_params)
-    zsolns[2] = sag_func(xhi, ylo, slice_params)
-    zsolns[3] = sag_func(xhi, yhi, slice_params)
+    zsolns[0] = slice_sag(xlo, ylo, pslice, transfer_dist_func, transform_func)
+    zsolns[1] = slice_sag(xlo, yhi, pslice, transfer_dist_func, transform_func)
+    zsolns[2] = slice_sag(xhi, ylo, pslice, transfer_dist_func, transform_func)
+    zsolns[3] = slice_sag(xhi, yhi, pslice, transfer_dist_func, transform_func)
 
     # Number of elements to compare so far
     n_compare = 4
@@ -477,7 +469,7 @@ def find_bounded_extremum(x0, y0, mode, p, p_custom):
     # Check whether critical point is in bounds. If yes, compute the sag and
     # add to the array of points to compare.
     if (yc >= ylo and yc <= yhi and xc >= xlo and xc <= xhi):
-        zsolns[4] = sag_func(xc, yc, slice_params)
+        zsolns[4] = slice_sag(xc, yc, pslice, transfer_dist_func, transform_func)
         n_compare += 1
 
     # Compare potential solutions to get the maximum or minimum
@@ -643,7 +635,6 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom):
     ray_out: RayOut
         Output ray parameters. Values are nan if the ray missed.
     """
-
     ray_out = RayOut(np.nan, np.nan, np.nan, np.nan, np.nan, np.nan, np.nan)
     xt, yt = ray_in.xt, ray_in.yt
     l, m, n = ray_in.l, ray_in.m, ray_in.n
@@ -651,31 +642,26 @@ def check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom):
     # Check if this slice is a solution. Get params for this slice and
     # compute the transfer distance.
     pslice = get_slice_params(ns_test, nc_test, p, p_custom)
-    sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
+    transfer_dist_func, surf_normal_func, junk, transform_func = get_surface_funcs(pslice, p)
 
-    t = transfer_dist_func(xt, yt, l, m, n, pslice)
-    result = transfer_function(t, ray_in, p, p_custom)
+    ray_out_test = slice_ray_trace(ray_in, pslice, transfer_dist_func, surf_normal_func, transform_func)
+    result = transfer_function(ray_out_test.t, ray_in, p, p_custom)
 
     # Is this a valid zero to the transfer function?
     if abs(result) < tol:
         # Yes - found a solution!
-        xs = xt + t*l
-        ys = yt + t*m
-        zs = t*n
-        ln, mn, nn = surf_normal_func(xs, ys, pslice, True)
 
         # WAIT - Is the solution inside of a gap? If we're unlucky and zs is
         # equal to the gap depth then this may be the case.
-        in_xgap, in_ygap = is_inside_slicer_gap(xs, ys, p, p_custom)
+        in_xgap, in_ygap = is_inside_slicer_gap(ray_out_test.xs, ray_out_test.ys, p, p_custom)
         if (in_xgap or in_ygap):
-            return ray_out
+            return ray_out  # all nans
         
         # Not in a gap. This slice is the solution.
-        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xs, ys, zs, t
-        ray_out.ln, ray_out.mn, ray_out.nn = ln, mn, nn
+        ray_out = ray_out_test
         return ray_out
     
-    return ray_out
+    return ray_out  # all nans
 
 def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom):
     """Checks whether a ray has intersected a wall between the current slice and
@@ -702,7 +688,14 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom):
     l, m, n = ray_in.l, ray_in.m, ray_in.n
 
     ysize = get_slicer_size(p)[1]
-    sag_func = get_surface_funcs(p.c, p)[0]
+
+    if (abs(l) <= 1e-13 and abs(m) <= 1e-13 and p.gy_width > 0):
+        # Ray is going straight down z-axis. If you're checking for a wall collision
+        # here then it must have gone into a gap.
+        t = p.gy_depth / n
+        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
+        ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
+        return ray_out
 
     if (abs(m) > 1e-13):
 
@@ -720,10 +713,12 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom):
         
         # Sag of near and far slices
         pslice_near = get_slice_params(ns_test, nc_test, p, p_custom)
-        znear_slice = sag_func(xnear, ynear, pslice_near)
+        transfer_dist_func, junk1, junk2, transform_func = get_surface_funcs(pslice_near, p)
+        znear_slice = slice_sag(xnear, ynear, pslice_near, transfer_dist_func, transform_func)
 
         pslice_far = get_slice_params(ns_test + 1*sgns, nc_test, p, p_custom)
-        zfar_slice = sag_func(xfar, yfar, pslice_far)
+        transfer_dist_func, junk1, junk2, transform_func = get_surface_funcs(pslice_far, p)
+        zfar_slice = slice_sag(xfar, yfar, pslice_far, transfer_dist_func, transform_func)
 
         # Did it hit a near wall? This is only possible if the gap depth
         # protrudes further than the near edge
@@ -740,9 +735,10 @@ def check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom):
             ray_out.ln, ray_out.mn, ray_out.nn = 0, -1*sgns, 0
             return ray_out
         
-        if (zfar >= p.gy_depth) and abs(n) > 1e-13:
-            t = p.gx_depth / n
-            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
+        # Neither - did it hit a gap?
+        if (zfar >= p.gy_depth and abs(n) > 1e-13 and p.gy_width > 0):
+            t = p.gy_depth / n
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
             ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
             return ray_out
     
@@ -757,7 +753,14 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom):
     l, m, n = ray_in.l, ray_in.m, ray_in.n
 
     xsize = get_slicer_size(p)[0]
-    sag_func = get_surface_funcs(p.c, p)[0]
+
+    if (abs(l) <= 1e-13 and abs(m) <= 1e-13 and p.gx_width > 0):
+        # Ray is going straight down z-axis. If you're checking for a wall collision
+        # here then it must have gone into a gap.
+        t = p.gx_depth / n
+        ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
+        ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
+        return ray_out
 
     if abs(l) > 1e-13:
         
@@ -776,10 +779,12 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom):
 
         # Sag of near and far slices
         pslice_near = get_slice_params(ns_test, nc_test, p, p_custom)
-        znear_slice = sag_func(xnear, ynear, pslice_near)
+        transfer_dist_func, junk1, junk2, transform_func = get_surface_funcs(pslice_near, p)
+        znear_slice = slice_sag(xnear, ynear, pslice_near, transfer_dist_func, transform_func)
 
         pslice_far = get_slice_params(ns_test, nc_test + 1*sgnc, p, p_custom)
-        zfar_slice = sag_func(xfar, yfar, pslice_far)
+        transfer_dist_func, junk1, junk2, transform_func = get_surface_funcs(pslice_far, p)
+        zfar_slice = slice_sag(xfar, yfar, pslice_far, transfer_dist_func, transform_func)
 
         # Did it hit a near wall? This is only possible if the gap depth
         # protrudes further in -z than the near edge
@@ -799,12 +804,12 @@ def check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom):
             return ray_out
         
         # Neither - did it hit a gap?
-        if (zfar >= p.gx_depth) and abs(n) > 1e-13:
-            t = p.gy_depth / n
-            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gy_depth, t
+        if (zfar >= p.gx_depth and abs(n) > 1e-13 and p.gx_width > 0):
+            t = p.gx_depth / n
+            ray_out.xs, ray_out.ys, ray_out.zs, ray_out.t = xt + t*l, yt + t*m, p.gx_depth, t
             ray_out.ln, ray_out.mn, ray_out.nn = 0, 0, -1
             return ray_out
-    
+                
     # Ray missed...
     return ray_out
 
@@ -863,7 +868,7 @@ def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_nex
     # starting and ending slice indices. For nc2 and ns2, subtract an infinitesimal
     # value from the coordinates to ensure that they are in the same section as (x_test, y_test).
     ns1 = get_slicer_index(x_test, y_test, p, p_custom)[1]
-    ns2 = get_slicer_index(x_next - 1e-13*sgnc, y_next - 1e-13*sgns, p, p_custom)[1]
+    ns2 = get_slicer_index(x_next - 1e-15*sgnc, y_next - 1e-15*sgns, p, p_custom)[1]
     n_stocheck = int( abs(ns2 - ns1) + 1 )
     # Cap the number of slices to the number of slices within a single section
     n_stocheck = min(n_stocheck, p.n_each)
@@ -927,7 +932,6 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
 
             # Check whether each slice is a solution to the transfer equation
             ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom)
-
             if not np.isnan(ray_out.t):
                 # Found a solution within a slice.
                 return ray_out
@@ -943,11 +947,15 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
             # Increment the slice index
             ns_test += sgns
 
-        # Before continuing, check walls between sections. (Skip if this is the
-        # last section to check.)
+        # If crossing columns, need to double check the last slice index in the
+        # next section
+        if nc_new != nc_test:
+            ns_test -= sgns
+
+        # Before continuing, check walls between sections.
         is_same_section = (nc_new == nc_test and nr_new == nr_test)
 
-        if ( trace_walls and is_section_in_bounds(nc_new, nr_new, umin, umax, p) ):#and not is_same_section ):
+        if ( trace_walls and is_section_in_bounds(nc_new, nr_new, umin, umax, p) ):
 
             # Section changed columns, check collision with x-wall
             if nc_new != nc_test:
@@ -963,11 +971,12 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
                     # Found a wall collision.
                     return ray_out
                 
-            # Staying on the same section. Check both x- and y-walls...
+            # Staying on the same section because this is the last one. Check
+            # both x- and y-walls...
             else:
                 # Need to subtract off an infinitesimal amount if xmax and ymax
-                # correspond exactly to the b
-                in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-13*sgnc, y_test-1e-13*sgns, p, p_custom)
+                # correspond exactly to the boundary
+                in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-15*sgnc, y_test-1e-15*sgns, p, p_custom)
                 if in_xgap:
                     ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
                     if not np.isnan(ray_out.t):
@@ -981,11 +990,6 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
                 # If neither in_xgap or in_ygap are True, then a slice intersection should
                 # have already been found so we don't need to worry about this case.
             
-        # If crossing columns, need to double check the last slice index in the
-        # next section
-        if nc_new != nc_test:
-            ns_test -= sgns
-
         nc_test = nc_new
         nr_test = nr_new
 
@@ -1001,10 +1005,12 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
     pslice = get_slice_params(ns, nc, p, p_custom)
 
     # Transform the ray into the local coordinates of the slice
+    junk1, junk2, surf_normal_func, transform_func = get_surface_funcs(pslice, p)
+    ray_in_local = convert_ray_in_to_local(ray_in, pslice, transform_func)
     coords = np.array([ray_in.xt, ray_in.yt, 0])
     cosines = np.array([ray_in.l, ray_in.m, ray_in.n])
-    coords_out = conic_2d_transformation(coords, pslice, 1, True)
-    cosines_out = conic_2d_transformation(cosines, pslice, 1, False)
+    coords_out = conic_2d_transformation(coords, pslice, -1, True)
+    cosines_out = conic_2d_transformation(cosines, pslice, -1, False)
 
     power = (n2 - n1) * pslice.c
     if p.surface_type == 0:
@@ -1037,12 +1043,12 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
     cosines_par = np.array([l, m, n])
 
     # Transform back to global coordinates
-    coords_back = conic_2d_transformation(coords_par, pslice, -1, True)
-    cosines_back = conic_2d_transformation(cosines_par, pslice, -1, False)
+    coords_back = conic_2d_transformation(coords_par, pslice, 1, True)
+    cosines_back = conic_2d_transformation(cosines_par, pslice, 1, False)
 
     # Calculate surface normals normally. haha
-    sag_func, transfer_dist_func, surf_normal_func, _ = get_surface_funcs(pslice.c, p)
-    ln, mn, nn = surf_normal_func(x, y, pslice, True)
+    transfer_dist_func, surf_normal_func, junk, transform_func = get_surface_funcs(pslice, p)
+    ln, mn, nn = slice_surface_normal(x, y, pslice, transfer_dist_func, surf_normal_func, transform_func)
 
     ray_out = RayOut(
         xs=coords_back[0],

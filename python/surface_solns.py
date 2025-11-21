@@ -37,7 +37,6 @@ class RayOut:
     mn: float   # Surface normal y
     nn: float   # Surface normal z
 
-
 def convert_angle(t):
     """Converts an angle to be between -180 and 180 degrees.
 
@@ -82,8 +81,8 @@ def convert_ray_in_to_local(ray_in, pslice, transform_func):
     """
     coords_global = np.array([ray_in.xt, ray_in.yt, 0])
     cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
-    coords_local = transform_func(coords_global, pslice, 1, translate=True)
-    cosines_local = transform_func(cosines_global, pslice, 1, translate=False)
+    coords_local = transform_func(coords_global, pslice, -1, translate=True)
+    cosines_local = transform_func(cosines_global, pslice, -1, translate=False)
 
     ray_in_local = RayIn(
         xt = coords_local[0],
@@ -100,8 +99,8 @@ def convert_ray_out_to_global(ray_out_local, pslice, transform_func):
     """
     coords_local = np.array([ray_out_local.xs, ray_out_local.ys, ray_out_local.zs])
     normals_local = np.array([ray_out_local.ln, ray_out_local.mn, ray_out_local.nn])
-    coords_global = transform_func(coords_local, pslice, -1, translate=True)
-    normals_global = transform_func(normals_local, pslice, -1, translate=False)
+    coords_global = transform_func(coords_local, pslice, 1, translate=True)
+    normals_global = transform_func(normals_local, pslice, 1, translate=False)
 
     ray_out_global = RayOut(
         xs = coords_global[0],
@@ -114,12 +113,12 @@ def convert_ray_out_to_global(ray_out_local, pslice, transform_func):
     )
     return ray_out_global
 
-def slice_ray_trace(ray_in, pslice, transfer_func, surface_normal_func, transform_func):
+def slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, transform_func):
     # global to local
     ray_in_local = convert_ray_in_to_local(ray_in, pslice, transform_func)
 
     # ray trace in local coordinates
-    t = transfer_func(
+    t = transfer_dist_func(
         ray_in_local.xt, ray_in_local.yt, ray_in_local.zt,
         ray_in_local.l, ray_in_local.m, ray_in_local.n,
         pslice
@@ -146,7 +145,7 @@ def slice_ray_trace(ray_in, pslice, transfer_func, surface_normal_func, transfor
 
     return ray_out_global
 
-def slice_sag(x, y, pslice, transfer_func):
+def slice_sag(x, y, pslice, transfer_dist_func, transform_func):
     # Evaluating the sag is a special case where the ray is coming in parallel 
     # to the z-axis
     ray_in = RayIn(
@@ -157,8 +156,22 @@ def slice_sag(x, y, pslice, transfer_func):
         m = 0,
         n = 1
     )
-    ray_out = slice_ray_trace(ray_in, pslice, transfer_func, no_surface_normal, plane_transformation)
+    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func, no_surface_normal, transform_func)
     return ray_out.zs
+
+def slice_surface_normal(x, y, pslice, transfer_dist_func, surface_normal_func, transform_func):
+    # Evaluating the surface normal is a special case where the ray is coming in parallel 
+    # to the z-axis
+    ray_in = RayIn(
+        xt = x,
+        yt = y,
+        zt = 0,
+        l = 0,
+        m = 0,
+        n = 1
+    )
+    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, transform_func)
+    return ray_out.ln, ray_out.mn, ray_out.nn
 
 # Solutions for 2D conic
 
@@ -225,39 +238,6 @@ def conic_2d_transformation(coords, pslice, direction, translate=True):
 
     return (Atot @ np.append(coords, append))[:3]
 
-
-def conic_2d_transfer(xt, yt, zt, l, m, n, pslice):
-    cv = pslice.c
-    k = pslice.k
-
-    A = 1 + k*n*n
-    B = xt*l + yt*m + zt*n*(1 + k) - n/cv
-    C = xt*xt + yt*yt + zt*zt*(1 + k) - 2*zt/cv
-
-    discrim = B*B - A*C
-    if discrim < 0:
-        return np.nan
-    sgn = 1 if cv > 0 else -1
-    
-    return C / ( -B + sgn * np.sqrt(discrim) )
-
-def conic_2d_surface_normal(x, y, pslice, normalize):
-    cv = pslice.c
-    k = pslice.k
-    discrim = 1 - cv*cv*(1+k)*(x*x + y*y)
-    if discrim < 0:
-        return np.nan, np.nan, np.nan
-    denom = np.sqrt(discrim)
-    dervx = cv * x / denom
-    dervy = cv * y / denom
-    dervz = 1
-
-    if normalize:
-        norm = np.sqrt(dervx**2 + dervy**2 + dervz**2)
-        return dervx / norm, dervy / norm, dervz / norm
-    
-    return dervx, dervy, dervz
-
 def conic_2d_off_axis_distance(c, k, alpha, beta):
     """Off-axis distances.
 
@@ -300,6 +280,38 @@ def conic_2d_off_axis_distance(c, k, alpha, beta):
         y0 *= -1
 
     return x0, y0
+
+def conic_2d_transfer(xt, yt, zt, l, m, n, pslice):
+    cv = pslice.c
+    k = pslice.k
+
+    A = 1 + k*n*n
+    B = xt*l + yt*m + zt*n*(1 + k) - n/cv
+    C = xt*xt + yt*yt + zt*zt*(1 + k) - 2*zt/cv
+
+    discrim = B*B - A*C
+    if discrim < 0:
+        return np.nan
+    sgn = 1 if cv > 0 else -1
+    
+    return C / ( -B + sgn * np.sqrt(discrim) )
+
+def conic_2d_surface_normal(x, y, pslice, normalize):
+    cv = pslice.c
+    k = pslice.k
+    discrim = 1 - cv*cv*(1+k)*(x*x + y*y)
+    if discrim < 0:
+        return np.nan, np.nan, np.nan
+    denom = np.sqrt(discrim)
+    dervx = cv * x / denom
+    dervy = cv * y / denom
+    dervz = -1
+
+    if normalize:
+        norm = np.sqrt(dervx**2 + dervy**2 + dervz**2)
+        return dervx / norm, dervy / norm, dervz / norm
+    
+    return dervx, dervy, dervz
 
 def conic_2d_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
@@ -469,4 +481,4 @@ def cylinder_surface_normal(x, y, pslice, normalize):
 def cylinder_critical_xy(pslice):
     # Strictly speaking, clyinders do not have critical points. But if the vertex
     # is within the bounds of the slice...
-    pass
+    return np.nan, np.nan
