@@ -70,36 +70,6 @@ typedef struct {
 } RAY_BOUNDS;
 
 /**
- * @brief A struct to store the input ray parameters.
- */
-typedef struct {
-    double xt;  // Starting x-coordinate of the ray
-    double yt;  // Starting y-coordinate of the ray
-    double l;   // Direction cosine along x
-    double m;   // Direction cosine along y
-    double n;   // Direction cosine along z
-} RAY_IN;
-
-/**
- * @brief A structure to store the output ray parameters.
- */
-typedef struct {
-    double xs;  // x-coordinate at the surface
-    double ys;  // y-coordinate at the surface
-    double zs;  // z-coordinate at the surface
-    double t;   // Transfer distance
-    double ln;  // Surface normal along x
-    double mn;  // Surface normal along y
-    double nn;  // Surface normal along z
-} RAY_OUT;
-
-/** Function pointers */
-typedef double (*SAG_FUNC)(double, double, SLICE_PARAMS);
-typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, SLICE_PARAMS);
-typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, SLICE_PARAMS, int);
-typedef void (*CRITICAL_XY_FUNC)(double*, double*, SLICE_PARAMS);
-
-/**
  * @brief Creates a linearly spaced array. This is akin to the numpy linspace
  * function in Python.
  * 
@@ -134,15 +104,15 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]);
 /**
  * @brief Get the appropriate functions for the surface type indicated by p.
  * 
- * @param sag_func Pointer to function that computes the sag of a single slice.
  * @param transfer_dist_func Pointer to function that computes the ray transfer distance of a slice.
  * @param critical_xy_func Pointer to function that computes the critical point of a slice.
  * @param surf_normal_func Pointer to function that computes the surface normal of a slice.
+ * @param transform_func Pointer to function that applies the transformation matrix of a slice.
  * @param pslice Slice parameters.
  * @param p Image slicer parameters.
  */
-void GetSurfaceFuncs(SAG_FUNC *sag_func, TRANSFER_DIST_FUNC *transfer_dist_func,
-SURF_NORMAL_FUNC *surf_normal_func, CRITICAL_XY_FUNC *critical_xy_func, SLICE_PARAMS pslice, IMAGE_SLICER_PARAMS p);
+void GetSurfaceFuncs(TRANSFER_DIST_FUNC *transfer_dist_func, SURF_NORMAL_FUNC *surf_normal_func,
+    CRITICAL_XY_FUNC *critical_xy_func, TRANSFORMATION_FUNC *transform_func, SLICE_PARAMS pslice, IMAGE_SLICER_PARAMS p);
 
 /**
  * @brief Computes the size of the image slicer.

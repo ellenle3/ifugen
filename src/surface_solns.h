@@ -51,11 +51,30 @@ typedef struct {
     double nn;  // Surface normal along z
 } RAY_OUT;
 
-/** @brief Converts an angle to be between -180 and 180 degrees.
+/** 
+* @brief Converts an angle to be between -180 and 180 degrees.
 *   @param t Angle in degrees.
 *   @return The converted angle.
 **/
-double ConvertAngle(double t);
+static double ConvertAngle(double t);
+
+/**
+ * @brief Multiplies two 4x4 matrices.
+ */
+static void Mat4Mul(double out[4][4], const double A[4][4], const double B[4][4]);
+
+/**
+ * @brief Multiplies a 4x4 matrix with a 4x1 vector.
+ * 
+ * @param w 1 to apply translation, 0 to ignore translation. The 4x4 matrix represents
+ *         an affine transformation in 3D space.
+ */
+static void Mat4VecMul(double out[3], const double M[4][4], const double v[3], const double w);
+
+/**
+ * @brief Computes the inverse of a 4x4 matrix representing an affine transformation.
+ */
+static void Mat4AffineInverse(double Minv[4][4], const double M[4][4]);
 
 /**
  * @brief Sets surface normal to all NANs for when we don't want to compute them.
@@ -63,6 +82,14 @@ double ConvertAngle(double t);
  */
 static void NoSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
 
+/**
+ * @brief Converts a ray from global to local coordinates for a given surface.
+ * 
+ * @param ray_in Input ray parameters in global coordinates.
+ * @param pslice Slice parameters.
+ * @param transform_func Transformation to apply.
+ * @return RAY_IN Ray parameters in the local coordinates of the surface.
+ */
 RAY_IN ConvertRayInToLocal(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func);
 
 RAY_OUT ConvertRayOutToGlobal(RAY_OUT ray_out, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func);
@@ -71,23 +98,32 @@ RAY_OUT ConvertRayOutToGlobal(RAY_OUT ray_out, SLICE_PARAMS pslice, TRANSFORMATI
  * @brief Computes the ray trace for the slice.
  * 
  * @param ray_in Input ray parameters in global coordinates.
- * @param pslice 
- * @param transfer_func 
- * @param normal_func 
- * @param transform_func 
+ * @param transfer_dist_func Transfer distance function to use.
+ * @param surface_normal_func Surface normal function to use.
+ * @param transform_func Transformation to apply.
  * @return RAY_OUT 
  */
-RAY_OUT SliceRayTrace(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_func,
-    SURF_NORMAL_FUNC normal_func, TRANSFORMATION_FUNC transform_func);
+RAY_OUT SliceRayTrace(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
+    SURF_NORMAL_FUNC surface_normal_func, TRANSFORMATION_FUNC transform_func, int normalize);
 
+/**
+ * @brief Computes the sag of a transformed surface which is a special case where
+ * the ray is parallel to the z-axis.
+ * 
+ * @param x x-coordinate to evaluate.
+ * @param y y-coordinate to evaluate.
+ */
 double SliceSag(double x, double y, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
     TRANSFORMATION_FUNC transform_func);
 
+/**
+ * @brief Computes the surface normal of a transformed surface at (x, y).
+ */
 void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice,
     TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surface_normal_func,
     TRANSFORMATION_FUNC transform_func, int normalize);
 
-// Conic solutions (cv != 0)
+// Conic solutions (cv != 0, surf_type == 0)
 
 /**
  * @brief Computes the off-axis distance from the off-axis angles and curvature.
@@ -100,18 +136,31 @@ void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, 
  */
 void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double alpha, double beta);
 
+
+/**
+ * @brief Transforms coordinates for a conicoid.
+ * 
+ * @param coords_out Array to store transformed coordinates.
+ * @param coords_in Array of input coordinates.
+ * @param pslice Slice parameters.
+ * @param direction Direction of the transformation. 1 for forward, -1 for inverse.
+ * @param translate If 1, apply the translation component. If 0, ignore translation.
+ */
+void Conic2DTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate);
+
 /**
  * @brief Computes the ray transfer distance for a rotated conic.
  * 
  * @param xt Starting x-value to transfer.
  * @param yt Starting y-value to transfer.
+ * @param zt Starting z-value to transfer. Typically =0 in global coordinates.
  * @param l Direction cosine along the x-axis.
  * @param m Direction cosine along the y-axis.
  * @param n Direction cosine along the z-axis.
- * @param pslice Parameters that define this slice.
  * @return double Transfer distance for the given ray to the surface.
  */
-double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice);
+double Conic2DTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the surface normal vectors for a rotated conic. This is the
@@ -122,20 +171,12 @@ double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE
  * @param nn Pointer for z-component of the normal vector.
  * @param x x-value to evaluate.
  * @param y y-value to evaluate.
- * @param pslice Parameters that define this slice.
  * @param normalize If 1, normalizes the vector. If 0, does not normalize.
  */
 void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
 
 /**
- * @brief Partial derivative about x for the rotated conic sag. This is a wrapper
- * function for Conic3DSurfaceNormal that makes it easier to access the x derivative
- * when computing the critical points.
- * 
- * @param x x-value to evaluate.
- * @param y y-value to evaluate.
- * @param pslice Parameters that define this slice.
- * @return double Partial derivative of the sag with respect to x.
+ * @brief Partial derivative about x for the rotated conic sag.
  */
 static double Conic2DDervX(double x, double y, SLICE_PARAMS pslice);
 
@@ -144,63 +185,54 @@ static double Conic2DDervX(double x, double y, SLICE_PARAMS pslice);
  * 
  * @param xc Pointer for the x-coordinate of the critical point.
  * @param yc Pointer for the y-coordinate of the critical point.
- * @param pslice Parameters that define this slice.
  */
 void Conic2DCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
 
 
-// Tilted plane solutions (cv = 0)
+// Plane solutions (cv = 0)
 
 /**
- * @brief Computes the sag of a tilted plane. Some parameters are not used but are
- * present to match the function signature of the conic sag function.
- * 
- * @param x x-value to evaluate.
- * @param y y-value to evaluate.
- * @param pslice Parameters that define this slice.
- * @return double Sag at the given point.
+ * @brief Transforms coordinates for a plane.
  */
-double TiltedPlaneSag(double x, double y, SLICE_PARAMS pslice);
+void PlaneTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate);
 
 /**
- * @brief Computes the transfer distance for a tilted plane. Some parameters are
- * not used but are present to match the function signature of the conic transfer
- * distance function.
- * 
- * @param xt Starting x-value to transfer.
- * @param yt Starting y-value to transfer.
- * @param l Direction cosine along the x-axis.
- * @param m Direction cosine along the y-axis.
- * @param n Direction cosine along the z-axis.
- * @param pslice Parameters that define this slice.
- * @return double Transfer distance for the given ray to the surface.
+ * @brief Transforms coordinates for a plane.
  */
-double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice);
+double PlaneTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice);
 
 /**
- * @brief Computes the surface normal vectors for a tilted plane. Some parameters
- * are not used but are present to match the function signature of the conic surface
- * normal function.
- * 
- * @param ln Pointer for x-component of the normal vector.
- * @param mn Pointer for y-component of the normal vector.
- * @param nn Pointer for z-component of the normal vector.
- * @param x x-value to evaluate.
- * @param y y-value to evaluate.
- * @param pslice Parameters that define this slice.
- * @param normalize If 1, normalizes the vector. If 0, does not normalize.
+ * @brief Computes the surface normal vector for a plane.
  */
-void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
+void PlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
 
 /**
- * @brief Sets xc and yc to NAN. This function would normally compute the critical
- * values (dz/dx = 0, dz/dy = 0) for this surface type, but planes do not have
- * critical points so we essentially do nothing here.
- * 
- * @param xc Pointer for the x-coordinate of the critical point.
- * @param yc Pointer for the y-coordinate of the critical point.
- * @param pslice Parameters that define this slice.
+ * @brief Sets xc and yc to NAN because planes do not have critical points.
  */
-void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
+void PlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
+
+// Cylinder solutions (cv != 0, surf_type == 1)
+
+/**
+ * @brief Transforms coordinates for a cylinder.
+ */
+void CylinderTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate);
+
+/**
+ * @brief Computes the transfer distance for a cylinder.
+ */
+double CylinderTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice);
+
+/**
+ * @brief Computes the surface normal vector for a cylinder.
+ */
+void CylinderSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice, int normalize);
+
+/**
+ * @brief Computes the critical points (dz/dx = 0, dz/dy = 0) for a cylinder.
+ */
+void CylinderCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
 
 #endif

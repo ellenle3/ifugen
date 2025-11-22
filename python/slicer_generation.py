@@ -888,7 +888,17 @@ def calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_nex
             nr_new = nr_test + sgns
             
     return n_stocheck, nc_new, nr_new
-    
+
+def is_last_slice_in_section(ns_test, sgns, p):
+    """ Returns True if ns_test is the last slice in the current section depending
+    on the direction of iteration.
+    """
+    if sgns > 0:
+        return ns_test % p.n_each == p.n_each - 1
+    elif sgns < 0:
+        return ns_test % p.n_each == 0
+    return False
+
 
 def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
     """
@@ -938,7 +948,7 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
             
             # Before going to the next slice, check if there is a collision with
             # a wall. Skip if this is the last slice in the section.
-            if trace_walls and (ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
+            if trace_walls and not is_last_slice_in_section(ns_test, sgns, p): #(ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
                 ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
                 if not np.isnan(ray_out.t):
                     # Found a wall collision.
@@ -1003,14 +1013,15 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
 
     nc, ns = get_paraxial_slice_index(p, active_x, active_y)
     pslice = get_slice_params(ns, nc, p, p_custom)
+    transfer_dist_func, surf_normal_func, junk, transform_func = get_surface_funcs(pslice, p)
 
     # Transform the ray into the local coordinates of the slice
     junk1, junk2, surf_normal_func, transform_func = get_surface_funcs(pslice, p)
     ray_in_local = convert_ray_in_to_local(ray_in, pslice, transform_func)
     coords = np.array([ray_in.xt, ray_in.yt, 0])
     cosines = np.array([ray_in.l, ray_in.m, ray_in.n])
-    coords_out = conic_2d_transformation(coords, pslice, -1, True)
-    cosines_out = conic_2d_transformation(cosines, pslice, -1, False)
+    coords_local = transform_func(coords, pslice, -1, True)
+    cosines_local = transform_func(cosines, pslice, -1, False)
 
     power = (n2 - n1) * pslice.c
     if p.surface_type == 0:
@@ -1020,8 +1031,8 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
         powerx = power
         powery = 0.0
 
-    x, y, z = coords_out
-    l, m, n = cosines_out
+    x, y, z = coords_local
+    l, m, n = cosines_local
 
     if abs(n) < 1e-13:
         # Ray is traveling parallel to the surface. No refraction.
@@ -1039,15 +1050,13 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
     l *= n
     m *= n
 
-    coords_par = coords_out
-    cosines_par = np.array([l, m, n])
+    cosines_local = np.array([l, m, n])
 
     # Transform back to global coordinates
-    coords_back = conic_2d_transformation(coords_par, pslice, 1, True)
-    cosines_back = conic_2d_transformation(cosines_par, pslice, 1, False)
+    coords_back = transform_func(coords_local, pslice, 1, True)
+    cosines_back = transform_func(cosines_local, pslice, 1, False)
 
     # Calculate surface normals normally. haha
-    transfer_dist_func, surf_normal_func, junk, transform_func = get_surface_funcs(pslice, p)
     ln, mn, nn = slice_surface_normal(x, y, pslice, transfer_dist_func, surf_normal_func, transform_func)
 
     ray_out = RayOut(
@@ -1061,4 +1070,4 @@ def paraxial_ray_trace_slicer(ray_in, n1, n2, active_x, active_y, p, p_custom):
         nn=nn
     )
 
-    return ray_out, l, m, n
+    return ray_out, cosines_back[0], cosines_back[1], cosines_back[2]

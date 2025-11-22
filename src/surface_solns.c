@@ -13,7 +13,7 @@ Ellen Lee
 */
 
 // Bounds the angle to be between -180 and 180 degrees.
-double ConvertAngle(double t) {
+static double ConvertAngle(double t) {
     t = fmod(t, 360);
     if (t > 180) {
         return t - 360;
@@ -33,8 +33,7 @@ static void Mat4Mul(double out[4][4], const double A[4][4], const double B[4][4]
 }
 
 // Multiplies 4x4 matrix with a 4x1 vector
-static void Mat4VecMul(double out[3], const double M[4][4], const double v[3], double w)
-{
+static void Mat4VecMul(double out[3], const double M[4][4], const double v[3], const double w) {
     double hv[4] = { v[0], v[1], v[2], w };
 
     double r[4];
@@ -48,13 +47,12 @@ static void Mat4VecMul(double out[3], const double M[4][4], const double v[3], d
     out[2] = r[2];
 }
 
-static void Mat4AffineInverse(double Rinv[4][4], const double M[4][4])
-{
+static void Mat4AffineInverse(double Minv[4][4], const double M[4][4]) {
     // Upper-left 3×3 is orthonormal (rotation only)
     // So inverse rotation = transpose
     for (int i = 0; i < 3; i++) {
         for (int j = 0; j < 3; j++)
-            Rinv[i][j] = M[j][i];
+            Minv[i][j] = M[j][i];
     }
 
     // Translation is last column of M
@@ -63,15 +61,15 @@ static void Mat4AffineInverse(double Rinv[4][4], const double M[4][4])
     double tz = M[2][3];
 
     // Inverse translation = -R^T * t
-    Rinv[0][3] = -(Rinv[0][0] * tx + Rinv[0][1] * ty + Rinv[0][2] * tz);
-    Rinv[1][3] = -(Rinv[1][0] * tx + Rinv[1][1] * ty + Rinv[1][2] * tz);
-    Rinv[2][3] = -(Rinv[2][0] * tx + Rinv[2][1] * ty + Rinv[2][2] * tz);
+    Minv[0][3] = -(Minv[0][0] * tx + Minv[0][1] * ty + Minv[0][2] * tz);
+    Minv[1][3] = -(Minv[1][0] * tx + Minv[1][1] * ty + Minv[1][2] * tz);
+    Minv[2][3] = -(Minv[2][0] * tx + Minv[2][1] * ty + Minv[2][2] * tz);
 
     // Last row
-    Rinv[3][0] = 0;
-    Rinv[3][1] = 0;
-    Rinv[3][2] = 0;
-    Rinv[3][3] = 1;
+    Minv[3][0] = 0;
+    Minv[3][1] = 0;
+    Minv[3][2] = 0;
+    Minv[3][3] = 1;
 }
 
 
