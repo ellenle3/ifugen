@@ -1,5 +1,6 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "surface_solns.h"
@@ -20,20 +21,165 @@ double ConvertAngle(double t) {
     return t;
 }
 
-// Derivative of a quadratic with solutions of the form:
-//     z = C / (-B + sgn * sqrt(B*B - A*C))
-double CalcQuadraticDerv(int sgn, double A, double B, double C,
-                         double dA, double dB, double dC) {
-
-    double discrim = B * B - A * C;
-    if (discrim < 0.0) return NAN;
-
-    double sqrt_disc = sqrt(discrim);
-    double Eta = -B + sgn * sqrt_disc;
-    double dEta = -dB + sgn * (2.0 * B * dB - C * dA - A * dC) / (2.0 * sqrt_disc);
-
-    return (Eta * dC - C * dEta) / (Eta * Eta);
+// 4x4 matrix multiplication
+static void Mat4Mul(double out[4][4], const double A[4][4], const double B[4][4]) {
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j++) {
+            out[i][j] = 0.0;
+            for (int k = 0; k < 4; k++)
+                out[i][j] += A[i][k] * B[k][j];
+        }
+    }
 }
+
+// Multiplies 4x4 matrix with a 4x1 vector
+static void Mat4VecMul(double out[3], const double M[4][4], const double v[3], double w)
+{
+    double hv[4] = { v[0], v[1], v[2], w };
+
+    double r[4];
+    for (int i = 0; i < 4; i++) {
+        r[i] = M[i][0] * hv[0] + M[i][1] * hv[1] +
+               M[i][2] * hv[2] + M[i][3] * hv[3];
+    }
+
+    out[0] = r[0];
+    out[1] = r[1];
+    out[2] = r[2];
+}
+
+static void Mat4AffineInverse(double Rinv[4][4], const double M[4][4])
+{
+    // Upper-left 3×3 is orthonormal (rotation only)
+    // So inverse rotation = transpose
+    for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < 3; j++)
+            Rinv[i][j] = M[j][i];
+    }
+
+    // Translation is last column of M
+    double tx = M[0][3];
+    double ty = M[1][3];
+    double tz = M[2][3];
+
+    // Inverse translation = -R^T * t
+    Rinv[0][3] = -(Rinv[0][0] * tx + Rinv[0][1] * ty + Rinv[0][2] * tz);
+    Rinv[1][3] = -(Rinv[1][0] * tx + Rinv[1][1] * ty + Rinv[1][2] * tz);
+    Rinv[2][3] = -(Rinv[2][0] * tx + Rinv[2][1] * ty + Rinv[2][2] * tz);
+
+    // Last row
+    Rinv[3][0] = 0;
+    Rinv[3][1] = 0;
+    Rinv[3][2] = 0;
+    Rinv[3][3] = 1;
+}
+
+
+static void NoSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    *ln = NAN;
+    *mn = NAN;
+    *nn = NAN;
+}
+
+RAY_IN ConvertRayInToLocal(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func) {
+    double coords_global[3] = { ray_in.xt, ray_in.yt, ray_in.zt };  // starting coordinates
+    double cosines_global[3] = { ray_in.l, ray_in.m, ray_in.n };    // direction cosines
+    double coords_local[3];
+    double cosines_local[3];
+    
+    // The ray is transformed backwards in the reference frame of the surface,
+    // hence why converting the ray into local coordinates requires the inverse
+    // transformation.
+    transform_func(coords_local, coords_global, pslice, -1, 1);   // inverse, translate
+    transform_func(cosines_local, cosines_global, pslice, -1, 0); // inverse, no translate
+
+    RAY_IN ray_in_local = {
+        coords_local[0],
+        coords_local[1],
+        coords_local[2],
+        cosines_local[0],
+        cosines_local[1],
+        cosines_local[2]
+    };
+    return ray_in_local;
+}
+
+RAY_OUT ConvertRayOutToGlobal(RAY_OUT ray_out, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func) {
+    double coords_local[3] = { ray_out.xs, ray_out.ys, ray_out.zs };   // surface coordinates
+    double normals_local[3] = { ray_out.ln, ray_out.mn, ray_out.nn };  // surface normals
+    double coords_global[3];
+    double normals_global[3];
+
+    transform_func(coords_global, coords_local, pslice, 1, 1);   // forward, translate
+    transform_func(normals_global, normals_local, pslice, 1, 0); // forward, no translate
+    
+    RAY_OUT ray_out_global = {
+        coords_global[0],
+        coords_global[1],
+        coords_global[2],
+        ray_out.t,
+        normals_global[0],
+        normals_global[1],
+        normals_global[2]
+    };
+    return ray_out_global;
+}
+
+RAY_OUT SliceRayTrace(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
+    SURF_NORMAL_FUNC surface_normal_func, TRANSFORMATION_FUNC transform_func, int normalize) {
+
+    // Convert the ray into local coordinates
+    RAY_IN ray_in_local = ConvertRayInToLocal(ray_in, pslice, transform_func);
+
+    double xt = ray_in_local.xt;
+    double yt = ray_in_local.yt;
+    double zt = ray_in_local.zt;
+    double l  = ray_in_local.l;
+    double m  = ray_in_local.m;
+    double n  = ray_in_local.n;
+
+    // Ray transfer in local coordinates
+    double t = transfer_dist_func(xt, yt, zt, l, m, n, pslice);
+    double xs = xt + t * l;
+    double ys = yt + t * m;
+    double zs = zt + t * n;
+    double ln, mn, nn;
+    surface_normal_func(&ln, &mn, &nn, xs, ys, pslice, normalize);
+
+    RAY_OUT ray_out_local = {
+        xs,
+        ys,
+        zs,
+        t,
+        ln,
+        mn,
+        nn
+    };
+
+    // Convert back to global coordinates
+    RAY_OUT ray_out_global = ConvertRayOutToGlobal(ray_out_local, pslice, transform_func);
+    return ray_out_global;
+}
+
+double SliceSag(double x, double y, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
+    TRANSFORMATION_FUNC transform_func) {
+        // Sag is a special case of ray tracing where the ray is coming in parallel
+        // to the z-axis at (x, y)
+        RAY_IN ray_in = { x, y, 0.0, 0.0, 0.0, 1.0 };
+        RAY_OUT ray_out = SliceRayTrace(ray_in, pslice, transfer_dist_func,
+            &NoSurfaceNormal, transform_func, 0);
+        return ray_out.zs;
+}
+
+void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
+    SURF_NORMAL_FUNC surface_normal_func, TRANSFORMATION_FUNC transform_func, int normalize) {
+        RAY_IN ray_in = { x, y, 0.0, 0.0, 0.0, 1.0 };
+        RAY_OUT ray_out = SliceRayTrace(ray_in, pslice, transfer_dist_func,
+            surface_normal_func, transform_func, normalize);
+        *ln = ray_out.ln;
+        *mn = ray_out.mn;
+        *nn = ray_out.nn;
+    }
 
 /* --------------------------------------------------------------------
 ** Conic solutions (cv != 0, surf_type == 0)
@@ -72,274 +218,125 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
     if (c <= 0) {*x0 *=-1;}
     else {*y0 *=-1;}
 }
-// Sag of a conic that has been transformed by applying an off-axis distance and
-// rotating about the global y-axis. Refer to the paper for a derivation.
-double Conic2DSag(double x, double y, SLICE_PARAMS pslice) {
-    x -= pslice.u;
 
+void Conic2DTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate) {
     double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
     double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
     double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
-
-    double cv  = pslice.cv;
-    double k   = pslice.k;
+    double zp = pslice.zp;
+    double syx = pslice.syx;
     double syz = pslice.syz;
-    
-    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
-    if (k < -1.0) sgn *= -1;
+    double u = pslice.u;
 
     double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, k, alpha, beta);
-
-    double v1 = pslice.syx + x0;
-    double v2 = pslice.u - pslice.syx;
-    double v3 = syz + pslice.zp;
-
+    Conic2DOffAxisDistance(&x0, &y0, pslice.cv, pslice.k, alpha, beta); 
     double cosg = cos(gamma);
-    double cos2g = cos(2.0 * gamma);
     double sing = sin(gamma);
-    double sin2g = sin(2.0 * gamma);
 
-    double A, B, C;
+    double T[4][4] = {
+        { 1, 0, 0, -u  },
+        { 0, 1, 0,  0  },
+        { 0, 0, 1,  zp },
+        { 0, 0, 0,  1  }
+    };
 
-    if (k == -1.0) {
-        // Parabola needs to be handled separately to avoid division by zero
-        A = cv * sing * sing;
+    double Ry1[4][4] = {
+        { 1, 0, 0,  syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1,  syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry2[4][4] = {
+        {  cosg, 0,  sing, 0 },
+        {   0  , 1,    0 , 0 },
+        { -sing, 0,  cosg, 0 },
+        {   0  , 0,    0 , 1 }
+    };
+    double Ry3[4][4] = {
+        { 1, 0, 0, -syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1, -syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry_temp[4][4];
+    double Ry[4][4];
+    Mat4Mul(Ry_temp, Ry1, Ry2);
+    Mat4Mul(Ry, Ry_temp, Ry3);
 
-        B = -(
-            cosg
-            + cv * (v2 + x) * cosg * sing
-            + cv * sing * (v1 + v3 * sing)
-        );
+    double TOAD[4][4] = {
+        { 1, 0, 0, -x0 },
+        { 0, 1, 0, -y0 },
+        { 0, 0, 1,  0  },
+        { 0, 0, 0,  1  }
+    };
 
-        C = (
-            -2.0 * syz
-            + cv * (v1 * v1 + (y + y0) * (y + y0))
-            + 2.0 * (v3 + cv * v1 * (v2 + x)) * cosg
-            + cv * (v2 + x) * (v2 + x) * cosg * cosg
-            - 2.0 * (v2 - cv * v1 * v3 + x) * sing
-            + cv * v3 * v3 * sing * sing
-            + cv * v3 * (v2 + x) * sin2g
-        );
-    } else {
-        A = cv * (1.0 + k) * (2.0 + k + k * cos2g);
+    // Full transformation matrix
+    double Atot_temp[4][4];
+    double Atot[4][4];
+    Mat4Mul(Atot_temp, T, Ry);
+    Mat4Mul(Atot, Atot_temp, TOAD);
 
-        B = -(1.0 + k) * (
-            -2.0 * (-1.0 + cv * (1.0 + k) * syz) * cosg
-            + cv * (
-                (2.0 + k) * v3
-                + k * v3 * cos2g
-                + 2.0 * v1 * sing
-                - k * (v2 + x) * sin2g
-            )
-        );
-
-        C = (1.0 + k) * (
-            -4.0 * syz
-            + 2.0 * cv * ((1.0 + k) * syz * syz + v1 * v1 + (y + y0) * (y + y0))
-            + cv * (2.0 + k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * x + x * x)
-            + 4.0 * (v3 - cv * (1.0 + k) * syz * v3 + cv * v1 * (v2 + x)) * cosg
-            - cv * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
-            + 4.0 * ((-1.0 + cv * (1.0 + k) * syz) * v2 + cv * v1 * v3 - x + cv * (1.0 + k) * syz * x) * sing
-            - 2.0 * cv * k * v3 * (v2 + x) * sin2g
-        );
+    if (direction == -1) {
+        double Atot_inv[4][4];
+        Mat4AffineInverse(Atot_inv, Atot);
+        memcpy(Atot, Atot_inv, sizeof(Atot_inv));
     }
 
-    double discrim = B * B - A * C;
+    double w = translate ? 1.0 : 0.0;
+    Mat4VecMul(coords_out, Atot, coords_in, w);
+    }
 
-    if (discrim < 0.0) return 0.0;
-    return C;
+double Conic2DTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice) {
+    double cv = pslice.cv;
+    double k = pslice.k;
+
+    double A = 1 + k*n*n;
+    double B = xt*l + yt*m + zt*n*(1 + k) - n/cv;
+    double C = xt*xt + yt*yt + zt*zt*(1 + k) - 2*zt/cv;
+
+    double discrim = B*B - A*C;
+    if (discrim < 0) {return NAN;}
+
+    int sgn = (cv > 0) ? 1 : -1;
+    return C / ( -B + sgn * sqrt(discrim) );
 }
 
+void Conic2DSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    double cv = pslice.cv;
+    double k = pslice.k;
 
-
-// The transfer distance t is obtained by solving the system of equations
-//     x_s = x_t + t*l
-//     y_s = y_t + t*m
-//     z_s = t*n
-// where the ray starts at (x_t, y_t, 0) with direction cosines (l, m, n) and is 
-// propagated to the surface at (x_s, y_s, z_s)
-double Conic2DTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice) {
-    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
-    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
-    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
-
-    double cv  = pslice.cv;
-    double k   = pslice.k;
-    double syz = pslice.syz;
-
-    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
-    if (k < -1.0) sgn *= -1;
-
-    double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, k, alpha, beta);
-
-    double v1 = pslice.syx + x0;
-    double v2 = pslice.u - pslice.syx;
-    double v3 = syz + pslice.zp;
-
-    double cosg = cos(gamma);
-    double sing = sin(gamma);
-    double cos2g = cos(2.0 * gamma);
-    double sin2g = sin(2.0 * gamma);
-
-    double D, F, G;
-
-    if (k == -1.0) {
-        D = cv * (m * m + (l * cosg - n * sing) * (l * cosg - n * sing));
-
-        F = (
-            cv * m * (y0 + yt)
-            + cv * l * (v2 + xt) * cosg * cosg
-            - sing * (l + cv * n * v1 + cv * n * v3 * sing)
-            - cosg * (n - cv * l * v1 + cv * (-l * v3 + n * (v2 + xt)) * sing)
-        );
-
-        G = (
-            -2.0 * syz
-            + cv * (v1 * v1 + (y0 + yt) * (y0 + yt))
-            + 2.0 * (v3 + cv * v1 * (v2 + xt)) * cosg
-            + cv * (v2 + xt) * (v2 + xt) * cosg * cosg
-            - 2.0 * (v2 - cv * v1 * v3 + xt) * sing
-            + cv * v3 * v3 * sing * sing
-            + cv * v3 * (v2 + xt) * sin2g
-        );
-
-    } else {
-        D = 2.0 * cv * k * (n * cosg + l * sing) * (n * cosg + l * sing)
-            + 2.0 * cv * (l * l + m * m + n * n);
-
-        F = (
-            cv * (-(2.0 + k) * n * v3 + (2.0 + k) * l * (v2 + xt) + 2.0 * m * (y0 + yt))
-            + 2.0 * (n * (-1.0 + cv * (1.0 + k) * syz) + cv * l * v1) * cosg
-            - cv * k * (n * v3 + l * (v2 + xt)) * cos2g
-            + 2.0 * (l * (-1.0 + cv * (1.0 + k) * syz) - cv * n * v1) * sing
-            + cv * k * (-l * v3 + n * (v2 + xt)) * sin2g
-        );
-
-        G = (
-            -4.0 * syz
-            + 2.0 * cv * ((1.0 + k) * syz * syz + v1 * v1 + (y0 + yt) * (y0 + yt))
-            + cv * (2.0 + k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * xt + xt * xt)
-            + 4.0 * (v3 - cv * (1.0 + k) * syz * v3 + cv * v1 * (v2 + xt)) * cosg
-            - cv * k * (v2 - v3 + xt) * (v2 + v3 + xt) * cos2g
-            + 4.0 * ((-1.0 + cv * (1.0 + k) * syz) * v2 + cv * v1 * v3 - xt + cv * (1.0 + k) * syz * xt) * sing
-            - 2.0 * cv * k * v3 * (v2 + xt) * sin2g
-        );
+    double discrim = 1 - cv*cv*(1+k)*(x*x + y*y);
+    if (discrim < 0) {
+        *ln = NAN;
+        *mn = NAN;
+        *nn = NAN;
+        return;
     }
 
-    double discrim = F * F - D * G;
-    if (discrim < 0.0) return NAN;
-    return (-F - sqrt(discrim)) / D;
-}
+    double denom = sqrt(discrim);
+    double dervx = cv * x / denom;
+    double dervy = cv * y / denom;
+    double dervz = -1;
 
+    *ln = dervx;
+    *mn = dervy;
+    *nn = dervz;
 
-
-// The surface normal vectors are obtained by taking the gradient of the sag function:
-//    f = Conic2DSag(x, y, pslice) - z
-//    norm_vec = grad(f)
-void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
-    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
-    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
-    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
-
-    double cv  = pslice.cv;
-    double k   = pslice.k;
-    double syz = pslice.syz;
-
-    int sgn = (fabs(gamma) <= M_PI / 2.0) ? 1 : -1;
-    if (k < -1.0) sgn *= -1;
-
-    double x0, y0;
-    Conic2DOffAxisDistance(&x0, &y0, cv, k, alpha, beta);
-
-    double v1 = pslice.syx + x0;
-    double v2 = pslice.u - pslice.syx;
-    double v3 = syz + pslice.zp;
-
-    double cosg = cos(gamma);
-    double sing = sin(gamma);
-    double cos2g = cos(2.0 * gamma);
-    double sin2g = sin(2.0 * gamma);
-
-    double A, B, C;
-    double dAx = 0, dAy = 0, dBx = 0, dBy = 0, dCx = 0, dCy = 0;
-
-    if (k == -1.0) {
-        A = cv * sing * sing;
-
-        B = -(
-            cosg
-            + cv * (v2 + x) * cosg * sing
-            + cv * sing * (v1 + v3 * sing)
-        );
-
-        C = (
-            -2.0 * syz
-            + cv * (v1 * v1 + (y + y0) * (y + y0))
-            + 2.0 * (v3 + cv * v1 * (v2 + x)) * cosg
-            + cv * (v2 + x) * (v2 + x) * cosg * cosg
-            - 2.0 * (v2 - cv * v1 * v3 + x) * sing
-            + cv * v3 * v3 * sing * sing
-            + cv * v3 * (v2 + x) * sin2g
-        );
-
-        dBx = -cv * cosg * sing;
-        dCx = -2.0 * sing + 2.0 * cv * cosg * (v1 + (v2 + x) * cosg + v3 * sing);
-        dCy = 2.0 * cv * (y + y0);
-    } else {
-        A = cv * (1.0 + k) * (2.0 + k + k * cos2g);
-
-        B = - (1.0 + k) * (
-            -2.0 * (-1.0 + cv * (1.0 + k) * syz) * cosg
-            + cv * (
-                (2.0 + k) * v3
-                + k * v3 * cos2g
-                + 2.0 * v1 * sing
-                - k * (v2 + x) * sin2g
-            )
-        );
-
-        C = (1.0 + k) * (
-            -4.0 * syz
-            + 2.0 * cv * ((1.0 + k) * syz * syz + v1 * v1 + (y + y0) * (y + y0))
-            + cv * (2.0 + k) * (v2 * v2 + v3 * v3 + 2.0 * v2 * x + x * x)
-            + 4.0 * (v3 - cv * (1.0 + k) * syz * v3 + cv * v1 * (v2 + x)) * cosg
-            - cv * k * (v2 - v3 + x) * (v2 + v3 + x) * cos2g
-            + 4.0 * ((-1.0 + cv * (1.0 + k) * syz) * v2 + cv * v1 * v3 - x + cv * (1.0 + k) * syz * x) * sing
-            - 2.0 * cv * k * v3 * (v2 + x) * sin2g
-        );
-
-        dBx = -cv * k * (1.0 + k) * sin2g;
-        dCx = (1.0 + k) * (
-            2.0 * cv * (2.0 + k) * (v2 + x)
-            + 4.0 * cv * v1 * cosg
-            - 2.0 * cv * k * (v2 + x) * cos2g
-            - 2.0 * cv * k * (v2 - v3 + x) * cos2g
-            - 4.0 * (-1.0 + cv * (1.0 + k) * syz) * sing
-            + 2.0 * cv * k * v3 * sin2g
-        );
-        dCy = 4.0 * cv * (1.0 + k) * (y + y0);
-    }
-
-    double dervx = calc_quadratic_derv(sgn, A, B, C, dAx, dBx, dCx);
-    double dervy = calc_quadratic_derv(sgn, A, B, C, dAy, dBy, dCy);
-
-    double norm = 1.0;
     if (normalize) {
-        norm = sqrt(dervx * dervx + dervy * dervy + 1.0);
+        double norm = sqrt(dervx*dervx + dervy*dervy + dervz*dervz);
+        *ln /= norm;
+        *mn /= norm;
+        *nn /= norm;
     }
-
-    *ln = dervx / norm;
-    *mn = dervy / norm;
-    *nn = -1.0 / norm;
 }
 
 // Wrapper function to make accessing the partial derivative about x easier. This
 // is only used for the critical point calculation. 
-double Conic2DDervX(double x, double y, SLICE_PARAMS pslice) {
-    double dervx, dervy, junk;
-    Conic2DSurfaceNormal(&dervx, &dervy, &junk, x, y, pslice, 0);
+static double Conic2DDervX(double x, double y, SLICE_PARAMS pslice) {
+    double dervx, junk1, junk2;
+    SliceSurfaceNormal(&dervx, &junk1, &junk2, x, y, pslice,
+        &Conic2DTransfer, &Conic2DSurfaceNormal, &Conic2DTransformation, 0);
     return dervx;
 }
 
@@ -393,102 +390,104 @@ void Conic2DCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
 ** --------------------------------------------------------------------
 */
 
-// alpha and beta are implemented as extrinsic rotations about the global y- and
-// x-axes, respectively, rather than as off-axis distances. 
-double TiltedPlaneSag(double x, double y, SLICE_PARAMS p) {
-    // Convert angles to radians
-    double cv = p.cv;
-    double k = p.k;
-    double alpha = ConvertAngle(p.alpha) * M_PI / 180.0;
-    double beta  = ConvertAngle(p.beta)  * M_PI / 180.0;
-    double gamma = ConvertAngle(p.gamma) * M_PI / 180.0;
-
-    double cosa  = cos(alpha);
-    double tana  = tan(alpha);
-    double cosbg = cos(beta + gamma);
-    double tanbg = tan(beta + gamma);
-
-    // Cap to prevent tangent from exploding. Angles should not be close to 90
-    // degrees, for which the plane is undefined...
-    if (fabs(cosa) < 1e-13)  cosa = 1e-13;
-    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
-
-    double seca   = 1.0 / cosa;
-    double secbg  = 1.0 / cosbg;
-
-    double z = (
-        secbg * (p.sxz - p.syz - p.sxz * seca + (y - p.sxy) * tana)
-        - (x - p.syx + p.u) * tanbg
-        + p.syz
-        + p.zp
-    );
-
-    return z;
-}
-
-
-// See explanation for the transfer distance for the conic surface.
-double TiltedPlaneTransfer(double xt, double yt, double l, double m, double n, SLICE_PARAMS pslice) {
+void PlaneTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate) {
     double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
     double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
     double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
 
+    double zp  = pslice.zp;
+    double syx = pslice.syx;
+    double syz = pslice.syz;
+    double sxy = pslice.sxy;
+    double sxz = pslice.sxz;
+    double u   = pslice.u;
+
     double cosa  = cos(alpha);
-    double tana  = tan(alpha);
+    double sina  = sin(alpha);
     double cosbg = cos(beta + gamma);
-    double tanbg = tan(beta + gamma);
+    double sinbg = sin(beta + gamma);
 
-    if (fabs(cosa) < 1e-13)  cosa = 1e-13;
-    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
+    double T[4][4] = {
+        { 1, 0, 0, -u  },
+        { 0, 1, 0,  0  },
+        { 0, 0, 1,  zp },
+        { 0, 0, 0,  1  }
+    };
+    double Ry1[4][4] = {
+        { 1, 0, 0,  syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1,  syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry2[4][4] = {
+        {  cosbg, 0,  sinbg, 0 },
+        {   0   , 1,    0  , 0 },
+        { -sinbg, 0,  cosbg, 0 },
+        {   0   , 0,    0  , 1 }
+    };
+    double Ry3[4][4] = {
+        { 1, 0, 0, -syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1, -syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry_temp[4][4];
+    double Ry[4][4];
+    Mat4Mul(Ry_temp, Ry1, Ry2);
+    Mat4Mul(Ry, Ry_temp, Ry3);
 
-    double seca  = 1.0 / cosa;
-    double secbg = 1.0 / cosbg;
+    double Rx1[4][4] = {
+        { 1, 0, 0,  0   },
+        { 0, 1, 0,  sxy },
+        { 0, 0, 1,  sxz },
+        { 0, 0, 0,  1   }
+    };
+    double Rx2[4][4] = {
+        { 1,   0 ,    0 , 0 },
+        { 0,  cosa, -sina, 0 },
+        { 0,  sina,  cosa, 0 },
+        { 0,   0 ,    0 , 1 }
+    };
+    double Rx3[4][4] = {
+        { 1, 0, 0,   0   },
+        { 0, 1, 0, -sxy  },
+        { 0, 0, 1, -sxz  },
+        { 0, 0, 0,   1   }
+    };
+    double Rx_temp[4][4];
+    double Rx[4][4];
+    Mat4Mul(Rx_temp, Rx1, Rx2);
+    Mat4Mul(Rx, Rx_temp, Rx3);
 
-    double arg1 = secbg * (pslice.sxz - pslice.syz - pslice.sxz * seca + (yt - pslice.sxy) * tana);
-    double arg2 = (xt - pslice.syx + pslice.u) * tanbg;
-    double arg3 = pslice.syz + pslice.zp;
+    double Atot_temp[4][4];
+    double Atot[4][4];
+    Mat4Mul(Atot_temp, T, Ry);
+    Mat4Mul(Atot, Atot_temp, Rx);
 
-    double den = n - m * secbg * tana + l * tanbg;
-
-    if (fabs(den) < 1e-13) {
-        return NAN;
+    if (direction == -1) {
+        double Atot_inv[4][4];
+        Mat4AffineInverse(Atot_inv, Atot);
+        memcpy(Atot, Atot_inv, sizeof(Atot_inv));
     }
 
-    return (arg1 - arg2 + arg3) / den;
+    double w = translate ? 1.0 : 0.0;
+    Mat4VecMul(coords_out, Atot, coords_in, w);
 }
 
 
-// See explanation for the surface normal for the conic surface.
-void TiltedPlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
-    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
-    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
-    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
+double PlaneTransfer(double xt, double yt, double zt,double l, double m, double n, SLICE_PARAMS pslice) {
+    if (n == 0) { return NAN; }
+    return -zt / n;
+}
 
-    double cosa  = cos(alpha);
-    double tana  = tan(alpha);
-    double cosbg = cos(beta + gamma);
-    double tanbg = tan(beta + gamma);
-
-    if (fabs(cosa) < 1e-13)  cosa  = 1e-13;
-    if (fabs(cosbg) < 1e-13) cosbg = 1e-13;
-
-    double secbg = 1.0 / cosbg;
-
-    double dervx = -tanbg;
-    double dervy = secbg * tana;
-
-    double norm = 1.0;
-    if (normalize) {
-        norm = sqrt(dervx * dervx + dervy * dervy + 1.0);
-    }
-
-    *ln = dervx / norm;
-    *mn = dervy / norm;
+void PlaneSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    *ln = 0;
+    *mn = 0;
     *nn = -1.0;
 }
 
-// Planes have no critical points.
-void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
+void PlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
      *xc = NAN; *yc = NAN;
 }
 
@@ -496,3 +495,147 @@ void TiltedPlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
 ** Cylinder solutions (cv != 0, surf_type == 1)
 ** --------------------------------------------------------------------
 */
+
+void CylinderTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+    int direction, int translate) {
+    double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
+    double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
+    double gamma = ConvertAngle(pslice.gamma) * M_PI / 180.0;
+
+    double zp  = pslice.zp;
+    double syx = pslice.syx;
+    double syz = pslice.syz;
+    double sxy = pslice.sxy;
+    double sxz = pslice.sxz;
+    double u   = pslice.u;
+
+    double x0, y0;
+    Conic2DOffAxisDistance(&x0, &y0, pslice.cv, pslice.k, alpha, beta); 
+    double cosg = cos(gamma);
+    double sing = sin(gamma);
+    double cosa  = cos(alpha);
+    double sina  = sin(alpha);
+
+    double T[4][4] = {
+        { 1, 0, 0, -u  },
+        { 0, 1, 0,  0  },
+        { 0, 0, 1,  zp },
+        { 0, 0, 0,  1  }
+    };
+    double Ry1[4][4] = {
+        { 1, 0, 0,  syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1,  syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry2[4][4] = {
+        {  cosg, 0,  sing, 0 },
+        {   0  , 1,    0 , 0 },
+        { -sing, 0,  cosg, 0 },
+        {   0  , 0,    0 , 1 }
+    };
+    double Ry3[4][4] = {
+        { 1, 0, 0, -syx },
+        { 0, 1, 0,   0  },
+        { 0, 0, 1, -syz },
+        { 0, 0, 0,   1  }
+    };
+    double Ry_temp[4][4];
+    double Ry[4][4];
+    Mat4Mul(Ry_temp, Ry1, Ry2);
+    Mat4Mul(Ry, Ry_temp, Ry3);
+
+    double Rx1[4][4] = {
+        { 1, 0, 0,  0   },
+        { 0, 1, 0,  sxy },
+        { 0, 0, 1,  sxz },
+        { 0, 0, 0,  1   }
+    };
+    double Rx2[4][4] = {
+        { 1,   0 ,    0 , 0 },
+        { 0,  cosa, -sina, 0 },
+        { 0,  sina,  cosa, 0 },
+        { 0,   0 ,    0 , 1 }
+    };
+    double Rx3[4][4] = {
+        { 1, 0, 0,   0   },
+        { 0, 1, 0, -sxy  },
+        { 0, 0, 1, -sxz  },
+        { 0, 0, 0,   1   }
+    };
+    double Rx_temp[4][4];
+    double Rx[4][4];
+    Mat4Mul(Rx_temp, Rx1, Rx2);
+    Mat4Mul(Rx, Rx_temp, Rx3);
+
+    double TOAD[4][4] = {
+        { 1, 0, 0, -x0 },
+        { 0, 1, 0,  0 },
+        { 0, 0, 1,  0  },
+        { 0, 0, 0,  1  }
+    };
+
+    double Atot_temp1[4][4];
+    double Atot_temp2[4][4];
+    double Atot[4][4];
+    Mat4Mul(Atot_temp1, T, Ry);
+    Mat4Mul(Atot_temp2, Atot_temp1, Rx);
+    Mat4Mul(Atot, Atot_temp2, TOAD);
+
+    if (direction == -1) {
+        double Atot_inv[4][4];
+        Mat4AffineInverse(Atot_inv, Atot);
+        memcpy(Atot, Atot_inv, sizeof(Atot_inv));
+    }
+
+    double w = translate ? 1.0 : 0.0;
+    Mat4VecMul(coords_out, Atot, coords_in, w);
+}
+
+double CylinderTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice) {
+    double cv = pslice.cv;
+    double k = pslice.k;
+
+    double A = 1 + k*n*n;
+    double B = xt*l + zt*n*(1 + k) - n/cv;
+    double C = xt*xt + zt*zt*(1 + k) - 2*zt/cv;
+
+    double discrim = B*B - A*C;
+    if (discrim < 0) {return NAN;}
+    int sgn = (cv > 0) ? 1 : -1;
+
+    return C / ( -B + sgn * sqrt(discrim) );
+}
+
+void CylinderSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice, int normalize) {
+    double cv = pslice.cv;
+    double k = pslice.k;
+
+    double discrim = 1 - cv*cv*(1+k)*x*x;
+    if (discrim < 0) {
+        *ln = NAN;
+        *mn = NAN;
+        *nn = NAN;
+        return;
+    }
+    double denom = sqrt(discrim);
+    double dervx = cv * x / denom;
+    double dervy = 0;
+    double dervz = -1;
+
+    *ln = dervx;
+    *mn = dervy;
+    *nn = dervz;
+
+    if (normalize) {
+        double norm = sqrt(dervx*dervx + dervy*dervy + dervz*dervz);
+        *ln /= norm;
+        *mn /= norm;
+        *nn /= norm;
+    }
+
+}
+
+double CylinderCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
+    *xc = NAN; *yc = NAN;
+}

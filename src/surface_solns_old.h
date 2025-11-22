@@ -2,13 +2,6 @@
 #ifndef SURFACE_SOLNS_H
 #define SURFACE_SOLNS_H
 
-/** Function pointers */
-typedef double (*SAG_FUNC)(double, double, SLICE_PARAMS);
-typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, SLICE_PARAMS);
-typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, SLICE_PARAMS, int);
-typedef void (*CRITICAL_XY_FUNC)(double*, double*, SLICE_PARAMS);
-typedef void (*TRANSFORMATION_FUNC)(double[3], double[3], SLICE_PARAMS, int, int);
-
 /**
  * @brief A struct to store the parameters of a single slice.
  */
@@ -26,30 +19,6 @@ typedef struct {
     double u;       // Row offset along x-axis
 } SLICE_PARAMS;
 
-/**
- * @brief A struct to store the input ray parameters.
- */
-typedef struct {
-    double xt;  // Starting x-coordinate of the ray
-    double yt;  // Starting y-coordinate of the ray
-    double zt;  // Starting z-coordinate of the ray, usually 0 by convention
-    double l;   // Direction cosine along x
-    double m;   // Direction cosine along y
-    double n;   // Direction cosine along z
-} RAY_IN;
-
-/**
- * @brief A structure to store the output ray parameters.
- */
-typedef struct {
-    double xs;  // x-coordinate at the surface
-    double ys;  // y-coordinate at the surface
-    double zs;  // z-coordinate at the surface
-    double t;   // Transfer distance
-    double ln;  // Surface normal along x
-    double mn;  // Surface normal along y
-    double nn;  // Surface normal along z
-} RAY_OUT;
 
 /** @brief Converts an angle to be between -180 and 180 degrees.
 *   @param t Angle in degrees.
@@ -58,34 +27,20 @@ typedef struct {
 double ConvertAngle(double t);
 
 /**
- * @brief Sets surface normal to all NANs for when we don't want to compute them.
- *        Same call signature as other surface normal functions.
+ * @brief Computes the derivative of the solution to a quadratic:
+ *       C / -(B + sgn * sqrt(B*B - A*C))
+ *
+ * @param sgn Sign of the derivative.
+ * @param A Coefficient of the quadratic term.
+ * @param B Coefficient of the linear term.
+ * @param C Constant term.
+ * @param dA Derivative of A.
+ * @param dB Derivative of B.
+ * @param dC Derivative of C.
+ * @return double
  */
-static void NoSurfaceNormal(double *ln, double *mn, double *nn, double x, double y, SLICE_PARAMS pslice, int normalize);
-
-RAY_IN ConvertRayInToLocal(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func);
-
-RAY_OUT ConvertRayOutToGlobal(RAY_OUT ray_out, SLICE_PARAMS pslice, TRANSFORMATION_FUNC transform_func);
-
-/**
- * @brief Computes the ray trace for the slice.
- * 
- * @param ray_in Input ray parameters in global coordinates.
- * @param pslice 
- * @param transfer_func 
- * @param normal_func 
- * @param transform_func 
- * @return RAY_OUT 
- */
-RAY_OUT SliceRayTrace(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_func,
-    SURF_NORMAL_FUNC normal_func, TRANSFORMATION_FUNC transform_func);
-
-double SliceSag(double x, double y, SLICE_PARAMS pslice, TRANSFER_DIST_FUNC transfer_dist_func,
-    TRANSFORMATION_FUNC transform_func);
-
-void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, SLICE_PARAMS pslice,
-    TRANSFER_DIST_FUNC transfer_dist_func, SURF_NORMAL_FUNC surface_normal_func,
-    TRANSFORMATION_FUNC transform_func, int normalize);
+double CalcQuadraticDerv(int sgn, double A, double B, double C, double dA, double dB,
+    double dC);
 
 // Conic solutions (cv != 0)
 
@@ -99,6 +54,16 @@ void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, 
  * @param beta Off-axis angle on the x-axis in degrees.
  */
 void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double alpha, double beta);
+
+/**
+ * @brief Computes an axially symmetric conic rotated about the global y-axis
+ * 
+ * @param x x-value to evaluate.
+ * @param y y-value to evaluate.
+ * @param pslice Parameters that define this slice.
+ * @return double Sag at the given point.
+ */
+double Conic2DSag(double x, double y, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the ray transfer distance for a rotated conic.
@@ -137,7 +102,7 @@ void Conic2DSurfaceNormal(double *ln, double *mn, double *nn, double x, double y
  * @param pslice Parameters that define this slice.
  * @return double Partial derivative of the sag with respect to x.
  */
-static double Conic2DDervX(double x, double y, SLICE_PARAMS pslice);
+double Conic2DDervX(double x, double y, SLICE_PARAMS pslice);
 
 /**
  * @brief Computes the critical points (dz/dx = 0, dz/dy = 0) for a rotated conic.

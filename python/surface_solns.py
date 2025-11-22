@@ -50,27 +50,6 @@ def convert_angle(t):
         return t - 360
     return t
 
-def calc_quadratic_derv(sgn, A, B, C, dA, dB, dC):
-    """Returns the derivative of a quadratic:
-        C / (-B + sgn * sqrt(B*B - A*C))
-
-    Parameters
-    ----------
-    sgn: int
-        Sign of the square root.
-    A: float
-        Coefficient of the quadratic term.
-    dA: float
-        Derivative of A.
-    """
-    discrim = B*B - A*C
-    if discrim < 0:
-        return np.nan  # Derivative is undefined
-    sqrt_disc = np.sqrt(discrim)
-    Eta = -B + sgn * sqrt_disc
-    dEta = - dB + sgn * (2*B*dB - C*dA - A*dC) / 2 / sqrt_disc
-    return (Eta * dC - C * dEta) / (Eta * Eta)
-
 def no_surface_normal(x, y, pslice, normalize):
     """Placeholder surface normal function when evaluating the sag.
     """
@@ -79,7 +58,7 @@ def no_surface_normal(x, y, pslice, normalize):
 def convert_ray_in_to_local(ray_in, pslice, transform_func):
     """Converts an input ray from global to local coordinates.
     """
-    coords_global = np.array([ray_in.xt, ray_in.yt, 0])
+    coords_global = np.array([ray_in.xt, ray_in.yt, ray_in.zt])
     cosines_global = np.array([ray_in.l, ray_in.m, ray_in.n])
     coords_local = transform_func(coords_global, pslice, -1, translate=True)
     cosines_local = transform_func(cosines_global, pslice, -1, translate=False)
@@ -113,7 +92,7 @@ def convert_ray_out_to_global(ray_out_local, pslice, transform_func):
     )
     return ray_out_global
 
-def slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, transform_func):
+def slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, transform_func, normalize=True):
     # global to local
     ray_in_local = convert_ray_in_to_local(ray_in, pslice, transform_func)
 
@@ -126,8 +105,8 @@ def slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, tra
     xs = ray_in_local.xt + ray_in_local.l * t
     ys = ray_in_local.yt + ray_in_local.m * t
     zs = ray_in_local.zt + ray_in_local.n * t
-    ln_local, mn_local, nn_local = surface_normal_func(
-        xs, ys, pslice, normalize=True
+    ln, mn, nn = surface_normal_func(
+        xs, ys, pslice, normalize
     )
 
     ray_out_local = RayOut(
@@ -135,9 +114,9 @@ def slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, tra
         ys = ys,
         zs = zs,
         t = t,
-        ln = ln_local,
-        mn = mn_local,
-        nn = nn_local
+        ln = ln,
+        mn = mn,
+        nn = nn
     )
 
     # local to global
@@ -156,12 +135,11 @@ def slice_sag(x, y, pslice, transfer_dist_func, transform_func):
         m = 0,
         n = 1
     )
-    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func, no_surface_normal, transform_func)
+    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func,
+                              no_surface_normal, transform_func, normalize=False)
     return ray_out.zs
 
-def slice_surface_normal(x, y, pslice, transfer_dist_func, surface_normal_func, transform_func):
-    # Evaluating the surface normal is a special case where the ray is coming in parallel 
-    # to the z-axis
+def slice_surface_normal(x, y, pslice, transfer_dist_func, surface_normal_func, transform_func, normalize=True):
     ray_in = RayIn(
         xt = x,
         yt = y,
@@ -170,10 +148,55 @@ def slice_surface_normal(x, y, pslice, transfer_dist_func, surface_normal_func, 
         m = 0,
         n = 1
     )
-    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func, surface_normal_func, transform_func)
+    ray_out = slice_ray_trace(ray_in, pslice, transfer_dist_func,
+                              surface_normal_func, transform_func, normalize)
     return ray_out.ln, ray_out.mn, ray_out.nn
 
 # Solutions for 2D conic
+
+def conic_2d_off_axis_distance(c, k, alpha, beta):
+    """Off-axis distances.
+
+    Parameters
+    ----------
+    c: float
+        Curvature of the surface.
+    alpha: float
+        Angle in radians.
+    beta: float
+        Angle in radians.
+    """
+    # Put a minimum on the curvature to prevent x0, y0 from going to infinity.
+    # In practice if c is close to 0, the user should be using the tilted plane
+    # solutions instead.
+    if (abs(c) < 1e-13): c = 1e-13
+
+    if alpha == 0:
+        y0 = 0
+    else:
+        tana = np.tan(alpha)
+        num = ( (k-1) + np.sqrt(4 + tana*tana * (3 - k)) )
+        den = tana*tana + (1 + k)
+        y0 = tana / (2 * c) * num / den
+
+    if beta == 0:
+        x0 = 0
+    else:
+        tanb = np.tan(beta)
+        num = ( (k-1) + np.sqrt(4 + tanb*tanb * (3 - k)) )
+        den = tanb*tanb + (1 + k)
+        x0 = tanb / (2 * c) * num / den
+
+    # Make direction of effective rotation consistent with plane. For a reflective
+    # surface where alpha and/or beta apply a rotation rather than an OAD, the
+    # angles are effectively doubled.
+    if c <= 0:
+        x0 *= -1
+    else:
+        y0 *= -1
+
+    return x0, y0
+
 
 def conic_2d_transformation(coords, pslice, direction, translate=True):
     """Transforms the ray coordinates and direction cosines to the local
@@ -224,7 +247,7 @@ def conic_2d_transformation(coords, pslice, direction, translate=True):
                     [0, 1, 0, 0],
                     [0, 0, 1, -syz],
                     [0, 0, 0, 1]])
-    Ry = Ry3 @ Ry2 @ Ry1
+    Ry = Ry1 @ Ry2 @ Ry3
 
     TOAD = np.array([[1, 0, 0, -x0],
                      [0, 1, 0, -y0],
@@ -237,49 +260,6 @@ def conic_2d_transformation(coords, pslice, direction, translate=True):
         Atot = np.linalg.inv(Atot)
 
     return (Atot @ np.append(coords, append))[:3]
-
-def conic_2d_off_axis_distance(c, k, alpha, beta):
-    """Off-axis distances.
-
-    Parameters
-    ----------
-    c: float
-        Curvature of the surface.
-    alpha: float
-        Angle in radians.
-    beta: float
-        Angle in radians.
-    """
-    # Put a minimum on the curvature to prevent x0, y0 from going to infinity.
-    # In practice if c is close to 0, the user should be using the tilted plane
-    # solutions instead.
-    if (abs(c) < 1e-13): c = 1e-13
-
-    if alpha == 0:
-        y0 = 0
-    else:
-        tana = np.tan(alpha)
-        num = ( (k-1) + np.sqrt(4 + tana*tana * (3 - k)) )
-        den = tana*tana + (1 + k)
-        y0 = tana / (2 * c) * num / den
-
-    if beta == 0:
-        x0 = 0
-    else:
-        tanb = np.tan(beta)
-        num = ( (k-1) + np.sqrt(4 + tanb*tanb * (3 - k)) )
-        den = tanb*tanb + (1 + k)
-        x0 = tanb / (2 * c) * num / den
-
-    # Make direction of effective rotation consistent with plane. For a reflective
-    # surface where alpha and/or beta apply a rotation rather than an OAD, the
-    # angles are effectively doubled.
-    if c <= 0:
-        x0 *= -1
-    else:
-        y0 *= -1
-
-    return x0, y0
 
 def conic_2d_transfer(xt, yt, zt, l, m, n, pslice):
     cv = pslice.c
@@ -313,6 +293,15 @@ def conic_2d_surface_normal(x, y, pslice, normalize):
     
     return dervx, dervy, dervz
 
+def conic_2d_dervx(x, y, pslice):
+    """Returns the partial derivative along x.
+    """
+    dervx, dervy, _ = slice_surface_normal(x, y, pslice, conic_2d_transfer,
+                                           conic_2d_surface_normal, conic_2d_transformation,
+                                           normalize=False)
+    return dervx
+
+
 def conic_2d_critical_xy(pslice):
     """Computes where the d/dx and d/dy of the sag equals 0.
 
@@ -345,12 +334,6 @@ def conic_2d_critical_xy(pslice):
     x0, y0 = conic_2d_off_axis_distance(c, k, alpha, beta)
     xc = newton(conic_2d_dervx, x0, tol=tol, args=(-y0, pslice))
     return xc, -y0
-
-def conic_2d_dervx(x, y, pslice):
-    """Returns the partial derivative along x.
-    """
-    dervx, dervy, _ = conic_2d_surface_normal(x, y, pslice, normalize=False)
-    return dervx
 
 # Solutions for planar surfaces
 
@@ -443,8 +426,72 @@ def plane_critical_xy(pslice):
 # Solutions for generalized conic cylindrical surfaces. These are similar to the
 # conicoid solutions.
 
-def cylinder_transformation(coords, dir_cosines, pslice, direction):
-    pass
+def cylinder_transformation(coords, pslice, direction, translate=True):
+    alpha = pslice.alpha
+    beta = pslice.beta
+    gamma = pslice.gamma
+    zp = pslice.zp
+    syx = pslice.syx
+    syz = pslice.syz
+    sxy = pslice.sxy
+    sxz = pslice.sxz
+    u = pslice.u
+
+    alpha = convert_angle(alpha) * np.pi/180
+    beta = convert_angle(beta) * np.pi/180
+    gamma = convert_angle(gamma) * np.pi/180
+
+    x0, y0 = conic_2d_off_axis_distance(pslice.c, pslice.k, alpha, beta)
+    cosg = np.cos(gamma)
+    sing = np.sin(gamma)
+    cosa = np.cos(alpha)
+    sina = np.sin(alpha)
+
+    # Transformation matrix
+    T = np.array([[1, 0, 0, -u],
+                  [0, 1, 0, 0],
+                  [0, 0, 1, zp],
+                  [0, 0, 0, 1]])
+    
+    Ry1 = np.array([[1, 0, 0, syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, syz],
+                    [0, 0, 0, 1]])
+    Ry2 = np.array([[cosg, 0, sing, 0],
+                    [0, 1, 0, 0],
+                    [-sing, 0, cosg, 0],
+                    [0, 0, 0, 1]])
+    Ry3 = np.array([[1, 0, 0, -syx],
+                    [0, 1, 0, 0],
+                    [0, 0, 1, -syz],
+                    [0, 0, 0, 1]])
+    Ry = Ry1 @ Ry2 @ Ry3
+
+    Rx1 = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, sxy],
+                    [0, 0, 1, sxz],
+                    [0, 0, 0, 1]])
+    Rx2 = np.array([[1, 0, 0, 0],
+                    [0, cosa, -sina, 0],
+                    [0, sina, cosa, 0],
+                    [0, 0, 0, 1]])
+    Rx3 = np.array([[1, 0, 0, 0],
+                    [0, 1, 0, -sxy],
+                    [0, 0, 1, -sxz],
+                    [0, 0, 0, 1]])
+    Rx = Rx1 @ Rx2 @ Rx3
+
+    TOAD = np.array([[1, 0, 0, -x0],
+                     [0, 1, 0, 0],
+                     [0, 0, 1, 0],
+                     [0, 0, 0, 1]])
+
+    Atot = T @ Ry @ Rx @ TOAD
+    append = 1 if translate else 0
+    if direction == -1:
+        Atot = np.linalg.inv(Atot)
+
+    return (Atot @ np.append(coords, append))[:3]
 
 def cylinder_transfer(xt, yt, zt, l, m, n, pslice):
     cv = pslice.c
@@ -470,7 +517,7 @@ def cylinder_surface_normal(x, y, pslice, normalize):
     denom = np.sqrt(discrim)
     dervx = cv * x / denom
     dervy = 0
-    dervz = 1
+    dervz = -1
 
     if normalize:
         norm = np.sqrt(dervx**2 + dervy**2 + dervz**2)
