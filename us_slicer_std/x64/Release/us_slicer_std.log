@@ -1,21 +1,19 @@
 ﻿  custom_slicer_helpers.c
   slicer_generation.c
-C:\Projects\ifugen\src\slicer_generation.c(164,16): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slicer_generation.c(165,18): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slicer_generation.c(552,23): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(655,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   surface_solns.c
   us_slicer_std.c
-C:\Projects\ifugen\src\us_slicer_std.c(88,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(89,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(90,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(376,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(377,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(378,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(379,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std.c(380,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(102,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(103,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(104,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(454,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(455,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(456,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(457,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std.c(458,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
      Creating library C:\Projects\ifugen\us_slicer_std\x64\Release\us_slicer_std.lib and object C:\Projects\ifugen\us_slicer_std\x64\Release\us_slicer_std.exp
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 38 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  All 62 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   us_slicer_std.vcxproj -> C:\Projects\ifugen\us_slicer_std\x64\Release\us_slicer_std.dll

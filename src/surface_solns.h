@@ -2,13 +2,6 @@
 #ifndef SURFACE_SOLNS_H
 #define SURFACE_SOLNS_H
 
-/** Function pointers */
-typedef double (*SAG_FUNC)(double, double, SLICE_PARAMS);
-typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, SLICE_PARAMS);
-typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, SLICE_PARAMS, int);
-typedef void (*CRITICAL_XY_FUNC)(double*, double*, SLICE_PARAMS);
-typedef void (*TRANSFORMATION_FUNC)(double[3], double[3], SLICE_PARAMS, int, int);
-
 /**
  * @brief A struct to store the parameters of a single slice.
  */
@@ -25,6 +18,13 @@ typedef struct {
     double sxz;     // z-coordinate of axis of rotation about x (if applicable)
     double u;       // Row offset along x-axis
 } SLICE_PARAMS;
+
+/** Function pointers */                                                                
+typedef double (*SAG_FUNC)(double, double, SLICE_PARAMS);
+typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, SLICE_PARAMS);
+typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, SLICE_PARAMS, int);
+typedef void (*CRITICAL_XY_FUNC)(double*, double*, SLICE_PARAMS);
+typedef void (*TRANSFORMATION_FUNC)(double[3], const double[3], SLICE_PARAMS, int, int);
 
 /**
  * @brief A struct to store the input ray parameters.
@@ -146,7 +146,7 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double 
  * @param direction Direction of the transformation. 1 for forward, -1 for inverse.
  * @param translate If 1, apply the translation component. If 0, ignore translation.
  */
-void Conic2DTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+void Conic2DTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
     int direction, int translate);
 
 /**
@@ -217,7 +217,7 @@ void PlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice);
 /**
  * @brief Transforms coordinates for a cylinder.
  */
-void CylinderTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+void CylinderTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
     int direction, int translate);
 
 /**

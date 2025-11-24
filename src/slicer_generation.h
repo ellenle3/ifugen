@@ -306,6 +306,8 @@ void CalcNumSlicesToCheck(int sgnc, int sgns, int nc_test, int nr_test,
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, double umin, double umax,
      int trace_walls, IMAGE_SLICER_PARAMS p, double p_custom[]);
 
-void RayTraceSlicerParaxial(RAY_OUT *ray_out, RAY_IN ray_in, int active_x, int active_y, int trace_walls, IMAGE_SLICER_PARAMS p, double p_custom[]);
+void ParaxialRayTraceSlicer(RAY_OUT* ray_out, double* l_out, double* m_out, double* n_out,
+    RAY_IN* ray_in, double n1, double n2, int active_x, int active_y,
+    IMAGE_SLICER_PARAMS p, double p_custom[]);
 
 #endif

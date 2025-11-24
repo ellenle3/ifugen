@@ -13,7 +13,6 @@ Ellen Lee
 Feb 2025
 */
 
-
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD);
 
 /* a generic Snells law refraction routine */
@@ -93,13 +92,13 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    };
 
    IMAGE_SLICER_PARAMS p; SetSlicerParamsFromFD(&p, FD);
-   // We will never need the p_custom array in standard mode but we need
-   // to pass it as an argument. It will never be accessed because p.custom will
-   // always be set to 0.
+   //// We will never need the p_custom array in standard mode but we need
+   //// to pass it as an argument. It will never be accessed because p.custom will
+   //// always be set to 0.
    double p_custom[1] = {0};
    p.custom = 0;
 
-   // Store some other FD params
+   //// Store some other FD params
    int trace_walls = FD->param[0];
    int active_x = FD->param[1];
    int active_y = FD->param[2];
@@ -278,7 +277,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          ray_in.xt = (UD->x); ray_in.yt = (UD->y);
          ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
-         ParaxialRayTraceSlicer(&ray_out, ray_in, &l_par, &m_par, &n_par,
+         ParaxialRayTraceSlicer(&ray_out, &l_par, &m_par, &n_par, &ray_in,
             FD->n1, FD->n2, active_x, active_y, p, p_custom);
 
          if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?
@@ -355,8 +354,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[27] = 0.0;   // sxy_cen
          FD->param[28] = 0.0;   // sxz_cen
          FD->param[29] = 0.0;   // u_cen
-         FD->param[30] = 8.0;   // dx
-         FD->param[31] = 1.5;   // dy
+         FD->param[30] = 10.0;   // dx
+         FD->param[31] = 1.5;  // dy
          FD->param[32] = 0.0;   // gx_width
          FD->param[33] = 0.0;   // gx_depth
          FD->param[34] = 0.0;   // gy_width
@@ -369,14 +368,16 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
+         SetSlicerParamsFromFD(&p, FD);
          ValidateSlicerParams(&p); // prevent illegal values - not allowed to modify FD here...
-
+         //fprintf(testfile, "Validated params\n");
          if ( !IsParametersEqual(p, P_OLD) ) {
             // Update global extrema
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
             GetMinMaxU(&UMIN, &UMAX, p, p_custom);
             P_OLD = p;
          };
+     
          break;
 
       case 9:

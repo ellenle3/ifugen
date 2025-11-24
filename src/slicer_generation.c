@@ -2,6 +2,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "slicer_generation.h"
 #include "custom_slicer_helpers.h"
 
@@ -267,12 +268,12 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS p, double p_cust
 
     // u does not alternate. Minimum and maximum must be at the first and last rows.
     if (p.angle_mode == 0 || p.angle_mode == 1) {
-        *umin = get_u_for_row(0, p, p_custom);
-        *umax = get_u_for_row(p.n_rows - 1, p, p_custom);
+        *umin = GetUForRow(0, p, p_custom);
+        *umax = GetUForRow(p.n_rows - 1, p, p_custom);
     // u alternates odd/even rows. 
     } else if (p.angle_mode == 2 || p.angle_mode == 3) {
-        *umin = get_u_for_row(0, p, p_custom);
-        *umax = get_u_for_row(1, p, p_custom);
+        *umin = GetUForRow(0, p, p_custom);
+        *umax = GetUForRow(1, p, p_custom);
     }
 
     // umin and umax need to be swapped if the change in u is negative.
@@ -340,7 +341,7 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     SLICE_PARAMS pslice;
 
     // Get u value
-    pslice.u = get_u_for_row(row_num, p, NULL);  // assuming p_custom not needed
+    pslice.u = GetUForRow(row_num, p, NULL);  // assuming p_custom not needed
 
     double row_mid = (p.n_rows % 2 == 0) ? (p.n_rows - 1) / 2.0 : p.n_rows / 2;
     double col_mid = (p.n_cols % 2 == 0) ? (p.n_cols - 1) / 2.0 : p.n_cols / 2;
@@ -398,6 +399,8 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     // Constant values for all slices
     pslice.cv = p.cv;
     pslice.k  = p.k;
+
+    return pslice;
 }
 
 SLICE_PARAMS GetSliceParamsCustom(int slice_num, int col_num, double p_custom[]) {
@@ -560,7 +563,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
             }
         }
     }
-    
+
     free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values
@@ -728,7 +731,6 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     GetSlicerSize(&xsize, &ysize, p);
 
     // Get sag function for the current column
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -810,7 +812,6 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
 
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;

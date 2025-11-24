@@ -84,7 +84,7 @@ RAY_IN ConvertRayInToLocal(RAY_IN ray_in, SLICE_PARAMS pslice, TRANSFORMATION_FU
     double cosines_global[3] = { ray_in.l, ray_in.m, ray_in.n };    // direction cosines
     double coords_local[3];
     double cosines_local[3];
-    
+
     // The ray is transformed backwards in the reference frame of the surface,
     // hence why converting the ray into local coordinates requires the inverse
     // transformation.
@@ -217,7 +217,7 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
     else {*y0 *=-1;}
 }
 
-void Conic2DTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+void Conic2DTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
     int direction, int translate) {
     double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
     double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
@@ -474,7 +474,7 @@ void PlaneTransformation(double coords_out[3], const double coords_in[3], SLICE_
 }
 
 
-double PlaneTransfer(double xt, double yt, double zt,double l, double m, double n, SLICE_PARAMS pslice) {
+double PlaneTransfer(double xt, double yt, double zt, double l, double m, double n, SLICE_PARAMS pslice) {
     if (n == 0) { return NAN; }
     return -zt / n;
 }
@@ -494,7 +494,7 @@ void PlaneCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
 ** --------------------------------------------------------------------
 */
 
-void CylinderTransformation(double coords_out[3], double coords_in[3], SLICE_PARAMS pslice,
+void CylinderTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
     int direction, int translate) {
     double alpha = ConvertAngle(pslice.alpha) * M_PI / 180.0;
     double beta  = ConvertAngle(pslice.beta)  * M_PI / 180.0;
@@ -634,6 +634,6 @@ void CylinderSurfaceNormal(double* ln, double* mn, double* nn, double x, double 
 
 }
 
-double CylinderCriticalXY(double *xc, double *yc, SLICE_PARAMS pslice) {
+void CylinderCriticalXY(double* xc, double* yc, SLICE_PARAMS pslice) {
     *xc = NAN; *yc = NAN;
 }
