@@ -24,40 +24,59 @@ int main() {
 
     IMAGE_SLICER_PARAMS p = {
         .custom = 0,
-        .cylinder = 0,
-        .n_each = 1,
-        .n_rows = 1,
+        .surface_type = 0,
+        .n_each = 4,
+        .n_rows = 3,
         .n_cols = 1,
-        .angle_mode = 0,
+        .angle_mode = 1,
+
         .dalpha = 0,
         .dbeta = 0,
-        .dgamma = 0,
+        .dgamma = 2,
+        .gamma_offset = 0,
+
+        .dzps = 0,
+        .dzp_col = 0,
+        .dzp_row = 0,
+        .dsyx = 0,
+        .dsyz = 0,
+        .dsxy = 0,
+        .dsxz = 0,
+        .du = 0,
+
         .alpha_cen = 0,
         .beta_cen = 0,
         .gamma_cen = 0,
-        .gamma_offset = 0,
-        .dx = 10,
-        .dy = 10,
+        .zps_cen = 0,
+        .zp_cen = 0,
+        .syx_cen = 0,
+        .syz_cen = 0,
+        .sxy_cen = 0,
+        .sxz_cen = 0,
+        .u_cen = 0,
+
+        .dx = 12,
+        .dy = 1,
         .gx_width = 0,
         .gx_depth = 0,
         .gy_width = 0,
         .gy_depth = 0,
         .cv = -0.01,
-        .k = -1
+        .k = 0
     };
 
-    //double p_custom[1] = {0};
-    
-    //TestImageSlicerSag(fptr, p);
+    double p_custom[1] = {0};
+
+    TestImageSlicerSag(fptr, p, p_custom);
     //TestGlobalExtrema(fptr, p);
     //TestRayTrace(fptr, p);
 
-    double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
-    char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
-    LoadCustomParamsFromFile(params, 1, params_dir, MAX_ELEMENTS);
-    p = MakeSlicerParamsFromCustom(params);
+    //double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
+    //char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
+    //LoadCustomParamsFromFile(params, 1, params_dir, MAX_ELEMENTS);
+    //p = MakeSlicerParamsFromCustom(params);
 
-    TestImageSlicerSag(fptr, p, params);
+    //TestImageSlicerSag(fptr, p, params);
 
     fclose(fptr);
 }
@@ -69,20 +88,22 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     double output;
     GetSlicerSize(&xsize, &ysize, p);
 
-    int nx = 500; int ny = 500;
+    int nx = 200; int ny = 200;
     double xpts[nx]; double ypts[ny];
-    linspace(xpts, -xsize/2, xsize/2, nx);
-    linspace(ypts, -ysize/2, ysize/2, ny);
+    linspace(xpts, -xsize/2 - 3, xsize/2 + 3, nx);
+    linspace(ypts, -ysize/2 - 3, ysize/2 + 3, ny);
 
     // for (int i = 0; i < nx; i++) {
     //     output = ImageSlicerSag(xpts[i], ysize/2, p, p_custom);
     //     fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ysize/2, output);
     // }
 
+    int nc, ns;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
             output = ImageSlicerSag(xpts[i], ypts[j], p, p_custom);
-            fprintf(fptr, "%.15f %.15f %.15f\n", xpts[i], ypts[j], output);
+            GetSlicerIndex(&nc, &ns, xpts[i], ypts[j], p, p_custom);
+            fprintf(fptr, "%.15f %.15f %.15f %d %d\n", xpts[i], ypts[j], output, nc, ns);
         }
     }
 }
@@ -128,8 +149,8 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
                         ray_in.xt = xpts[i1]; ray_in.yt = ypts[i2];
                         ray_in.l = l; ray_in.m = m; ray_in.n = n;
 
-                        RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
-                        p, p_custom);
+                        //RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
+                        //p, p_custom);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
                     }

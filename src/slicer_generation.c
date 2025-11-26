@@ -200,7 +200,7 @@ void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLIC
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     *slice_num = (int) floor((y + ysize / 2) / (p.dy + p.gy_width));
-    int row_num = *slice_num / p.n_each;
+    int row_num = floor((double)*slice_num / p.n_each);
     // Column index depends on how much the row is shifted by (u)
     double u = GetUForRow(row_num, p, p_custom);
     *col_num = (int) floor((x - u + xsize / 2) / (p.dx + p.gx_width));
@@ -221,7 +221,7 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
     *in_ygap = (y > ygap_bot && y <= ygap_top);
 
     // Check horizontal (x) gap with u shift
-    int row_num = slice_num / p.n_each;
+    int row_num = floor((double)slice_num / p.n_each);
     double u = GetUForRow(row_num, p, p_custom);
     double xgap_left = (col_num + 1) * p.dx + col_num * p.gx_width - xsize / 2 + u;
     double xgap_right = xgap_left + p.gx_width;
@@ -249,6 +249,16 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS p, double p_cust
     
     // If using custom slice parameters, brute force search
     if (p.custom) {
+        // double u_all[p.n_rows];  //u_all needs to be a constant length!
+        // for (i = 0; i < p.n_rows; ++i) {
+        //     u_all[i] = p_custom[9 + i];
+        // }
+        // *umin = u_all[0];
+        // *umax = u_all[0];
+        // for (i = 1; i < p.n_rows; ++i) {
+        //     if (u_all[i] < *umin) *umin = u_all[i];
+        //     if (u_all[i] > *umax) *umax = u_all[i];
+        // }
         *umin = p_custom[9];
         *umax = p_custom[9];
         for (i = 1; i < p.n_rows; ++i) {
@@ -335,7 +345,7 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]) {
 // like a staircase.
 SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
     // Get row number and the subindex of the slice within that row
-    int row_num = slice_num / p.n_each;
+    int row_num = floor((double)slice_num / p.n_each);
     int slice_num_row = slice_num % p.n_each;
     double gamma_extra;
     SLICE_PARAMS pslice;
@@ -422,7 +432,7 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS p, double p_custom
     // Check if out of bounds
     int col_num, slice_num;
     GetSlicerIndex(&col_num, &slice_num, x, y, p, p_custom);
-    int row_num = slice_num / p.n_each;
+    int row_num = floor((double)slice_num / p.n_each);
     if (row_num < 0 || row_num >= p.n_rows || col_num < 0 || col_num >= p.n_cols) {
         return NAN;
     }
@@ -478,7 +488,8 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     TRANSFORMATION_FUNC transform_func;
     GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice, p);
 
-    double u = GetUForRow(slice_num / p.n_each, p, p_custom);
+    int row_num = floor((double)slice_num / p.n_each);
+    double u = GetUForRow(row_num, p, p_custom);
     double xlo = col_num * (p.dx + p.gx_width) - xsize / 2 + u;
     double xhi = xlo + p.dx;
     double ylo = slice_num * (p.dy + p.gy_width) - ysize / 2;
@@ -563,7 +574,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS p, 
             }
         }
     }
-
+    
     free(xpts); free(ypts);
 
     // Use the estimated maximum and minimum to find the exact values
@@ -731,6 +742,7 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     GetSlicerSize(&xsize, &ysize, p);
 
     // Get sag function for the current column
+    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -812,6 +824,7 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
 
+    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
