@@ -21,9 +21,7 @@ typedef struct {
     double dgamma;       // Change in gamma between slices in degrees
     double gamma_offset; // Offset in gamma between rows
 
-    double dzps;         // Change in zp between slices
-    double dzp_col;      // Change in zp between columns
-    double dzp_row;      // Change in zp between rows
+    double azps;         // Change in zp between slices
     double dsyx;         // Change in syx between rows
     double dsyz;         // Change in syz between rows
     double dsxy;         // Change in sxy between columns
@@ -33,8 +31,6 @@ typedef struct {
     double alpha_cen;    // alpha of central row (or avg of 2 central rows if n_rows is even)
     double beta_cen;     // beta of central column (or avg of 2 central columns if n_cols is even)
     double gamma_cen;    // gamma of central slice
-    double zps_cen;      // zp for central slice
-    double zp_cen;       // zp of the central section (added to zps)
     double syx_cen;      // syx of central section
     double syz_cen;      // syz of central section
     double sxy_cen;      // sxy of central section

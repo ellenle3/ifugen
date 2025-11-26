@@ -172,72 +172,60 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             	strcpy(UD->string,"dzps");
                break;
             case 13:
-            	strcpy(UD->string,"dzp_col");
-               break;
-            case 14:
-            	strcpy(UD->string,"dzp_row");
-               break;
-            case 15:
             	strcpy(UD->string,"dsyx");
                break;
-            case 16:
+            case 14:
             	strcpy(UD->string,"dsyz");
                break;
-            case 17:
+            case 15:
             	strcpy(UD->string,"dsxy");
                break;
-            case 18:
+            case 16:
             	strcpy(UD->string,"dsxz");
                break;
-            case 19:
+            case 17:
             	strcpy(UD->string,"du");
                break;
-            case 20:
+            case 18:
             	strcpy(UD->string,"alpha_cen");
                break;
-            case 21:
+            case 19:
             	strcpy(UD->string,"beta_cen");
                break;
-            case 22:
+            case 20:
             	strcpy(UD->string,"gamma_cen");
                break;
-            case 23:
-            	strcpy(UD->string,"zps_cen");
-               break;
-            case 24:
-            	strcpy(UD->string,"zp_cen");
-               break;
-            case 25:
+            case 21:
             	strcpy(UD->string,"syx_cen");
                break;
-            case 26:
+            case 22:
             	strcpy(UD->string,"syz_cen");
                break;
-            case 27:
+            case 23:
             	strcpy(UD->string,"sxy_cen");
                break;
-            case 28:
+            case 24:
             	strcpy(UD->string,"sxz_cen");
                break;
-            case 29:
+            case 25:
             	strcpy(UD->string,"u_cen");
                break;
-            case 30:
+            case 26:
             	strcpy(UD->string,"dx");
                break;
-            case 31:
+            case 27:
             	strcpy(UD->string,"dy");
                break;
-            case 32:
+            case 28:
             	strcpy(UD->string,"gx_width");
                break;
-            case 33:
+            case 29:
             	strcpy(UD->string,"gx_depth");
                break;
-            case 34:
+            case 30:
             	strcpy(UD->string,"gy_width");
                break;
-            case 35:
+            case 31:
             	strcpy(UD->string,"gy_depth");
                break;
             default:
@@ -336,30 +324,26 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[9] = 4.0;    // dbeta
          FD->param[10] = 1.0;   // dgamma
          FD->param[11] = 0.0;   // gamma_offset
-         FD->param[12] = 0.0;   // dzps
-         FD->param[13] = 0.0;   // dzp_col
-         FD->param[14] = 0.0;   // dzp_row
-         FD->param[15] = 0.0;   // dsyx
-         FD->param[16] = 0.0;   // dsyz
-         FD->param[17] = 0.0;   // dsxy
-         FD->param[18] = 0.0;   // dsxz
-         FD->param[19] = 0.0;   // du
-         FD->param[20] = 0.0;   // alpha_cen
-         FD->param[21] = 0.0;   // beta_cen
-         FD->param[22] = 0.0;   // gamma_cen
-         FD->param[23] = 0.0;   // zps_cen
-         FD->param[24] = 0.0;   // zp_cen
-         FD->param[25] = 0.0;   // syx_cen
-         FD->param[26] = 0.0;   // syz_cen
-         FD->param[27] = 0.0;   // sxy_cen
-         FD->param[28] = 0.0;   // sxz_cen
-         FD->param[29] = 0.0;   // u_cen
-         FD->param[30] = 10.0;   // dx
-         FD->param[31] = 1.5;  // dy
-         FD->param[32] = 0.0;   // gx_width
-         FD->param[33] = 0.0;   // gx_depth
-         FD->param[34] = 0.0;   // gy_width
-         FD->param[35] = 0.0;   // gy_depth
+         FD->param[12] = 0.0;   // azps
+         FD->param[13] = 0.0;   // dsyx
+         FD->param[14] = 0.0;   // dsyz
+         FD->param[15] = 0.0;   // dsxy
+         FD->param[16] = 0.0;   // dsxz
+         FD->param[17] = 0.0;   // du
+         FD->param[18] = 0.0;   // alpha_cen
+         FD->param[19] = 0.0;   // beta_cen
+         FD->param[20] = 0.0;   // gamma_cen
+         FD->param[21] = 0.0;   // syx_cen
+         FD->param[22] = 0.0;   // syz_cen
+         FD->param[23] = 0.0;   // sxy_cen
+         FD->param[24] = 0.0;   // sxz_cen
+         FD->param[25] = 0.0;   // u_cen
+         FD->param[26] = 10.0;   // dx
+         FD->param[27] = 1.5;  // dy
+         FD->param[28] = 0.0;   // gx_width
+         FD->param[29] = 0.0;   // gx_depth
+         FD->param[30] = 0.0;   // gy_width
+         FD->param[31] = 0.0;   // gy_depth
          FD->cv = -0.01;
          FD->k = 0;
 
@@ -422,30 +406,26 @@ void SetFDFromSlicerParams(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    FD->param[9] =  p->dbeta;
    FD->param[10] = p->dgamma;
    FD->param[11] = p->gamma_offset;
-   FD->param[12] = p->dzps;
-   FD->param[13] = p->dzp_col;
-   FD->param[14] = p->dzp_row;
-   FD->param[15] = p->dsyx;
-   FD->param[16] = p->dsyz;
-   FD->param[17] = p->dsxy;
-   FD->param[18] = p->dsxz;
-   FD->param[19] = p->du;
-   FD->param[20] = p->alpha_cen;
-   FD->param[21] = p->beta_cen;
-   FD->param[22] = p->gamma_cen;
-   FD->param[23] = p->zps_cen;
-   FD->param[24] = p->zp_cen;
-   FD->param[25] = p->syx_cen;
-   FD->param[26] = p->syz_cen;
-   FD->param[27] = p->sxy_cen;
-   FD->param[28] = p->sxz_cen;
-   FD->param[29] = p->u_cen;
-   FD->param[30] = p->dx;
-   FD->param[31] = p->dy;
-   FD->param[32] = p->gx_width;
-   FD->param[33] = p->gx_depth;
-   FD->param[34] = p->gy_width;
-   FD->param[35] = p->gy_depth;
+   FD->param[12] = p->azps;
+   FD->param[13] = p->dsyx;
+   FD->param[14] = p->dsyz;
+   FD->param[15] = p->dsxy;
+   FD->param[16] = p->dsxz;
+   FD->param[17] = p->du;
+   FD->param[18] = p->alpha_cen;
+   FD->param[19] = p->beta_cen;
+   FD->param[20] = p->gamma_cen;
+   FD->param[21] = p->syx_cen;
+   FD->param[22] = p->syz_cen;
+   FD->param[23] = p->sxy_cen;
+   FD->param[24] = p->sxz_cen;
+   FD->param[25] = p->u_cen;
+   FD->param[26] = p->dx;
+   FD->param[27] = p->dy;
+   FD->param[28] = p->gx_width;
+   FD->param[29] = p->gx_depth;
+   FD->param[30] = p->gy_width;
+   FD->param[31] = p->gy_depth;
    FD->cv = p->cv;
    FD->k = p->k;
 }
@@ -460,30 +440,26 @@ void SetSlicerParamsFromFD(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    p->dbeta =        FD->param[9];
    p->dgamma =       FD->param[10];
    p->gamma_offset = FD->param[11];
-   p->dzps =         FD->param[12];
-   p->dzp_col =      FD->param[13];
-   p->dzp_row =      FD->param[14];
-   p->dsyx =         FD->param[15];
-   p->dsyz =         FD->param[16];
-   p->dsxy =         FD->param[17];
-   p->dsxz =         FD->param[18];
-   p->du =           FD->param[19];
-   p->alpha_cen =    FD->param[20];
-   p->beta_cen =     FD->param[21];
-   p->gamma_cen =    FD->param[22];
-   p->zps_cen =      FD->param[23];
-   p->zp_cen =       FD->param[24];
-   p->syx_cen =      FD->param[25];
-   p->syz_cen =      FD->param[26];
-   p->sxy_cen =      FD->param[27];
-   p->sxz_cen =      FD->param[28];
-   p->u_cen =        FD->param[29];
-   p->dx =           FD->param[30];
-   p->dy =           FD->param[31];
-   p->gx_width =     FD->param[32];
-   p->gx_depth =     FD->param[33];
-   p->gy_width =     FD->param[34];
-   p->gy_depth =     FD->param[35];
+   p->azps =         FD->param[12];
+   p->dsyx =         FD->param[13];
+   p->dsyz =         FD->param[14];
+   p->dsxy =         FD->param[15];
+   p->dsxz =         FD->param[16];
+   p->du =           FD->param[17];
+   p->alpha_cen =    FD->param[18];
+   p->beta_cen =     FD->param[19];
+   p->gamma_cen =    FD->param[20];
+   p->syx_cen =      FD->param[21];
+   p->syz_cen =      FD->param[22];
+   p->sxy_cen =      FD->param[23];
+   p->sxz_cen =      FD->param[24];
+   p->u_cen =        FD->param[25];
+   p->dx =           FD->param[26];
+   p->dy =           FD->param[27];
+   p->gx_width =     FD->param[28];
+   p->gx_depth =     FD->param[29];
+   p->gy_width =     FD->param[30];
+   p->gy_depth =     FD->param[31];
    p->cv = FD->cv;
    p->k =  FD->k;
 }

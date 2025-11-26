@@ -67,9 +67,7 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
         p1.dgamma == p2.dgamma &&
         p1.gamma_offset == p2.gamma_offset &&
 
-        p1.dzps == p2.dzps &&
-        p1.dzp_col == p2.dzp_col &&
-        p1.dzp_row == p2.dzp_row &&
+        p1.azps == p2.azps &&
         p1.dsyx == p2.dsyx &&
         p1.dsyz == p2.dsyz &&
         p1.dsxy == p2.dsxy &&
@@ -79,8 +77,6 @@ int IsParametersEqual(IMAGE_SLICER_PARAMS p1, IMAGE_SLICER_PARAMS p2) {
         p1.alpha_cen == p2.alpha_cen &&
         p1.beta_cen == p2.beta_cen &&
         p1.gamma_cen == p2.gamma_cen &&
-        p1.zps_cen == p2.zps_cen &&
-        p1.zp_cen == p2.zp_cen &&
         p1.syx_cen == p2.syx_cen &&
         p1.syz_cen == p2.syz_cen &&
         p1.sxy_cen == p2.sxy_cen &&
@@ -130,9 +126,7 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]) {
     p.dbeta = 0;
     p.dgamma = 0;
     p.gamma_offset = 0;
-    p.dzps = 0;
-    p.dzp_col = 0;
-    p.dzp_row = 0;
+    p.azps = 0;
     p.dsyx = 0;
     p.dsyz = 0;
     p.dsxy = 0;
@@ -141,8 +135,6 @@ IMAGE_SLICER_PARAMS MakeSlicerParamsFromCustom(double p_custom[]) {
     p.alpha_cen = 0;
     p.beta_cen = 0;
     p.gamma_cen = 0;
-    p.zps_cen = 0;
-    p.zp_cen = 0;
     p.syx_cen = 0;
     p.syz_cen = 0;
     p.sxy_cen = 0;
@@ -333,6 +325,15 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     return p.u_cen + u_extra;
 }
 
+double CalcZpFromGamma(double gamma, double c, double k) {
+    double gamma_rad = gamma * M_PI / 180.0;
+    double sing = sin(gamma_rad);
+    if (c == 0) {
+        return 0;
+    }
+    return 1/c * sing*sing / 2;
+}
+
 // For a given column, row indices determine the angles alpha, beta, and gamma.
 // alpha and beta determine the behavior of one "section" of the image slicer.
 // gamma defines the rotation of each slice within that section. Essentially,
@@ -358,20 +359,15 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     double slice_mid = (p.n_each % 2 == 0) ? (p.n_each - 1) / 2.0 : p.n_each / 2;
     double offset_row = row_num - row_mid;
     double offset_col = col_num - col_mid;
-    double offset_slice = slice_num_row - slice_mid;
 
     pslice.alpha = p.alpha_cen + p.dalpha * offset_row;
     pslice.syx = p.syx_cen + p.dsyx * offset_row;
     pslice.syz = p.syz_cen + p.dsyz * offset_row;
-    pslice.zp  = p.zp_cen + p.dzp_row * offset_row;
     gamma_extra = p.gamma_offset * offset_row;
     
     pslice.beta = p.beta_cen + p.dbeta * offset_col;
     pslice.sxy = p.sxy_cen + p.dsxy * offset_col;
     pslice.sxz = p.sxz_cen + p.dsxz * offset_col;
-    pslice.zp += p.dzp_col * offset_col;
-
-    pslice.zp += p.zps_cen + p.dzps * offset_slice;
 
     // Get the angles of the bottom- and top-most slices of the central row,
     // If n_rows is even, there are 2 rows straddling the x=0 center line,
@@ -405,6 +401,8 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     } else if (p.angle_mode == 1 || p.angle_mode == 3) {
         pslice.gamma = gamma_bot + slice_num_row * p.dgamma + gamma_extra;
     }
+
+    pslice.zp = p.azps * CalcZpFromGamma(pslice.gamma, p.cv, p.k);
 
     // Constant values for all slices
     pslice.cv = p.cv;
