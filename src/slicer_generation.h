@@ -194,8 +194,6 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]);
  **/
 SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PARAMS p);
 
-SLICE_PARAMS GetSliceParamsCustom(int slice_num, int col_num, double p_custom[]);
-
 /** @brief Computes the sag of the image slicer.
 * 
 *   @param x x-coordinate to evaluate.

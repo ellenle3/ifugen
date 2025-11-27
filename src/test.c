@@ -35,9 +35,7 @@ int main() {
         .dgamma = 2,
         .gamma_offset = 0,
 
-        .dzps = 0,
-        .dzp_col = 0,
-        .dzp_row = 0,
+        .azps = 0,
         .dsyx = 0,
         .dsyz = 0,
         .dsxy = 0,
@@ -47,8 +45,6 @@ int main() {
         .alpha_cen = 0,
         .beta_cen = 0,
         .gamma_cen = 0,
-        .zps_cen = 0,
-        .zp_cen = 0,
         .syx_cen = 0,
         .syz_cen = 0,
         .sxy_cen = 0,
@@ -65,9 +61,11 @@ int main() {
         .k = 0
     };
 
-    double p_custom[1] = {0};
-
-    TestImageSlicerSag(fptr, p, p_custom);
+    double* p_custom = (double*)malloc(10000 * sizeof(double));
+    LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
+    IMAGE_SLICER_PARAMS p2 = MakeSlicerParamsFromCustom(p_custom);
+    TestImageSlicerSag(fptr, p2, p_custom);
+    free(p_custom);
     //TestGlobalExtrema(fptr, p);
     //TestRayTrace(fptr, p);
 

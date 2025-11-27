@@ -241,16 +241,6 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS p, double p_cust
     
     // If using custom slice parameters, brute force search
     if (p.custom) {
-        // double u_all[p.n_rows];  //u_all needs to be a constant length!
-        // for (i = 0; i < p.n_rows; ++i) {
-        //     u_all[i] = p_custom[9 + i];
-        // }
-        // *umin = u_all[0];
-        // *umax = u_all[0];
-        // for (i = 1; i < p.n_rows; ++i) {
-        //     if (u_all[i] < *umin) *umin = u_all[i];
-        //     if (u_all[i] > *umax) *umax = u_all[i];
-        // }
         *umin = p_custom[9];
         *umax = p_custom[9];
         for (i = 1; i < p.n_rows; ++i) {
@@ -304,12 +294,7 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     }
 
     double u_extra;
-    // Similar to GetSliceParamsStandard
-    if (p.n_rows % 2 == 0) {
-        u_extra = p.du * (row_num - (p.n_rows - 1) / 2.0);
-    } else {
-        u_extra = p.du * (row_num - p.n_rows / 2);
-    }
+
     // angle_mode also determines whether u should stack because the way gamma is
     // constructed on the image slicer should determine how u is constructed on the
     // subpupil mirrors. This somewhat restricts which surfaces can be defined in
@@ -321,6 +306,16 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]) {
             u_extra = p.du / 2.0;
         }
     }
+
+    else {
+        // Similar to GetSliceParamsStandard
+        if (p.n_rows % 2 == 0) {
+            u_extra = p.du * (row_num - (p.n_rows - 1) / 2.0);
+        } else {
+            u_extra = p.du * (row_num - p.n_rows / 2);
+        }
+    }
+    
 
     return p.u_cen + u_extra;
 }
@@ -407,21 +402,6 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     // Constant values for all slices
     pslice.cv = p.cv;
     pslice.k  = p.k;
-
-    return pslice;
-}
-
-SLICE_PARAMS GetSliceParamsCustom(int slice_num, int col_num, double p_custom[]) {
-
-    int n_slices_per_col = (int) p_custom[0];
-    int start_idx = 9 + 5 * (col_num * n_slices_per_col + slice_num);
-
-    SLICE_PARAMS pslice;
-    pslice.alpha = p_custom[start_idx];
-    pslice.beta = p_custom[start_idx + 1];
-    pslice.gamma = p_custom[start_idx + 2];
-    pslice.cv = p_custom[start_idx + 3];
-    pslice.k = p_custom[start_idx + 4];
 
     return pslice;
 }

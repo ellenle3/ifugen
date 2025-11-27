@@ -34,7 +34,7 @@ int Refract(double thisn, double nextn, double *l, double *m, double *n, double 
 // every time we trace rays. Because each analysis window in Zemax gets its own
 // copy of the DLL, we shouldn't have to worry about locks or race conditions.
 static double ZMIN, ZMAX, UMIN, UMAX;
-static int FILE_NUM_OLD = -999999999; // Store previous file number to check if it changed
+static int FILE_NUM_OLD = -9999; // Store previous file number to check if it changed
 
 // Keep the custom slice parameters in a global array so we don't need to reload
 // the file every time this DLL is called.

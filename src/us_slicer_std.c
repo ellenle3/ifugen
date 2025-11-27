@@ -37,9 +37,7 @@ static IMAGE_SLICER_PARAMS P_OLD = {
         .dbeta = -1,
         .dgamma = -1,
         .gamma_offset = -1,
-        .dzps = -1,
-        .dzp_col = -1,
-        .dzp_row = -1,
+        .azps = -1,
         .dsyx = -1,
         .dsyz = -1,
         .dsxy = -1,
@@ -48,8 +46,6 @@ static IMAGE_SLICER_PARAMS P_OLD = {
         .alpha_cen = -1,
         .beta_cen = -1,
         .gamma_cen = -1,
-        .zps_cen = -1,
-        .zp_cen = -1,
         .syx_cen = -1,
         .syz_cen = -1,
         .sxy_cen = -1,
@@ -169,7 +165,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
                strcpy(UD->string,"gamma_offset");
                break;
             case 12:
-            	strcpy(UD->string,"dzps");
+            	strcpy(UD->string,"azps");
                break;
             case 13:
             	strcpy(UD->string,"dsyx");
