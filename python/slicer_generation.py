@@ -626,6 +626,15 @@ def is_section_in_bounds(col_num, row_num, umin, umax, p):
 
     return True
 
+def is_section_valid(col_num, row_num, p):
+    """Checks whether the section is a valid section on the image slicer.
+    """
+    if row_num < 0 or row_num >= p.n_rows:
+        return False
+    if col_num < 0 or col_num >= p.n_cols:
+        return False
+    return True
+
 def check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom):
     """
 
@@ -931,73 +940,80 @@ def ray_trace_slicer(ray_in, zmin, zmax, umin, umax, trace_walls, p, p_custom):
     is_same_section = False
 
     while is_section_in_bounds(nc_test, nr_test, umin, umax, p) and not is_same_section:
+        
         # Number of slices to check in this section
         x_next, y_next, code = calc_next_coords(ray_in, sgnc, sgns, nc_test, nr_test, x_test, y_test, xmax, ymax, p, p_custom)
         n_stocheck, nc_new, nr_new = calc_num_slices_to_check(sgnc, sgns, nc_test, nr_test, x_test, y_test, x_next, y_next, code, p, p_custom)
         x_test, y_test = x_next, y_next
 
-        # Iterate slices within this section
-        for n in range(n_stocheck):
+        # Only check slices if the section is valid
+        if is_section_valid(nc_test, nr_test, p):
 
-            # Check whether each slice is a solution to the transfer equation
-            ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom)
-            if not np.isnan(ray_out.t):
-                # Found a solution within a slice.
-                return ray_out
-            
-            # Before going to the next slice, check if there is a collision with
-            # a wall. Skip if this is the last slice in the section.
-            if trace_walls and not is_last_slice_in_section(ns_test, sgns, p): #(ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
-                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
+            # Iterate slices within this section
+            for n in range(n_stocheck):
+
+                # Check whether each slice is a solution to the transfer equation
+                ray_out = check_slice_solution(tol, ray_in, ns_test, nc_test, p, p_custom)
                 if not np.isnan(ray_out.t):
-                    # Found a wall collision.
-                    return ray_out
-            
-            # Increment the slice index
-            ns_test += sgns
-
-        # If crossing columns, need to double check the last slice index in the
-        # next section
-        if nc_new != nc_test:
-            ns_test -= sgns
-
-        # Before continuing, check walls between sections.
-        is_same_section = (nc_new == nc_test and nr_new == nr_test)
-
-        if ( trace_walls and is_section_in_bounds(nc_new, nr_new, umin, umax, p) ):
-
-            # Section changed columns, check collision with x-wall
-            if nc_new != nc_test:
-                ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
-                if not np.isnan(ray_out.t):
-                    # Found a wall collision.
+                    # Found a solution within a slice.
                     return ray_out
                 
-            # Must have changed rows instead. Check collision with y-wall
-            elif nr_new != nr_test:
-                ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
-                if not np.isnan(ray_out.t):
-                    # Found a wall collision.
-                    return ray_out
-                
-            # Staying on the same section because this is the last one. Check
-            # both x- and y-walls...
-            else:
-                # Need to subtract off an infinitesimal amount if xmax and ymax
-                # correspond exactly to the boundary
-                in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-15*sgnc, y_test-1e-15*sgns, p, p_custom)
-                if in_xgap:
-                    ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
-                    if not np.isnan(ray_out.t):
-                        # Found a wall collision.
-                        return ray_out
-                elif in_ygap:
+                # Before going to the next slice, check if there is a collision with
+                # a wall. Skip if this is the last slice in the section.
+                if trace_walls and not is_last_slice_in_section(ns_test, sgns, p): #(ns_test % p.n_each != 0 or ns_test % p.n_each != p.n_each - 1):
                     ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
                     if not np.isnan(ray_out.t):
                         # Found a wall collision.
                         return ray_out
-                # If neither in_xgap or in_ygap are True, then a slice intersection should
-                # have already been found so we don't need to worry about this case.
+                
+                # Increment the slice index
+                ns_test += sgns
+
+            # If crossing columns, need to double check the last slice index in the
+            # next section
+            if nc_new != nc_test:
+                ns_test -= sgns
+
+        # Before continuing, check walls between sections.
+        is_same_section = (nc_new == nc_test and nr_new == nr_test)
+
+        # If both the current and next sections are invalid, skip wall checks
+        if is_section_valid(nc_test, nr_test, p) or is_section_valid(nc_new, nr_new, p):
+
+            if ( trace_walls and is_section_in_bounds(nc_new, nr_new, umin, umax, p) ):
+
+                # Section changed columns, check collision with x-wall
+                if nc_new != nc_test:
+                    ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
+                    if not np.isnan(ray_out.t):
+                        # Found a wall collision.
+                        return ray_out
+                    
+                # Must have changed rows instead. Check collision with y-wall
+                elif nr_new != nr_test:
+                    ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
+                    if not np.isnan(ray_out.t):
+                        # Found a wall collision.
+                        return ray_out
+                    
+                # Staying on the same section because this is the last one. Check
+                # both x- and y-walls...
+                else:
+                    # Need to subtract off an infinitesimal amount if xmax and ymax
+                    # correspond exactly to the boundary
+                    in_xgap, in_ygap = is_inside_slicer_gap(xmax-1e-15*sgnc, y_test-1e-15*sgns, p, p_custom)
+                    if in_xgap:
+                        ray_out = check_xwall_collision(ray_in, ns_test, nc_test, sgnc, p, p_custom)
+                        if not np.isnan(ray_out.t):
+                            # Found a wall collision.
+                            return ray_out
+                    elif in_ygap:
+                        ray_out = check_ywall_collision(ray_in, ns_test, nc_test, sgns, p, p_custom)
+                        if not np.isnan(ray_out.t):
+                            # Found a wall collision.
+                            return ray_out
+                    # If neither in_xgap or in_ygap are True, then a slice intersection should
+                    # have already been found so we don't need to worry about this case.
             
         nc_test = nc_new
         nr_test = nr_new

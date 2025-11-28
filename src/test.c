@@ -64,10 +64,10 @@ int main() {
     double* p_custom = (double*)malloc(10000 * sizeof(double));
     LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
     IMAGE_SLICER_PARAMS p2 = MakeSlicerParamsFromCustom(p_custom);
-    TestImageSlicerSag(fptr, p2, p_custom);
+    TestRayTrace(fptr, p);
+    //TestImageSlicerSag(fptr, p2, p_custom);
     free(p_custom);
     //TestGlobalExtrema(fptr, p);
-    //TestRayTrace(fptr, p);
 
     //double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
     //char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
@@ -120,9 +120,10 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
     RAY_IN ray_in;
     RAY_OUT ray_out;
 
-    double zmin, zmax, norm, l, m, n;
+    double zmin, zmax, umin, umax, norm, l, m, n;
     double p_custom[1] = {0};
     FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
+    GetMinMaxU(&umin, &umax, p, p_custom);
 
     int num = 2;
     double xpts[num]; double ypts[num];
@@ -144,11 +145,11 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
                         m /= norm;
                         n /= norm;
 
-                        ray_in.xt = xpts[i1]; ray_in.yt = ypts[i2];
+                        ray_in.xt = xpts[i1]; ray_in.yt = ypts[i2]; ray_in.zt = 0;
                         ray_in.l = l; ray_in.m = m; ray_in.n = n;
 
-                        //RayTraceSlicer(&ray_out, ray_in, zmin, zmax, 1,
-                        //p, p_custom);
+                        RayTraceSlicer(&ray_out, ray_in, zmin, zmax, umin, umax, 1,
+                        p, p_custom);
 
                         fprintf(fptr, "%.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f %.10f\n", xpts[i1], ypts[i2], l, m, n, ray_out.t, ray_out.ln, ray_out.mn, ray_out.nn);
                     }

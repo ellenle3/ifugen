@@ -671,6 +671,16 @@ int IsSectionInBounds(int col_num, int row_num, double umin, double umax, IMAGE_
     return 1;
 }
 
+int IsSectionValid(int col_num, int row_num, IMAGE_SLICER_PARAMS p) {
+    if (row_num < 0 || row_num >= p.n_rows) {
+        return 0;
+    }
+    if (col_num < 0 || col_num >= p.n_cols) {
+        return 0;
+    }
+    return 1;
+}
+
 void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test, int nc_test,
     IMAGE_SLICER_PARAMS p, void *p_custom) {
 
@@ -1035,71 +1045,79 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, d
                              p, p_custom, &n_stocheck, &nc_new, &nr_new);
         x_test = x_next;
         y_test = y_next;
+        
+        // Only check slices if the section is valid
+        if (IsSectionValid(nc_test, nr_test, p)) {
 
-        // Iterate slices within this section
-        for (int n = 0; n < n_stocheck; n++) {
-            // Check whether each slice is a solution to the transfer equation
-            CheckSliceSolution(ray_out, tol, ray_in, ns_test, nc_test, p, p_custom);
+            // Iterate slices within this section
+            for (int n = 0; n < n_stocheck; n++) {
+                // Check whether each slice is a solution to the transfer equation
+                CheckSliceSolution(ray_out, tol, ray_in, ns_test, nc_test, p, p_custom);
 
-            if (!isnan(ray_out->t)) {
-                return;  // Found a solution within a slice
-            }
-
-            // Before going to the next slice, check if there is a collision with
-            // a wall. Skip if this is the last slice in the section.
-            if (trace_walls && !IsLastSliceInSection(ns_test, sgns, p)) {
-                CheckYWallCollision(ray_out, ray_in, ns_test, nc_test, sgns, p, p_custom);
                 if (!isnan(ray_out->t)) {
-                    return;  // Found a wall collision
+                    return;  // Found a solution within a slice
                 }
+
+                // Before going to the next slice, check if there is a collision with
+                // a wall. Skip if this is the last slice in the section.
+                if (trace_walls && !IsLastSliceInSection(ns_test, sgns, p)) {
+                    CheckYWallCollision(ray_out, ray_in, ns_test, nc_test, sgns, p, p_custom);
+                    if (!isnan(ray_out->t)) {
+                        return;  // Found a wall collision
+                    }
+                }
+
+                // Increment the slice index
+                ns_test += sgns;
             }
 
-            // Increment the slice index
-            ns_test += sgns;
-        }
-
-        // If crossing columns, need to double check the last slice index in the
-        // next section
-        if (nc_new != nc_test) {
-            ns_test -= sgns;
+            // If crossing columns, need to double check the last slice index in the
+            // next section
+            if (nc_new != nc_test) {
+                ns_test -= sgns;
+            }
         }
 
         // Before continuing, check walls between sections.
         is_same_section = (nc_new == nc_test && nr_new == nr_test);
 
-        if (trace_walls && IsSectionInBounds(nc_new, nr_new, umin, umax, p)) {
-            if (nc_new != nc_test) {
-                // Section changed columns, check collision with x-wall
-                CheckXWallCollision(ray_out, ray_in, ns_test, nc_test, sgnc, p, p_custom);
-                if (!isnan(ray_out->t)) {
-                    return;
-                }
-            } else if (nr_new != nr_test) {
-                // Section changed rows, check collision with y-wall
-                CheckYWallCollision(ray_out, ray_in, ns_test, nc_test, sgns, p, p_custom);
-                if (!isnan(ray_out->t)) {
-                    return;
-                }
-            } else {
-                // Staying on the same section. Check both x- and y-walls...
-                int in_xgap = 0, in_ygap = 0;
-                IsInsideSlicerGap(&in_xgap, &in_ygap,
-                                  xmax - 1e-15 * sgnc, y_test - 1e-15 * sgns,
-                                  p, p_custom);
+        // If both the current and next sections are invalid, skip wall checks
+        if (IsSectionValid(nc_test, nr_test, p) || IsSectionValid(nc_new, nr_new, p)) {
 
-                if (in_xgap) {
+            if (trace_walls && IsSectionInBounds(nc_new, nr_new, umin, umax, p)) {
+                if (nc_new != nc_test) {
+                    // Section changed columns, check collision with x-wall
                     CheckXWallCollision(ray_out, ray_in, ns_test, nc_test, sgnc, p, p_custom);
                     if (!isnan(ray_out->t)) {
                         return;
                     }
-                } else if (in_ygap) {
+                } else if (nr_new != nr_test) {
+                    // Section changed rows, check collision with y-wall
                     CheckYWallCollision(ray_out, ray_in, ns_test, nc_test, sgns, p, p_custom);
                     if (!isnan(ray_out->t)) {
                         return;
                     }
+                } else {
+                    // Staying on the same section. Check both x- and y-walls...
+                    int in_xgap = 0, in_ygap = 0;
+                    IsInsideSlicerGap(&in_xgap, &in_ygap,
+                                    xmax - 1e-15 * sgnc, y_test - 1e-15 * sgns,
+                                    p, p_custom);
+
+                    if (in_xgap) {
+                        CheckXWallCollision(ray_out, ray_in, ns_test, nc_test, sgnc, p, p_custom);
+                        if (!isnan(ray_out->t)) {
+                            return;
+                        }
+                    } else if (in_ygap) {
+                        CheckYWallCollision(ray_out, ray_in, ns_test, nc_test, sgns, p, p_custom);
+                        if (!isnan(ray_out->t)) {
+                            return;
+                        }
+                    }
+                    // If neither in_xgap or in_ygap are true, then a slice intersection should
+                    // have already been found so we don't need to worry about this case.
                 }
-                // If neither in_xgap or in_ygap are true, then a slice intersection should
-                // have already been found so we don't need to worry about this case.
             }
         }
 
