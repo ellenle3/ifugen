@@ -17,9 +17,7 @@ class ImageSlicerParams:
     dbeta: float
     dgamma: float
     gamma_offset: float
-    dzps: float
-    dzp_col: float
-    dzp_row: float
+    azps: float
     dsyx: float
     dsyz: float
     dsxy: float
@@ -28,8 +26,6 @@ class ImageSlicerParams:
     alpha_cen: float
     beta_cen: float
     gamma_cen: float
-    zps_cen: float
-    zp_cen: float
     syx_cen: float
     syz_cen: float
     sxy_cen: float
@@ -158,9 +154,7 @@ def make_image_slicer_params_from_custom(p_custom):
         dbeta = 0,
         dgamma = 0,
         gamma_offset = 0,
-        dzps = 0,
-        dzp_col = 0,
-        dzp_row = 0,
+        azps = 0,
         dsyx = 0,
         dsyz = 0,
         dsxy = 0,
@@ -169,8 +163,6 @@ def make_image_slicer_params_from_custom(p_custom):
         alpha_cen = 0,
         beta_cen = 0,
         gamma_cen = 0,
-        zps_cen = 0,
-        zp_cen = 0,
         syx_cen = 0,
         syz_cen = 0,
         sxy_cen = 0,
@@ -239,7 +231,7 @@ def get_min_max_u(p, p_custom):
     # you probably want to store
     # this result so you don't have to do it every time a ray is traced
     if p.custom:
-        u_all = p_custom[9: 9 + p.n_rows]
+        u_all = p_custom[9: 9 + int(p.n_rows)]
         umax = np.max(u_all)
         umin = np.min(u_all)
         return umin, umax
@@ -275,15 +267,10 @@ def get_u_for_row(row_num, p, p_custom):
     x-axis. This needs to be computed seperately as it is used to calculate the
     column index of the slice.
     """
+    row_num = int(row_num)
     if p.custom:
         return p_custom[9 + row_num]
     
-    # Similar to get_slice_params_standard
-    if p.n_rows % 2 == 0:
-        u_extra = p.du * (row_num - (p.n_rows-1)/2)
-    else:
-        u_extra = p.du * (row_num - p.n_rows//2)
-
     # angle_mode also determines whether u should stack because the way gamma is
     # constructed on the image slicer should determine how u is constructed on the
     # subpupil mirrors. This somewhat restricts which surfaces can be defined in
@@ -293,7 +280,23 @@ def get_u_for_row(row_num, p, p_custom):
             u_extra = -p.du/2
         else:
             u_extra = p.du/2
+    
+    else:
+        # Similar to get_slice_params_standard
+        if p.n_rows % 2 == 0:
+            u_extra = p.du * (row_num - (p.n_rows-1)/2)
+        else:
+            u_extra = p.du * (row_num - p.n_rows//2)
+
+    
     return p.u_cen + u_extra
+
+def calc_zp_from_gamma(gamma, c, k):
+    """Calculates the amount to translate the slice along the z-axis (zp) to
+    remove field curvature induced by the tilt gamma.
+    """
+    sing = np.sin( np.radians(gamma) )
+    return (1/c) * sing*sing / 2
 
 def get_slice_params_standard(slice_num, col_num, p):
     """Returns slice parameters for standard mode.
@@ -322,20 +325,15 @@ def get_slice_params_standard(slice_num, col_num, p):
     slice_mid = (p.n_each - 1) / 2 if p.n_each % 2 == 0 else p.n_each // 2
     offset_row = row_num - row_mid
     offset_col = col_num - col_mid
-    offset_slice = slice_num_row - slice_mid
 
     alpha = p.alpha_cen + p.dalpha * offset_row
     syx = p.syx_cen + p.dsyx * offset_row
     syz = p.syz_cen + p.dsyz * offset_row
-    zp = p.zp_cen + p.dzp_row * offset_row
     gamma_extra = p.gamma_offset * offset_row
 
     beta = p.beta_cen + p.dbeta * offset_col
     sxy = p.sxy_cen + p.dsxy * offset_col
     sxz = p.sxz_cen + p.dsxz * offset_col
-    zp += p.dzp_col * offset_col
-
-    zp += p.zps_cen + p.dzps * offset_slice
 
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
@@ -366,7 +364,8 @@ def get_slice_params_standard(slice_num, col_num, p):
     # Copy the same angle pattern as the central row
     elif (p.angle_mode == 1 or p.angle_mode == 3):
         gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
-    
+        
+    zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)
     return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
 
 def make_image_slicer(x, y, p, p_custom):
@@ -483,8 +482,8 @@ def find_global_extrema_slicer(umin, umax, p, p_custom):
     # Determine which slice the global extrema are on. To do this, roughly sample
     # the entire image slicer.
     xsize, ysize = get_slicer_size(p)
-    nx = p.n_cols * 6
-    ny = p.n_rows * p.n_each * 8
+    nx = int(p.n_cols * 6)
+    ny = int(p.n_rows * p.n_each * 8)
     xpts = np.linspace(-xsize/2+umin, xsize/2+umax, nx)
     ypts = np.linspace(-ysize/2, ysize/2, ny)
 

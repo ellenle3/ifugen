@@ -8,6 +8,8 @@
         "system_error": "c",
         "random": "c",
         "cmath": "c",
-        "slicer_generation.h": "c"
+        "slicer_generation.h": "c",
+        "custom_slicer_helpers.h": "c",
+        "stdio.h": "c"
     }
 }
