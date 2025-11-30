@@ -320,13 +320,16 @@ double GetUForRow(int row_num, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     return p.u_cen + u_extra;
 }
 
-double CalcZpFromGamma(double gamma, double c, double k) {
-    double gamma_rad = gamma * M_PI / 180.0;
-    double sing = sin(gamma_rad);
-    if (c == 0) {
+double CalcZpFromGamma(double gamma, double cv, double k) {
+    if (cv == 0) {
         return 0;
     }
-    return 1/c * sing*sing / 2;
+    double gamma_rad = gamma * M_PI / 180.0;
+    double sing = sin(gamma_rad);
+    if (cv == 0) {
+        return 0;
+    }
+    return 1/cv * sing*sing / 2;
 }
 
 // For a given column, row indices determine the angles alpha, beta, and gamma.
@@ -339,7 +342,7 @@ double CalcZpFromGamma(double gamma, double c, double k) {
 // between rows. If the mode is 1, then gamma is incremented the same way in every
 // section. If 0, then sign of dgamma is flipped so that pattern is alternated
 // like a staircase.
-SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PARAMS p) {
+SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PARAMS_ANGULAR p) {
     // Get row number and the subindex of the slice within that row
     int row_num = floor((double)slice_num / p.n_each);
     int slice_num_row = slice_num % p.n_each;
@@ -368,13 +371,8 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     // If n_rows is even, there are 2 rows straddling the x=0 center line,
     // Set the "central row" to the one above the x-axis (+y direction),
     double gamma_bot, gamma_top;
-    if (p.n_each % 2 == 0) {
-        gamma_bot = p.gamma_cen - p.dgamma * (p.n_each - 1) / 2.0;
-        gamma_top = p.gamma_cen + p.dgamma * (p.n_each - 1) / 2.0;
-    } else {
-        gamma_bot = p.gamma_cen - p.dgamma * (p.n_each / 2);
-        gamma_top = p.gamma_cen + p.dgamma * (p.n_each / 2);
-    }
+    gamma_bot = p.gamma_cen - p.dgamma * slice_mid;
+    gamma_top = p.gamma_cen + p.dgamma * slice_mid;
 
     // Determine offsets in gamma. First, check whether the mode allows the extra
     // offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
@@ -396,6 +394,76 @@ SLICE_PARAMS GetSliceParamsStandard(int slice_num, int col_num, IMAGE_SLICER_PAR
     } else if (p.angle_mode == 1 || p.angle_mode == 3) {
         pslice.gamma = gamma_bot + slice_num_row * p.dgamma + gamma_extra;
     }
+
+    pslice.zp = p.azps * CalcZpFromGamma(pslice.gamma, p.cv, p.k);
+
+    // Constant values for all slices
+    pslice.cv = p.cv;
+    pslice.k  = p.k;
+
+    return pslice;
+}
+
+SLICE_PARAMS GetSliceParamsStandardLinear(int slice_num, int col_num, IMAGE_SLICER_PARAMS_LINEAR p) {
+    // Get row number and the subindex of the slice within that row
+    int row_num = floor((double)slice_num / p.n_each);
+    int slice_num_row = slice_num % p.n_each;
+    SLICE_PARAMS pslice;
+
+    // Get u value
+    pslice.u = GetUForRow(row_num, p, NULL);  // assuming p_custom not needed
+
+    double row_mid = (p.n_rows % 2 == 0) ? (p.n_rows - 1) / 2.0 : p.n_rows / 2;
+    double col_mid = (p.n_cols % 2 == 0) ? (p.n_cols - 1) / 2.0 : p.n_cols / 2;
+    double slice_mid = (p.n_each % 2 == 0) ? (p.n_each - 1) / 2.0 : p.n_each / 2;
+    double offset_row = row_num - row_mid;
+    double offset_col = col_num - col_mid;
+
+    double y0, x0, d, d_extra;
+
+    y0 = p.y0_cen + p.dy0 * offset_row;
+    pslice.syx = p.syx_cen + p.dsyx * offset_row;
+    pslice.syz = p.syz_cen + p.dsyz * offset_row;
+    d_extra = p.d_offset * offset_row;
+    
+    x0 = p.x0_cen + p.dx0 * offset_col;
+    pslice.sxy = p.sxy_cen + p.dsxy * offset_col;
+    pslice.sxz = p.sxz_cen + p.dsxz * offset_col;
+
+    // Get the angles of the bottom- and top-most slices of the central row,
+    // If n_rows is even, there are 2 rows straddling the x=0 center line,
+    // Set the "central row" to the one above the x-axis (+y direction),
+    double d_bot, d_top;
+    d_bot = p.d_cen - p.dd * slice_mid;
+    d_top = p.d_cen + p.dd * slice_mid;
+
+    // Determine offsets in gamma. First, check whether the mode allows the extra
+    // offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
+    if (p.angle_mode == 2 || p.angle_mode == 3) {
+        // gamma_offset does not stack
+        d_extra = (row_num % 2 == 0) ? -p.d_offset / 2.0 : p.d_offset / 2.0;
+    }
+
+    // Staircase mode, need to alternate which direction gamma is incremented in
+    if (p.angle_mode == 0 || p.angle_mode == 2) {
+        if (row_num % 2 == 0) {
+            // If the row is even, the angles are the same as the central row
+            d = d_bot + slice_num_row * p.dd + d_extra;
+        } else {
+            // If odd, the top/bottom angles are flipped
+            d = d_top - slice_num_row * p.dd + d_extra;
+        }
+    // Not staircase - copy the same angle pattern as the central row
+    } else if (p.angle_mode == 1 || p.angle_mode == 3) {
+        d = d_bot + slice_num_row * p.dd + d_extra;
+    }
+    double f;
+    if (p.cv == 0) f = p.f;
+    else f = 1 / (2*p.cv);
+
+    pslice.alpha = atan( y0 / f ) * 180.0 / M_PI;
+    pslice.beta  = atan( x0 / f ) * 180.0 / M_PI;
+    pslice.gamma = atan( d / f ) * 180.0 / M_PI;
 
     pslice.zp = p.azps * CalcZpFromGamma(pslice.gamma, p.cv, p.k);
 

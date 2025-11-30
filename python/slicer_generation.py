@@ -41,6 +41,43 @@ class ImageSlicerParams:
     gy_depth: float
 
 @dataclass
+class ImageSlicerParamsLinear:
+    """Class for storing image slicer params."""
+    custom: int
+    surface_type: int
+    n_each: int
+    n_rows: int
+    n_cols: int
+    angle_mode: int
+    dy0: float
+    dx0: float
+    dd: float
+    d_offset: float
+    azps: float
+    dsyx: float
+    dsyz: float
+    dsxy: float
+    dsxz: float
+    du: float
+    y0_cen: float
+    x0_cen: float
+    d_cen: float
+    syx_cen: float
+    syz_cen: float
+    sxy_cen: float
+    sxz_cen: float
+    u_cen: float
+    dx: float
+    dy: float
+    c: float
+    k: float
+    f: float
+    gx_width: float
+    gx_depth: float
+    gy_width: float
+    gy_depth: float
+
+@dataclass
 class RayBounds:
     """Class for storing the bounds of a ray."""
     nc_min: int
@@ -104,6 +141,11 @@ def validate_slicer_params(p):
     if p.gy_width < 0:
         p.gy_width = 0
         is_valid = False
+
+    if isinstance(p, ImageSlicerParamsLinear):
+        if p.f == 0:
+            p.f = 1
+            is_valid = False
     
     # Gap depths can also be whatever, no limitations on c or k either
     return is_valid
@@ -260,6 +302,8 @@ def get_slice_params(slice_num, col_num, p, p_custom):
     """
     if p.custom:
         return get_slice_params_custom(slice_num, col_num, p_custom)
+    if isinstance(p, ImageSlicerParamsLinear):
+        return get_slice_params_standard_linear(slice_num, col_num, p)
     return get_slice_params_standard(slice_num, col_num, p) 
 
 def get_u_for_row(row_num, p, p_custom):
@@ -295,6 +339,8 @@ def calc_zp_from_gamma(gamma, c, k):
     """Calculates the amount to translate the slice along the z-axis (zp) to
     remove field curvature induced by the tilt gamma.
     """
+    if c == 0:
+        return 0
     sing = np.sin( np.radians(gamma) )
     return (1/c) * sing*sing / 2
 
@@ -315,7 +361,7 @@ def get_slice_params_standard(slice_num, col_num, p):
     """
     # Get row number as well as the subindex of the slice on that row
     row_num = slice_num // p.n_each
-    slice_num_row = slice_num - row_num*p.n_each
+    slice_num_row = slice_num % p.n_each
     # Set the angle beta for each row
     alpha, beta, gamma = 0, 0, 0
     u = get_u_for_row(row_num, p, [])
@@ -338,12 +384,8 @@ def get_slice_params_standard(slice_num, col_num, p):
     # Get the angles of the bottom- and top-most slices of the central row
     # If n_rows is even, there are 2 rows straddling the x=0 center line
     # Set the "central row" to the one above the x-axis (+y direction)
-    if p.n_each % 2 == 0:
-        gamma_bot = p.gamma_cen - p.dgamma*(p.n_each-1)/2
-        gamma_top = p.gamma_cen + p.dgamma*(p.n_each-1)/2
-    else:
-        gamma_bot = p.gamma_cen - p.dgamma*(p.n_each//2)
-        gamma_top = p.gamma_cen + p.dgamma*(p.n_each//2)
+    gamma_bot = p.gamma_cen - p.dgamma * slice_mid
+    gamma_top = p.gamma_cen + p.dgamma * slice_mid
 
     # Determine offsets in gamma. First, check whether the mode allows the extra
     # offsets to stack or not. If no, then set gamma_extra to repeat every 2 rows.
@@ -367,6 +409,75 @@ def get_slice_params_standard(slice_num, col_num, p):
         
     zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)
     return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
+
+def get_slice_params_standard_linear(slice_num, col_num, p):
+    """Returns slice parameters for standard mode.
+
+    Parameters
+    ----------
+    slice_num: int
+        Slice index within an column.
+    col_num: int
+        Column index.
+    
+    Returns
+    -------
+    out: SliceParams
+        Parameters of this slice.
+    """
+    # Get row number as well as the subindex of the slice on that row
+    row_num = slice_num // p.n_each
+    slice_num_row = slice_num % p.n_each
+    # Set the angle beta for each row
+    x0, y0, d = 0, 0, 0
+    u = get_u_for_row(row_num, p, [])
+
+    row_mid = (p.n_rows - 1) / 2 if p.n_rows % 2 == 0 else p.n_rows // 2
+    col_mid = (p.n_cols - 1) / 2 if p.n_cols % 2 == 0 else p.n_cols // 2
+    slice_mid = (p.n_each - 1) / 2 if p.n_each % 2 == 0 else p.n_each // 2
+    offset_row = row_num - row_mid
+    offset_col = col_num - col_mid
+
+    y0 = p.y0_cen + p.dy0 * offset_row
+    syx = p.syx_cen + p.dsyx * offset_row
+    syz = p.syz_cen + p.dsyz * offset_row
+    d_extra = p.d_offset * offset_row
+
+    x0 = p.x0_cen + p.dx0 * offset_col
+    sxy = p.sxy_cen + p.dsxy * offset_col
+    sxz = p.sxz_cen + p.dsxz * offset_col
+
+    d_bot = p.d_cen - p.dd * slice_mid
+    d_top = p.d_cen + p.dd * slice_mid
+
+    if (p.angle_mode == 2 or p.angle_mode == 3):
+        if row_num % 2 == 0:
+            d_extra = -p.d_offset/2
+        else:
+            d_extra = p.d_offset/2
+
+    if (p.angle_mode == 0 or p.angle_mode == 2):
+        # If the row is even, the angles are the same as the central row
+        # If odd, the top/bottom angles are flipped
+        if row_num % 2 == 0:
+            d = d_bot + slice_num_row*p.dd + d_extra
+        else:
+            d = d_top - slice_num_row*p.dd + d_extra
+    # Copy the same angle pattern as the central row
+    elif (p.angle_mode == 1 or p.angle_mode == 3):
+        d = d_bot + slice_num_row*p.dd + d_extra
+
+    if p.c == 0:
+        f = p.f
+    else:
+        f = 1 / (2*p.c)
+    alpha = math.degrees( math.atan( y0 / f ) )
+    beta = math.degrees( math.atan( x0 / f ) )
+    gamma = math.degrees( math.atan( d / f ) )
+
+    zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)
+    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
+
 
 def make_image_slicer(x, y, p, p_custom):
     """Returns the sag of the image slicer at a given x, y.
