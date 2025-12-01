@@ -20,7 +20,6 @@ typedef struct {
 } SLICE_PARAMS;
 
 /** Function pointers */                                                                
-typedef double (*SAG_FUNC)(double, double, SLICE_PARAMS);
 typedef double (*TRANSFER_DIST_FUNC)(double, double, double, double, double, double, SLICE_PARAMS);
 typedef void (*SURF_NORMAL_FUNC)(double*, double*, double*, double, double, SLICE_PARAMS, int);
 typedef void (*CRITICAL_XY_FUNC)(double*, double*, SLICE_PARAMS);

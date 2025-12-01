@@ -103,11 +103,11 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     fclose(file);
 }
 
-SLICE_PARAMS GetSliceParams(int slice_num, int col_num, IMAGE_SLICER_PARAMS_BASIC p_basic, double p_custom[]) {
+SLICE_PARAMS GetSliceParams(int slice_num, int col_num, double p_custom[]) {
     SLICE_PARAMS slice = {0};  // Initialize all fields to zero
-    int n_each = p_basic.n_each;
-    int n_rows = p_basic.n_rows;
-    int n_cols = p_basic.n_cols;
+    int n_rows = (int)p_custom[0];
+    int n_cols = (int)p_custom[1];
+    int n_each = (int)p_custom[2];
 
     // Safety check
     if (slice_num < 0 || slice_num >= n_rows * n_each || col_num < 0 || col_num >= n_cols) {
@@ -354,12 +354,18 @@ void MakeSliceParamsArrayAngular(double p_custom[], IMAGE_SLICER_PARAMS_ANGULAR 
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
+
         for (int row = 0; row < n_rows; row++) {
-            u = p_custom[NUM_BASE_PARAMS + row];
+
             for (int subidx = 0; subidx < n_each; subidx++) {
                 slice_num = subidx + row * n_each;
                 slice_idx = slice_num + col * n_rows * n_each;
                 SLICE_PARAMS pslice = GetSliceParamsAngular(slice_num, col, p);
+                if (subidx == 0 && col == 0) {
+                    // Store u values only once per row
+                    p_custom[NUM_BASE_PARAMS + row] = pslice.u;
+                }
+
                 base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
                 p_custom[base_idx]     = pslice.alpha;
                 p_custom[base_idx + 1] = pslice.beta;
@@ -403,12 +409,18 @@ void MakeSliceParamsArrayLinear(double p_custom[], IMAGE_SLICER_PARAMS_LINEAR p)
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
+
         for (int row = 0; row < n_rows; row++) {
-            u = p_custom[NUM_BASE_PARAMS + row];
+
             for (int subidx = 0; subidx < n_each; subidx++) {
                 slice_num = subidx + row * n_each;
                 slice_idx = slice_num + col * n_rows * n_each;
                 SLICE_PARAMS pslice = GetSliceParamsLinear(slice_num, col, p);
+                if (subidx == 0 && col == 0) {
+                    // Store u values only once per row
+                    p_custom[NUM_BASE_PARAMS + row] = pslice.u;
+                }
+
                 base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
                 p_custom[base_idx]     = pslice.alpha;
                 p_custom[base_idx + 1] = pslice.beta;

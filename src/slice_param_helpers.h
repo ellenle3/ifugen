@@ -101,7 +101,7 @@ typedef struct {
 
 void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]);
 
-SLICE_PARAMS GetSliceParams(int slice_num, int col_num, IMAGE_SLICER_PARAMS_BASIC p_basic, double p_custom[]);
+SLICE_PARAMS GetSliceParams(int slice_num, int col_num, double p_custom[]);
 
 double GetUForRow(int row_num, double p_custom[]);
 

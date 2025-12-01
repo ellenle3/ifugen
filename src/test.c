@@ -4,6 +4,7 @@
 #include "slicer_generation.h"
 #include "surface_solns.h"
 #include "slice_param_helpers.h"
+#include "triangles.h"
 
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
@@ -11,6 +12,82 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
+
+    FILE* fptr = fopen("triangles.txt", "w+");
+
+    if (fptr==NULL) {
+        printf("The file could not be opened.");
+        return 1;
+    }
+    
+    // Set up the image slicer
+
+    IMAGE_SLICER_PARAMS_ANGULAR p = {
+        .surface_type = 0,
+        .n_each = 2,
+        .n_rows = 2,
+        .n_cols = 3,
+        .angle_mode = 3,
+
+        .dalpha = 0,
+        .dbeta = 0,
+        .dgamma = 10,
+        .gamma_offset = 0,
+
+        .azps = 0,
+        .dsyx = 0,
+        .dsyz = 0,
+        .dsxy = 0,
+        .dsxz = 0,
+        .du = 4,
+
+        .alpha_cen = 0,
+        .beta_cen = 0,
+        .gamma_cen = 0,
+        .syx_cen = 0,
+        .syz_cen = 0,
+        .sxy_cen = 0,
+        .sxz_cen = 0,
+        .u_cen = 0,
+
+        .dx = 6,
+        .dy = 1,
+        .gx_width = 1,
+        .gx_depth = 1,
+        .gy_width = 1,
+        .gy_depth = 2,
+        .cv = -0.03,
+        .k = 0
+    };
+
+    double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
+    //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
+    MakeSliceParamsArrayAngular(p_custom, p);
+    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    int Nx = 2;
+    int Ny = 2;
+    int Ntotal = CalcNumTriangles(p_basic, Nx, Ny);
+    double* tri_list = (double*)malloc(Ntotal * 10 * sizeof(double));
+    int num_triangles = 0;
+    MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, p_basic, p_custom);
+
+    for (int i = 0; i < num_triangles; i++) {
+    int base = i * 10;
+    fprintf(fptr, "%f,%f,%f,%f,%f,%f,%f,%f,%f,%d\n",
+        tri_list[base+0], tri_list[base+1], tri_list[base+2],
+        tri_list[base+3], tri_list[base+4], tri_list[base+5],
+        tri_list[base+6], tri_list[base+7], tri_list[base+8],
+        (int)tri_list[base+9]);
+    }
+
+
+    free(p_custom);
+    free(tri_list);
+    fclose(fptr);
+    return 0;
+}
+
+int main_stdmode() {
     FILE* fptr = fopen("test_output.txt", "w+");
 
     if (fptr==NULL) {
@@ -63,7 +140,7 @@ int main() {
     MakeSliceParamsArrayAngular(p_custom, p);
     IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
-    SLICE_PARAMS pslice = GetSliceParams(9, 0, p_basic, p_custom); // Test function call
+    SLICE_PARAMS pslice = GetSliceParams(9, 0, p_custom); // Test function call
     //SLICE_PARAMS pslice = GetSliceParamsAngular(2, 0, p); // Test function call
     TestRayTrace(fptr, p_basic, p_custom);
     //TestImageSlicerSag(fptr, p_basic, p_custom);
@@ -79,6 +156,7 @@ int main() {
     //TestGlobalExtrema(fptr, p);
 
     fclose(fptr);
+    return 0;
 }
 
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {

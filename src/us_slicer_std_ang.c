@@ -369,11 +369,11 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
          SetSlicerParamsFromFD(&p, FD);
-         ValidateSlicerParamsAngular(&p); // prevent illegal values - not allowed to modify FD here... causes it to crash
-         MakeSliceParamsArrayAngular(p_custom, p);
+         ValidateSlicerParamsAngular(&p); // prevent illegal values - not allowed to modify FD here... causes it to crash 
 
          if ( !IsParametersEqualAngular(p, P_OLD) ) {
             // Update global extrema
+            MakeSliceParamsArrayAngular(p_custom, p);
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
             GetMinMaxU(&UMIN, &UMAX, p, p_custom);
             P_OLD = p;

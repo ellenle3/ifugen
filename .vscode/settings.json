@@ -11,6 +11,8 @@
         "slicer_generation.h": "c",
         "custom_slicer_helpers.h": "c",
         "stdio.h": "c",
-        "atomic": "c"
+        "atomic": "c",
+        "slice_param_helpers.h": "c",
+        "string.h": "c"
     }
 }
