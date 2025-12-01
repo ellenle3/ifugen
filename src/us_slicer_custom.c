@@ -7,19 +7,12 @@
 #include "usersurf.h"
 #include "slicer_generation.h"
 #include "surface_solns.h"
-#include "custom_slicer_helpers.h"
+#include "slice_param_helpers.h"
 
 /*
 Ellen Lee
 Feb 2025
 */
-
-// The maximum number of slices that can be defined in the params file. This is
-// to prevent the param array from becoming excessively large. Set limit is
-// 2000 * 2000 slices. This is probably way more than anyone would ever need...
-// 8 bytes per double * 10 doubles per slice * (1000^2) slices = 80 MB.
-// Plus 9 elements for the first 9 parameters + offsets for 1000 rows.
-#define MAX_ELEMENTS 10001009
 
 // Maximum number of characters in any path string
 #define MAX_PATH_LENGTH 512
@@ -53,6 +46,9 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
          if (p_custom == NULL) {
             MessageBoxA(NULL, "Memory allocation failed for custom slice parameters", "Error", MB_OK);
             return FALSE;
+         }
+         for (int i = 0; i < MAX_ELEMENTS; i++) {
+             p_custom[i] = 0.0;
          }
 
          // Get the absolute directory of the current DLL file
@@ -108,8 +104,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    int file_num = FD->param[3];
 
    // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS p = MakeSlicerParamsFromCustom(p_custom);
-   ValidateSlicerParams(&p);
+   IMAGE_SLICER_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
+   ValidateBasicParams(&p);
    p.custom = 1;
 
    switch(FD->type)
@@ -261,7 +257,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
             FILE_NUM_OLD = file_num;
          };
 
-         ValidateSlicerParams(&p);
+         ValidateBasicParams(&p);
          break;
 
       case 9:

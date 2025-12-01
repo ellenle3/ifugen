@@ -3,13 +3,11 @@
 #include <math.h>
 #include "slicer_generation.h"
 #include "surface_solns.h"
-#include "custom_slicer_helpers.h"
+#include "slice_param_helpers.h"
 
-#define MAX_ELEMENTS 6250009
-
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]);
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p);
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p);
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
@@ -22,8 +20,7 @@ int main() {
     
     // Set up the image slicer
 
-    IMAGE_SLICER_PARAMS p = {
-        .custom = 0,
+    IMAGE_SLICER_PARAMS_ANGULAR p = {
         .surface_type = 0,
         .n_each = 4,
         .n_rows = 3,
@@ -32,7 +29,7 @@ int main() {
 
         .dalpha = 0,
         .dbeta = 0,
-        .dgamma = 2,
+        .dgamma = 5,
         .gamma_offset = 0,
 
         .azps = 0,
@@ -61,25 +58,27 @@ int main() {
         .k = 0
     };
 
-    double* p_custom = (double*)malloc(10000 * sizeof(double));
-    LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
-    IMAGE_SLICER_PARAMS p2 = MakeSlicerParamsFromCustom(p_custom);
-    TestRayTrace(fptr, p);
-    //TestImageSlicerSag(fptr, p2, p_custom);
+    double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
+    //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
+    MakeSliceParamsArrayAngular(p_custom, p);
+    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    TestRayTrace(fptr, p_basic, p_custom);
+    //TestImageSlicerSag(fptr, p_basic, p_custom);
+
+    int array_size = 9 + p_basic.n_rows + NUM_PARAMS_PER_SLICE * p_basic.n_rows * p_basic.n_cols;
+    FILE *file = fopen("test_output-2.txt", "wb");
+    for (int i = 0; i < array_size; i++) {
+        fprintf(file, "%.10f\n", p_custom[i]);
+    }
+    fclose(file);
+
     free(p_custom);
     //TestGlobalExtrema(fptr, p);
-
-    //double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
-    //char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
-    //LoadCustomParamsFromFile(params, 1, params_dir, MAX_ELEMENTS);
-    //p = MakeSlicerParamsFromCustom(params);
-
-    //TestImageSlicerSag(fptr, p, params);
 
     fclose(fptr);
 }
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]) {
+void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
     
     // Compute test function over an array of points and save to a TXT file
     double xsize, ysize;
@@ -91,11 +90,6 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     linspace(xpts, -xsize/2 - 3, xsize/2 + 3, nx);
     linspace(ypts, -ysize/2 - 3, ysize/2 + 3, ny);
 
-    // for (int i = 0; i < nx; i++) {
-    //     output = ImageSlicerSag(xpts[i], ysize/2, p, p_custom);
-    //     fprintf(fptr, "%.10f %.10f %.10f\n", xpts[i], ysize/2, output);
-    // }
-
     int nc, ns;
     for (int i = 0; i < nx; i++) {
         for (int j = 0; j < ny; j++) {
@@ -106,22 +100,20 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS p, double p_custom[]) {
     }
 }
 
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS p) {
-    
+void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+
     double zmin, zmax;
-    double p_custom[1] = {0};
     FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
     fprintf(fptr, "%.10f %.10f\n", zmin, zmax);
 
 }
 
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
+void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
 
     RAY_IN ray_in;
     RAY_OUT ray_out;
 
     double zmin, zmax, umin, umax, norm, l, m, n;
-    double p_custom[1] = {0};
     FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
     GetMinMaxU(&umin, &umax, p, p_custom);
 
@@ -162,7 +154,7 @@ void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS p) {
 void TestLoadCustomParams(FILE* fptr, int file_num) {
     double* params = (double *)calloc(MAX_ELEMENTS, sizeof(double));
     char params_dir[] = "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/";
-    LoadCustomParamsFromFile(params, file_num, params_dir, MAX_ELEMENTS);
+    LoadCustomParamsFromFile(params, file_num, params_dir);
 
     int n_slices_per_col = params[0];
     int n_cols = params[1];
