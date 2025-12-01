@@ -24,14 +24,14 @@ int main() {
 
     IMAGE_SLICER_PARAMS_ANGULAR p = {
         .surface_type = 0,
-        .n_each = 2,
-        .n_rows = 2,
-        .n_cols = 3,
-        .angle_mode = 3,
+        .n_each = 1,
+        .n_rows = 3,
+        .n_cols = 12,
+        .angle_mode = 2,
 
-        .dalpha = 0,
-        .dbeta = 0,
-        .dgamma = 10,
+        .dalpha = 5,
+        .dbeta = 2,
+        .dgamma = 1,
         .gamma_offset = 0,
 
         .azps = 0,
@@ -39,7 +39,7 @@ int main() {
         .dsyz = 0,
         .dsxy = 0,
         .dsxz = 0,
-        .du = 4,
+        .du = 1.5,
 
         .alpha_cen = 0,
         .beta_cen = 0,
@@ -48,13 +48,13 @@ int main() {
         .syz_cen = 0,
         .sxy_cen = 0,
         .sxz_cen = 0,
-        .u_cen = 0,
+        .u_cen = 1,
 
-        .dx = 6,
-        .dy = 1,
-        .gx_width = 1,
+        .dx = 3,
+        .dy = 6,
+        .gx_width = 0,
         .gx_depth = 1,
-        .gy_width = 1,
+        .gy_width = 0,
         .gy_depth = 2,
         .cv = -0.03,
         .k = 0
@@ -64,12 +64,12 @@ int main() {
     //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
     MakeSliceParamsArrayAngular(p_custom, p);
     IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
-    int Nx = 2;
-    int Ny = 2;
+    int Nx = 5;
+    int Ny = 3;
     int Ntotal = CalcNumTriangles(p_basic, Nx, Ny);
     double* tri_list = (double*)malloc(Ntotal * 10 * sizeof(double));
     int num_triangles = 0;
-    MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, p_basic, p_custom);
+    MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, 1.5, p_basic, p_custom);
 
     for (int i = 0; i < num_triangles; i++) {
     int base = i * 10;
@@ -80,6 +80,7 @@ int main() {
         (int)tri_list[base+9]);
     }
 
+    TrianglesToSTL(tri_list, num_triangles, "test_output.stl");
 
     free(p_custom);
     free(tri_list);

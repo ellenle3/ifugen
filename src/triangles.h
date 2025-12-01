@@ -36,7 +36,15 @@ typedef struct {
 
 int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny);
 
-void CrossoverPoint(double *wc, double* zc, LINE line1, LINE line2);
+static void CrossoverPoint(double *wc, double* zc, LINE line1, LINE line2);
+
+static int IsPointsEqual(POINT3D p1, POINT3D p2);
+
+static POINT3D CrossProduct(POINT3D u, POINT3D v);
+
+static POINT3D Normalize(POINT3D v);
+
+int IsValidTriangle(POINT3D p1, POINT3D p2, POINT3D p3);
 
 void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet);
 
@@ -68,7 +76,7 @@ void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx
  * @param p_custom Custom slice parameters.
  */
 void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p);
+    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p);
 
 /**
  * @brief Generates triangles for walls along the x-direction.
@@ -86,26 +94,25 @@ void MakeYWallTriangles(double *tri_list, int *num_triangles, double slice_grid[
  * @brief Generates triangles for gaps along the x-direction.
  */
 void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p);
+    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p);
 
 /**
  * @brief Generates triangles for gaps along the y-direction.
  */
 void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p);
+    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p);
 
 void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p);
+    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p);
 
-/**
- * @brief Generates triangles for the outer shell.
- */
-void MakeShellTriangles(double *tri_list, int *num_triangles, double slice_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p);
+double CalcZBack(double *tri_list, int *num_triangles, double slice_grid[],
+    int Nx, int Ny, double zdiff, IMAGE_SLICER_PARAMS_BASIC p);
 
 /**
  * @brief Generates all triangles for the image slicer.
  */
-void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int Ny, double zdiff,
+    IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Converts the triangle list to an STL file.

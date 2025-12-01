@@ -147,6 +147,18 @@ double GetUForRow(int row_num, double p_custom[]) {
     return p_custom[NUM_BASE_PARAMS + row_num];
 }
 
+// Check whether all rows have the same u value for triangle generation
+int IsAllRowsAligned(double p_custom[]) {
+    int n_rows = (int)p_custom[0];
+    double first_u = p_custom[NUM_BASE_PARAMS];
+    for (int i = 1; i < n_rows; i++) {
+        if (p_custom[NUM_BASE_PARAMS + i] != first_u) {
+            return 0; // Found a row with different u value
+        }
+    }
+    return 1; // All rows have the same u value
+}
+
 IMAGE_SLICER_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]) {
     IMAGE_SLICER_PARAMS_BASIC p_basic;
     p_basic.n_rows = (int)p_custom[0];

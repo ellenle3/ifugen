@@ -105,6 +105,8 @@ SLICE_PARAMS GetSliceParams(int slice_num, int col_num, double p_custom[]);
 
 double GetUForRow(int row_num, double p_custom[]);
 
+int IsAllRowsAligned(double p_custom[]);
+
 IMAGE_SLICER_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]);
 
 int ValidateBasicParams(IMAGE_SLICER_PARAMS_BASIC* p);
