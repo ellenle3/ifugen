@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include "slice_param_helpers.h"
 
+_Static_assert(NUM_BASE_PARAMS == 10, "slice_params_helpers.c requires that NUM_BASE_PARAMS is 10.");
+_Static_assert(NUM_PARAMS_PER_SLICE == 10, "slice_params_helpers.c requires that NUM_PARAMS_PER_SLICE is 10.");
+
 // assumes that p_custom[] is malloced for MAX_ELEMENTS
 void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]) {
     if (file_num > 9999 || file_num < -999) {
@@ -42,7 +45,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     }
 
     int num_slices = n_rows * n_cols;
-    int array_size = 9 + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
+    int array_size = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
     if (array_size > MAX_ELEMENTS) {
         printf("Error: Number of entries exceeds maximum limit of %d\n", MAX_ELEMENTS);
         fclose(file);
@@ -52,24 +55,26 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     // Zero-initialize array
     for (int i = 0; i < array_size; i++) p_custom[i] = 0.0;
 
-    // Store first 9 entries
+    // Store first 10 entries
     p_custom[0] = (double)n_rows;
     p_custom[1] = (double)n_cols;
-    p_custom[2] = (double)surface_type;
-    p_custom[3] = dx;
-    p_custom[4] = dy;
-    p_custom[5] = gx_width;
-    p_custom[6] = gx_depth;
-    p_custom[7] = gy_width;
-    p_custom[8] = gy_depth;
+    p_custom[2] = 1;  // n_each is always 1 when reading from a TXT file
+    p_custom[3] = (double)surface_type;
+    p_custom[4] = dx;
+    p_custom[5] = dy;
+    p_custom[6] = gx_width;
+    p_custom[7] = gx_depth;
+    p_custom[8] = gy_width;
+    p_custom[9] = gy_depth;
+    //number of params above must match NUM_BASE_PARAMS
 
     // Read third line: u values
     for (int i = 0; i < n_rows; i++) {
         double u_val;
         if (fscanf(file, "%lf", &u_val) == 1) {
-            p_custom[9 + i] = u_val;
+            p_custom[NUM_BASE_PARAMS + i] = u_val;
         } else {
-            p_custom[9 + i] = 0.0; // missing values default to zero
+            p_custom[NUM_BASE_PARAMS + i] = 0.0; // missing values default to zero
         }
     }
 
@@ -79,7 +84,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     for (int slice_idx = 0; slice_idx < num_slices; slice_idx++) {
         if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
                 &alpha, &beta, &gamma, &cv, &k, &zp, &syx, &syz, &sxy, &sxz) == 10) {
-            base_idx = 9 + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
+            base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
             p_custom[base_idx]     = alpha;
             p_custom[base_idx + 1] = beta;
             p_custom[base_idx + 2] = gamma;
@@ -98,29 +103,32 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     fclose(file);
 }
 
-SLICE_PARAMS GetSliceParams(int row_num, int col_num, double p_custom[]) {
+SLICE_PARAMS GetSliceParams(int slice_num, int col_num, IMAGE_SLICER_PARAMS_BASIC p_basic, double p_custom[]) {
     SLICE_PARAMS slice = {0};  // Initialize all fields to zero
-    int n_rows = (int)p_custom[0];
-    int n_cols = (int)p_custom[1];
+    int n_each = p_basic.n_each;
+    int n_rows = p_basic.n_rows;
+    int n_cols = p_basic.n_cols;
 
     // Safety check
-    if (row_num < 0 || row_num >= n_rows || col_num < 0 || col_num >= n_cols) {
-        printf("Error: Requested slice (%d, %d) out of bounds (%d, %d)\n",
-            row_num, col_num, n_rows, n_cols);
+    if (slice_num < 0 || slice_num >= n_rows * n_each || col_num < 0 || col_num >= n_cols) {
+        printf("Requested slice (%d, %d) out of bounds (%d, %d)\n",
+            slice_num, col_num, n_rows * n_each, n_cols);
         return slice;  // Return zeroed slice on error
     }
 
-    int u_start_idx = 9;
-    int slice_params_start_idx = 9 + n_rows;
+    int u_start_idx = NUM_BASE_PARAMS;
+    int slice_params_start_idx = NUM_BASE_PARAMS + n_rows;
 
-    // Compute the 1D index of the slice in the flattened array (row-major)
-    int row_idx = row_num + col_num * n_rows;
+    // Compute the 1D index of the slice in the flattened array. slice_num is the
+    // local index within the column while slice_idx is the global index.
+    int slice_idx = slice_num + col_num * n_rows * n_each;
+    int row_num = floor((double)slice_num / n_each);
 
     // Get the u value for this row
     slice.u = p_custom[u_start_idx + row_num];
 
     // Get the 10 slice parameters
-    int base_idx = slice_params_start_idx + NUM_PARAMS_PER_SLICE * row_idx;
+    int base_idx = slice_params_start_idx + NUM_PARAMS_PER_SLICE * slice_idx;
     slice.alpha = p_custom[base_idx];
     slice.beta  = p_custom[base_idx + 1];
     slice.gamma = p_custom[base_idx + 2];
@@ -136,22 +144,22 @@ SLICE_PARAMS GetSliceParams(int row_num, int col_num, double p_custom[]) {
 }
 
 double GetUForRow(int row_num, double p_custom[]) {
-    return p_custom[9 + row_num];
+    return p_custom[NUM_BASE_PARAMS + row_num];
 }
 
 IMAGE_SLICER_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]) {
-    IMAGE_SLICER_PARAMS_BASIC p;
-    p.n_each = 1;
-    p.n_rows = (int) p_custom[0];
-    p.n_cols = (int) p_custom[1];
-    p.surface_type = (int) p_custom[2];
-    p.dx = p_custom[3];
-    p.dy = p_custom[4];
-    p.gx_width = p_custom[5];
-    p.gx_depth = p_custom[6];
-    p.gy_width = p_custom[7];
-    p.gy_depth = p_custom[8];
-    return p;
+    IMAGE_SLICER_PARAMS_BASIC p_basic;
+    p_basic.n_rows = (int)p_custom[0];
+    p_basic.n_cols = (int)p_custom[1];
+    p_basic.n_each = (int)p_custom[2];
+    p_basic.surface_type = (int)p_custom[3];
+    p_basic.dx = p_custom[4];
+    p_basic.dy = p_custom[5];
+    p_basic.gx_width = p_custom[6];
+    p_basic.gx_depth = p_custom[7];
+    p_basic.gy_width = p_custom[8];
+    p_basic.gy_depth = p_custom[9];
+    return p_basic;
 }
 
 // Validate image slicer parameters, modifying illegal parameters as needed.
@@ -320,101 +328,102 @@ int IsParametersEqualLinear(IMAGE_SLICER_PARAMS_LINEAR p1, IMAGE_SLICER_PARAMS_L
 // Calculates u for the given row index. This is computed in a separate function
 // as it is needed to calculate the column index of a slice.
 void MakeSliceParamsArrayAngular(double p_custom[], IMAGE_SLICER_PARAMS_ANGULAR p) {
-    int n_rows = p.n_rows * p.n_each;
+    int n_each = p.n_each;
+    int n_rows = p.n_rows;
     int n_cols = p.n_cols;
     int num_slices = n_rows * n_cols;
-    int array_size = 9 + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
+    int array_size = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
     if (array_size > MAX_ELEMENTS) {
         printf("Error: Number of entries exceeds maximum limit of %d\n", MAX_ELEMENTS);
         return;
     }
 
-    // Store first 9 entries
     p_custom[0] = (double)n_rows;
     p_custom[1] = (double)n_cols;
-    p_custom[2] = (double)p.surface_type;
-    p_custom[3] = p.dx;
-    p_custom[4] = p.dy;
-    p_custom[5] = p.gx_width;
-    p_custom[6] = p.gx_depth;
-    p_custom[7] = p.gy_width;
-    p_custom[8] = p.gy_depth;
+    p_custom[2] = (double)n_each;
+    p_custom[3] = (double)p.surface_type;
+    p_custom[4] = p.dx;
+    p_custom[5] = p.dy;
+    p_custom[6] = p.gx_width;
+    p_custom[7] = p.gx_depth;
+    p_custom[8] = p.gy_width;
+    p_custom[9] = p.gy_depth;
 
-    int slice_idx, base_idx;
+    int slice_num, slice_idx, base_idx;
+    double u;
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
         for (int row = 0; row < n_rows; row++) {
-            slice_idx = row + col * n_rows;
-            SLICE_PARAMS pslice = GetSliceParamsAngular(slice_idx, col, p);
-            // Store u values
-            if (col == 0) {
-                p_custom[9 + row] = pslice.u;
+            u = p_custom[NUM_BASE_PARAMS + row];
+            for (int subidx = 0; subidx < n_each; subidx++) {
+                slice_num = subidx + row * n_each;
+                slice_idx = slice_num + col * n_rows * n_each;
+                SLICE_PARAMS pslice = GetSliceParamsAngular(slice_num, col, p);
+                base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
+                p_custom[base_idx]     = pslice.alpha;
+                p_custom[base_idx + 1] = pslice.beta;
+                p_custom[base_idx + 2] = pslice.gamma;
+                p_custom[base_idx + 3] = pslice.cv;
+                p_custom[base_idx + 4] = pslice.k;
+                p_custom[base_idx + 5] = pslice.zp;
+                p_custom[base_idx + 6] = pslice.syx;
+                p_custom[base_idx + 7] = pslice.syz;
+                p_custom[base_idx + 8] = pslice.sxy;
+                p_custom[base_idx + 9] = pslice.sxz;
             }
-            // Store slice parameters
-            base_idx = 9 + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
-            p_custom[base_idx]     = pslice.alpha;
-            p_custom[base_idx + 1] = pslice.beta;
-            p_custom[base_idx + 2] = pslice.gamma;
-            p_custom[base_idx + 3] = pslice.cv;
-            p_custom[base_idx + 4] = pslice.k;
-            p_custom[base_idx + 5] = pslice.zp;
-            p_custom[base_idx + 6] = pslice.syx;
-            p_custom[base_idx + 7] = pslice.syz;
-            p_custom[base_idx + 8] = pslice.sxy;
-            p_custom[base_idx + 9] = pslice.sxz;
         }
     }
 }
 
 void MakeSliceParamsArrayLinear(double p_custom[], IMAGE_SLICER_PARAMS_LINEAR p) {
-    int n_rows = p.n_rows * p.n_each;
+    int n_each = p.n_each;
+    int n_rows = p.n_rows;
     int n_cols = p.n_cols;
     int num_slices = n_rows * n_cols;
-    int array_size = 9 + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
+    int array_size = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * num_slices;
     if (array_size > MAX_ELEMENTS) {
         printf("Error: Number of entries exceeds maximum limit of %d\n", MAX_ELEMENTS);
         return;
     }
 
-    // Store first 9 entries
     p_custom[0] = (double)n_rows;
     p_custom[1] = (double)n_cols;
-    p_custom[2] = (double)p.surface_type;
-    p_custom[3] = p.dx;
-    p_custom[4] = p.dy;
-    p_custom[5] = p.gx_width;
-    p_custom[6] = p.gx_depth;
-    p_custom[7] = p.gy_width;
-    p_custom[8] = p.gy_depth;
+    p_custom[2] = (double)n_each;
+    p_custom[3] = (double)p.surface_type;
+    p_custom[4] = p.dx;
+    p_custom[5] = p.dy;
+    p_custom[6] = p.gx_width;
+    p_custom[7] = p.gx_depth;
+    p_custom[8] = p.gy_width;
+    p_custom[9] = p.gy_depth;
 
-    int slice_idx, base_idx;
+    int slice_num, slice_idx, base_idx;
+    double u;
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
         for (int row = 0; row < n_rows; row++) {
-            slice_idx = row + col * n_rows;
-            SLICE_PARAMS pslice = GetSliceParamsLinear(slice_idx, col, p);
-            // Store u values
-            if (col == 0) {
-                p_custom[9 + row] = pslice.u;
+            u = p_custom[NUM_BASE_PARAMS + row];
+            for (int subidx = 0; subidx < n_each; subidx++) {
+                slice_num = subidx + row * n_each;
+                slice_idx = slice_num + col * n_rows * n_each;
+                SLICE_PARAMS pslice = GetSliceParamsLinear(slice_num, col, p);
+                base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
+                p_custom[base_idx]     = pslice.alpha;
+                p_custom[base_idx + 1] = pslice.beta;
+                p_custom[base_idx + 2] = pslice.gamma;
+                p_custom[base_idx + 3] = pslice.cv;
+                p_custom[base_idx + 4] = pslice.k;
+                p_custom[base_idx + 5] = pslice.zp;
+                p_custom[base_idx + 6] = pslice.syx;
+                p_custom[base_idx + 7] = pslice.syz;
+                p_custom[base_idx + 8] = pslice.sxy;
+                p_custom[base_idx + 9] = pslice.sxz;
             }
-            // Store slice parameters
-            base_idx = 9 + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
-            p_custom[base_idx]     = pslice.alpha;
-            p_custom[base_idx + 1] = pslice.beta;
-            p_custom[base_idx + 2] = pslice.gamma;
-            p_custom[base_idx + 3] = pslice.cv;
-            p_custom[base_idx + 4] = pslice.k;
-            p_custom[base_idx + 5] = pslice.zp;
-            p_custom[base_idx + 6] = pslice.syx;
-            p_custom[base_idx + 7] = pslice.syz;
-            p_custom[base_idx + 8] = pslice.sxy;
-            p_custom[base_idx + 9] = pslice.sxz;
         }
     }
 }
-
 double CalcZpFromGamma(double gamma, double cv, double k) {
     if (cv == 0) {
         return 0;

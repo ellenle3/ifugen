@@ -4,6 +4,7 @@
 
 // Up to a single column of 50,000 slices
 #define MAX_ELEMENTS 100009
+#define NUM_BASE_PARAMS  10
 #define NUM_PARAMS_PER_SLICE 10
 
 typedef struct {
@@ -100,7 +101,7 @@ typedef struct {
 
 void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]);
 
-SLICE_PARAMS GetSliceParams(int row_num, int col_num, double p_custom[]);
+SLICE_PARAMS GetSliceParams(int slice_num, int col_num, IMAGE_SLICER_PARAMS_BASIC p_basic, double p_custom[]);
 
 double GetUForRow(int row_num, double p_custom[]);
 

@@ -152,7 +152,7 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_
     }
 
     // Inside a slice. From the slice number, determine the angles
-    SLICE_PARAMS pslice = GetSliceParams(slice_num, col_num, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(slice_num, col_num, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -178,7 +178,7 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
     GetSlicerIndex(&col_num, &slice_num, x0, y0, p, p_custom);
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-    SLICE_PARAMS pslice = GetSliceParams(slice_num, col_num, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(slice_num, col_num, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -410,7 +410,7 @@ void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test
 
     // Check if this slice is a solution. Get params for this slice and
     // compute the transfer distance.
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -449,7 +449,7 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     GetSlicerSize(&xsize, &ysize, p);
 
     // Get sag function for the current column
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -481,12 +481,12 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
         double zfar = tfar * n;
 
         // Sag of near slice
-        SLICE_PARAMS pslice_near = GetSliceParams(ns_test, nc_test, p_custom);
+        SLICE_PARAMS pslice_near = GetSliceParams(ns_test, nc_test, p, p_custom);
         GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice_near, p);
         double znear_slice = SliceSag(xnear, ynear, pslice_near, transfer_dist_func, transform_func);
 
         // Sag of far slice
-        SLICE_PARAMS pslice_far = GetSliceParams(ns_test + sgns, nc_test, p_custom);
+        SLICE_PARAMS pslice_far = GetSliceParams(ns_test + sgns, nc_test, p, p_custom);
         GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice_far, p);
         double zfar_slice = SliceSag(xfar, yfar, pslice_far, transfer_dist_func, transform_func);
 
@@ -531,7 +531,7 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
 
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -565,11 +565,11 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
         double zfar = tfar * n;
 
         // Sag of near and far slices
-        SLICE_PARAMS pslice_near = GetSliceParams(ns_test, nc_test, p_custom);
+        SLICE_PARAMS pslice_near = GetSliceParams(ns_test, nc_test, p, p_custom);
         GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice_near, p);
         double znear_slice = SliceSag(xnear, ynear, pslice_near, transfer_dist_func, transform_func);
 
-        SLICE_PARAMS pslice_far = GetSliceParams(ns_test, nc_test + 1 * sgnc, p_custom);
+        SLICE_PARAMS pslice_far = GetSliceParams(ns_test, nc_test + 1 * sgnc, p, p_custom);
         GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice_far, p);
         double zfar_slice = SliceSag(xfar, yfar, pslice_far, transfer_dist_func, transform_func);
 
@@ -857,7 +857,7 @@ void ParaxialRayTraceSlicer(RAY_OUT *ray_out, double *l_out, double *m_out, doub
 {
     int nc, ns;
     GetParaxialSliceIndex(&nc, &ns, active_x, active_y, p);
-    SLICE_PARAMS pslice = GetSliceParams(ns, nc, p_custom);
+    SLICE_PARAMS pslice = GetSliceParams(ns, nc, p, p_custom);
 
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
@@ -918,22 +918,22 @@ void ParaxialRayTraceSlicer(RAY_OUT *ray_out, double *l_out, double *m_out, doub
     cosines_local[1] = m;
     cosines_local[2] = n;
 
+    double surf_normal_local[3] = {0.0, 0.0, -1.0}; // Paraxial approx: normal is along -z
+
     // Transform back to global coordinates
-    double coords_back[3], cosines_back[3];
+    double coords_back[3], cosines_back[3], surf_normal_back[3];
     transform_func(coords_back, coords_local, pslice, 1, 1);  // inverse, translate
     transform_func(cosines_back, cosines_local, pslice, 1, 0); // inverse, no translate
-
-    double ln, mn, nn;
-    SliceSurfaceNormal(&ln, &mn, &nn, x, y, pslice, transfer_dist_func, surf_normal_func, transform_func, 1);
+    transform_func(surf_normal_back, surf_normal_local, pslice, 1, 0); // inverse, no translate
 
     // Fill ray_out with intersection coords and surface normals
     ray_out->xs = coords_back[0];
     ray_out->ys = coords_back[1];
     ray_out->zs = coords_back[2];
     ray_out->t  = 0.0;
-    ray_out->ln = ln;
-    ray_out->mn = mn;
-    ray_out->nn = nn;
+    ray_out->ln = surf_normal_back[0];
+    ray_out->mn = surf_normal_back[1];
+    ray_out->nn = surf_normal_back[2];
 
     *l_out = cosines_back[0];
     *m_out = cosines_back[1];

@@ -62,10 +62,13 @@ int main() {
     //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
     MakeSliceParamsArrayAngular(p_custom, p);
     IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+
+    SLICE_PARAMS pslice = GetSliceParams(9, 0, p_basic, p_custom); // Test function call
+    //SLICE_PARAMS pslice = GetSliceParamsAngular(2, 0, p); // Test function call
     TestRayTrace(fptr, p_basic, p_custom);
     //TestImageSlicerSag(fptr, p_basic, p_custom);
 
-    int array_size = 9 + p_basic.n_rows + NUM_PARAMS_PER_SLICE * p_basic.n_rows * p_basic.n_cols;
+    int array_size = NUM_BASE_PARAMS + p_basic.n_rows + NUM_PARAMS_PER_SLICE * p_basic.n_rows * p_basic.n_cols * p_basic.n_each;
     FILE *file = fopen("test_output-2.txt", "wb");
     for (int i = 0; i < array_size; i++) {
         fprintf(file, "%.10f\n", p_custom[i]);
