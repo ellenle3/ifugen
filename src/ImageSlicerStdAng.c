@@ -192,6 +192,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 			int num_triangles = 0;
 			MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, Zdiff, p_basic, p_custom);
+			data[10] = num_triangles; /* how many we actually wrote out */
 			}
 			break;
 
