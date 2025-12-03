@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\src\custom_slicer_helpers.c">
+    <ClCompile Include="..\src\slice_param_helpers.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\slicer_generation.c">
@@ -29,7 +29,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\src\custom_slicer_helpers.h">
+    <ClInclude Include="..\src\slice_param_helpers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\src\slicer_generation.h">

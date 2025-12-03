@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include <windows.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "slicer_generation.h"
@@ -19,14 +20,9 @@ but everything else is the same
 
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list);
 int __declspec(dllexport) APIENTRY UserParamNames(char *data);
-void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data);
-void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data);
+void SetDataFromSlicerParamsAngular(IMAGE_SLICER_PARAMS_ANGULAR *p, double *data);
+void SetSlicerParamsFromDataAngular(IMAGE_SLICER_PARAMS_ANGULAR*p, double *data);
 
-
-BOOL WINAPI DllMain (HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
-	{
-   return TRUE;
-   }
 
 /* the data is stored as follows:
 
@@ -111,8 +107,8 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tri_list)
 	{
 	IMAGE_SLICER_PARAMS_ANGULAR p;
-	SetSlicerParamsFromData(&p, data);
-	ValidateSlicerParams(&p);
+	SetSlicerParamsFromDataAngular(&p, data);
+	ValidateSlicerParamsAngular(&p);
 	if ( !IsParametersEqualAngular(p, P_OLD) ) {
             MakeSliceParamsArrayAngular(p_custom, p);
             P_OLD = p;
@@ -123,18 +119,30 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
     int Ny = (int) data[102];
 	double Zdiff = data[103];
 
+	if (Nx < 1) Nx = 1;
+	if (Ny < 1) Ny = 1;
+
+	data[10] = CalcNumTriangles(p_basic, Nx, Ny);
+
+	int code;
 	/* what we do now depends upon what was requested */
 	code = (int) data[1];
+
+	FILE* fptr = fopen("C:\\Projects\\testout.txt", "a");
 
 	switch(code)
 		{
 
 		/* basic data */
 		case 0:
+			fprintf(fptr, "...starting case 0\n");
 			/* Compute the total number of triangular facets used to render and trace this object */
 			/* put this value in data[10] */
 
 			data[10] = CalcNumTriangles(p_basic, Nx, Ny);
+			if (data[10] < 8) {
+				data[10] = 8;
+			}
 			
 			/* is this object a solid? put 1 in data[11], use 0 if shell */
 			data[11] = 1;
@@ -146,6 +154,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 		/* generate triangles */
 		case 1:
+			fprintf(fptr, "...starting case 1\n");
 			{
 			/*
 			We are being asked to generate the triangle list.
@@ -182,12 +191,13 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			*/
 
 			int num_triangles = 0;
-			MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, p_basic, p_custom);
+			MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, Zdiff, p_basic, p_custom);
 			}
 			break;
 
 		/* iterate to exact solution given starting point */
 		case 2:
+			fprintf(fptr, "...starting case 2\n");
 			{
 			/*
 			We are giving starting data, and must compute the distance to the actual surface.
@@ -219,14 +229,14 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 					RAY_IN ray_in = {x, y, z, l, m, n};
 
 					// Use x and y to figure which slice to use
-					GetSlicerIndex(&col_num, &slice_num, x, y, p);
+					GetSlicerIndex(&col_num, &slice_num, x, y, p_basic, p_custom);
 					SLICE_PARAMS pslice = GetSliceParams(slice_num, col_num, p_custom);
 
 					TRANSFER_DIST_FUNC transfer_dist_func;
 					SURF_NORMAL_FUNC surf_normal_func;
 					CRITICAL_XY_FUNC critical_xy_func;
 					TRANSFORMATION_FUNC transform_func;
-					GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice, p);
+					GetSurfaceFuncs(&transfer_dist_func, &surf_normal_func, &critical_xy_func, &transform_func, pslice, p_basic);
 
 					RAY_OUT ray_out = SliceRayTrace(ray_in, pslice, transfer_dist_func, surf_normal_func, transform_func, 1);
 
@@ -247,21 +257,23 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 
 		/* coating data */
 		case 3:
+			fprintf(fptr, "...starting case 3\n");
 			return -1;
 
 		/* safe data */
 		case 4:
+			fprintf(fptr, "...starting case 4\n");
 			/* set safe parameter data values the first time the DLL is initialized */
-			data[101] = 4; 		  // Nx
+			data[101] = 5; 		  // Nx
 			data[102] = 3; 		  // Ny
-			data[103] = 5;		  // Zdiff
+			data[103] = 1;		  // Zdiff
 
 			 // slicer params
-			data[104] = -0.01;    // cv
+			data[104] = -0.05;    // cv
 			data[105] = 0.0;      // k
 			data[106] = (int) 0;  // surface_type
-			data[107] = (int) 6;  // n_each
-			data[108] = (int) 2;  // n_rows
+			data[107] = (int) 1;  // n_each
+			data[108] = (int) 1;  // n_rows
 			data[109] = (int) 1;  // n_cols
 			data[110] = (int) 2;  // angle_mode
 			data[111] = 4.0;      // dalpha
@@ -287,10 +299,10 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[131] = 0.0;      // gy_width
 			data[132] = 0.0;      // gy_depth
 
-			SetSlicerParamsFromData(&p, data);
+			SetSlicerParamsFromDataAngular(&p, data);
 			return 0;
 		}
-
+		fclose(fptr);
 	/* we did not recognize the request */
 	return -1;
    }
@@ -345,7 +357,7 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data) {
 }
 
 // Functions to convert between Zemax data and image slicer params struct
-void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
+void SetDataFromSlicerParamsAngular(IMAGE_SLICER_PARAMS_ANGULAR*p, double *data) {
 	data[104] = p->cv;
 	data[105] = p->k;
 	data[106] = (int) p->surface_type;
@@ -379,7 +391,7 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 	data[134] = p->gy_depth;
 }
 
-void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
+void SetSlicerParamsFromDataAngular(IMAGE_SLICER_PARAMS_ANGULAR *p, double *data) {
 	p->cv = data[104];
 	p->k = data[105];
 	p->surface_type = (int) data[106];

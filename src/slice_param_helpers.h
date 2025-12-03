@@ -3,7 +3,7 @@
 #include "surface_solns.h"
 
 // Up to a single column of 50,000 slices
-#define MAX_ELEMENTS 100009
+#define MAX_ELEMENTS 1009
 #define NUM_BASE_PARAMS  10
 #define NUM_PARAMS_PER_SLICE 10
 

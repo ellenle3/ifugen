@@ -1,0 +1,76 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Projects\\ifugen\\us_slicer_std_ang\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{A7BA8675-9286-45C6-903B-661747454990}|us_slicer_std_ang.vcxproj|C:\\Projects\\ifugen\\src\\us_slicer_std_ang.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A7BA8675-9286-45C6-903B-661747454990}|us_slicer_std_ang.vcxproj|C:\\Projects\\ifugen\\src\\slice_param_helpers.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A7BA8675-9286-45C6-903B-661747454990}|us_slicer_std_ang.vcxproj|C:\\Projects\\ifugen\\src\\slicer_generation.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 1,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedHeight": 332,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "slice_param_helpers.c",
+              "DocumentMoniker": "C:\\Projects\\ifugen\\src\\slice_param_helpers.c",
+              "RelativeDocumentMoniker": "..\\src\\slice_param_helpers.c",
+              "ToolTip": "C:\\Projects\\ifugen\\src\\slice_param_helpers.c",
+              "RelativeToolTip": "..\\src\\slice_param_helpers.c",
+              "ViewState": "AgIAAMcBAAAAAAAAAAApwNEBAAAVAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-03T02:04:31.498Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "slicer_generation.c",
+              "DocumentMoniker": "C:\\Projects\\ifugen\\src\\slicer_generation.c",
+              "RelativeDocumentMoniker": "..\\src\\slicer_generation.c",
+              "ToolTip": "C:\\Projects\\ifugen\\src\\slicer_generation.c",
+              "RelativeToolTip": "..\\src\\slicer_generation.c",
+              "ViewState": "AgIAAP4AAAAAAAAAAAApwA8BAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-03T02:04:19.964Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "us_slicer_std_ang.c",
+              "DocumentMoniker": "C:\\Projects\\ifugen\\src\\us_slicer_std_ang.c",
+              "RelativeDocumentMoniker": "..\\src\\us_slicer_std_ang.c",
+              "ToolTip": "C:\\Projects\\ifugen\\src\\us_slicer_std_ang.c",
+              "RelativeToolTip": "..\\src\\us_slicer_std_ang.c",
+              "ViewState": "AgIAAEIAAAAAAAAAAAApwEYAAAAhAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-03T02:02:52.129Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+﻿  ImageSlicerStdAng.c
+  slicer_generation.c
+C:\Projects\ifugen\src\slicer_generation.c(73,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(94,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(134,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(190,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(365,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  slice_param_helpers.c
+C:\Projects\ifugen\src\slice_param_helpers.c(122,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(463,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(531,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  surface_solns.c
+  triangles.c
+C:\Projects\ifugen\src\triangles.c(302,17): warning C4101: 'line2': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(302,10): warning C4101: 'line1': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(429,17): warning C4101: 'line2': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(429,10): warning C4101: 'line1': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(561,24): warning C4101: 'x4': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(561,20): warning C4101: 'x3': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(633,36): warning C4101: 'y3': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(633,40): warning C4101: 'y4': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(795,29): warning C4101: 'pc': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(796,17): warning C4101: 'line2': unreferenced local variable
+C:\Projects\ifugen\src\triangles.c(796,10): warning C4101: 'line1': unreferenced local variable
+     Creating library C:\Projects\ifugen\ImageSlicerStdAng\x64\Release\ImageSlicerStdAng.lib and object C:\Projects\ifugen\ImageSlicerStdAng\x64\Release\ImageSlicerStdAng.exp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 66 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  ImageSlicerStdAng.vcxproj -> C:\Projects\ifugen\ImageSlicerStdAng\x64\Release\ImageSlicerStdAng.dll

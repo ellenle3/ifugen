@@ -5,9 +5,6 @@
 #include <stdlib.h>
 #include "slice_param_helpers.h"
 
-_Static_assert(NUM_BASE_PARAMS == 10, "slice_params_helpers.c requires that NUM_BASE_PARAMS is 10.");
-_Static_assert(NUM_PARAMS_PER_SLICE == 10, "slice_params_helpers.c requires that NUM_PARAMS_PER_SLICE is 10.");
-
 // assumes that p_custom[] is malloced for MAX_ELEMENTS
 void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]) {
     if (file_num > 9999 || file_num < -999) {
@@ -365,7 +362,6 @@ void MakeSliceParamsArrayAngular(double p_custom[], IMAGE_SLICER_PARAMS_ANGULAR 
     p_custom[9] = p.gy_depth;
 
     int slice_num, slice_idx, base_idx;
-    double u;
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
@@ -420,7 +416,6 @@ void MakeSliceParamsArrayLinear(double p_custom[], IMAGE_SLICER_PARAMS_LINEAR p)
     p_custom[9] = p.gy_depth;
 
     int slice_num, slice_idx, base_idx;
-    double u;
 
     // Calculate parameters for each slice
     for (int col = 0; col < n_cols; col++) {
@@ -543,7 +538,8 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     double offset_row = row_num - row_mid;
     double offset_col = col_num - col_mid;
 
-    double y0, x0, d, d_extra;
+    double y0, x0, d_extra;
+    double d = 0;
 
     y0 = p.y0_cen + p.dy0 * offset_row;
     pslice.syx = p.syx_cen + p.dsyx * offset_row;

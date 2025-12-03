@@ -188,7 +188,8 @@ void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     double xstart, ystart;
-    double xpts[Nx + 1], ypts[Ny + 1];
+    double* xpts = (double*)malloc( (Nx + 1) * sizeof(double));
+    double* ypts = (double*)malloc( (Ny + 1) * sizeof(double));
     double z;
     int idx;
 
@@ -228,6 +229,8 @@ void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx
             xstart += p.dx + p.gx_width;
         }
     }
+    free(xpts);
+    free(ypts);
 }
 
 void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 

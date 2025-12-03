@@ -1,0 +1,44 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Projects\\ifugen\\us_slicer_std_lin\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{36F6BAD4-9590-40CB-ABDB-57B6F1D3780A}|us_slicer_std_lin.vcxproj|C:\\Projects\\ifugen\\src\\us_slicer_std_lin.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 1,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedHeight": 332,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "us_slicer_std_lin.c",
+              "DocumentMoniker": "C:\\Projects\\ifugen\\src\\us_slicer_std_lin.c",
+              "RelativeDocumentMoniker": "..\\src\\us_slicer_std_lin.c",
+              "ToolTip": "C:\\Projects\\ifugen\\src\\us_slicer_std_lin.c",
+              "RelativeToolTip": "..\\src\\us_slicer_std_lin.c",
+              "ViewState": "AgIAAGABAAAAAAAAAAApwGsBAAATAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-03T02:42:58.988Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

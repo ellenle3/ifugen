@@ -116,11 +116,13 @@ void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int activ
 // are needed along with the global extrema of the sag to compute the ray trace.
 void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
     int i;
-    *umin = p_custom[9];
-    *umax = p_custom[9];
+    *umin = GetUForRow(0, p_custom);
+    *umax = GetUForRow(1, p_custom);
+    double u;
     for (i = 1; i < p.n_rows; ++i) {
-        if (p_custom[9 + i] < *umin) *umin = p_custom[9 + i];
-        if (p_custom[9 + i] > *umax) *umax = p_custom[9 + i];
+        u = GetUForRow(i, p_custom);
+        if (u < *umin) *umin = u;
+        if (u > *umax) *umax = u;
     }
     return;
 }
@@ -449,7 +451,6 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     GetSlicerSize(&xsize, &ysize, p);
 
     // Get sag function for the current column
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;
@@ -531,7 +532,6 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
 
-    SLICE_PARAMS pslice = GetSliceParams(ns_test, nc_test, p_custom);
     TRANSFER_DIST_FUNC transfer_dist_func;
     SURF_NORMAL_FUNC surf_normal_func;
     CRITICAL_XY_FUNC critical_xy_func;

@@ -79,7 +79,7 @@ BOOL WINAPI DllMain(HANDLE hInst, ULONG ul_reason_for_call, LPVOID lpReserved)
 
 int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA5 *FD)
 	{
-   double power, sag;
+   double sag, l_par, m_par, n_par;
    RAY_IN ray_in = {
       .xt = 0,
       .yt = 0,
@@ -106,7 +106,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    // Read in the custom slice array params
    IMAGE_SLICER_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
    ValidateBasicParams(&p);
-   p.custom = 1;
+   FILE* fptr;
 
    switch(FD->type)
    	{
@@ -185,19 +185,19 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          /* x, y, z, and the path are unaffected, at least for this surface type */
          /* for paraxial ray tracing, the return z coordinate should always be zero. */
          /* paraxial surfaces are always planes with the following normals */
-         ray_in.xt = (UD->x); ray_in.yt = (UD->y);
-         ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
-         ParaxialRayTraceSlicer(&ray_out, ray_in, *l_par, *m_par, *n_par,
+        ray_in.xt = (UD->x); ray_in.yt = (UD->y);
+        ray_in.l = (UD->l); ray_in.m = (UD->m); ray_in.n = (UD->n);
+        ParaxialRayTraceSlicer(&ray_out, &l_par, &m_par, &n_par, &ray_in,
             FD->n1, FD->n2, active_x, active_y, p, p_custom);
 
-         if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?
+        if (isnan(ray_out.t)) return (FD->surf);  // Missed somehow?
 
-         UD->l = l_par,
-         UD->m = m_par;
-         UD->n = n_par;
-         UD->ln = ray_out.ln;
-         UD->mn = ray_out.mn;
-         UD->nn = ray_out.nn;
+        UD->l = l_par,
+        UD->m = m_par;
+        UD->n = n_par;
+        UD->ln = ray_out.ln;
+        UD->mn = ray_out.mn;
+        UD->nn = ray_out.nn;
          break;
 
       case 5:
@@ -247,11 +247,14 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
+          fptr = fopen("C:\\Projects\\testout.txt", "a");
+          fprintf(fptr, "calling for the first time.\n");
+          fclose(fptr);
 
          if ( FILE_NUM_OLD != file_num ) {
             // Update custom slice params and global extrema
-            LoadCustomParamsFromFile(p_custom, file_num, PARAMS_DIR, MAX_ELEMENTS);
-            p = MakeSlicerParamsFromCustom(p_custom);
+            LoadCustomParamsFromFile(p_custom, file_num, PARAMS_DIR);
+            p = MakeBasicParamsFromCustom(p_custom);
             FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
             GetMinMaxU(&UMIN, &UMAX, p, p_custom);
             FILE_NUM_OLD = file_num;

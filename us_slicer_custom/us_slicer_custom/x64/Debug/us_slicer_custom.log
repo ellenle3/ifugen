@@ -1,0 +1,19 @@
+﻿  slicer_generation.c
+  slice_param_helpers.c
+  surface_solns.c
+  us_slicer_custom.c
+C:\Projects\ifugen\src\slicer_generation.c(73,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(94,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(134,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(190,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(365,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(122,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(463,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(531,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_custom.c(101,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_custom.c(102,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_custom.c(103,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_custom.c(104,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  Generating Code...
+     Creating library C:\Projects\ifugen\us_slicer_custom\x64\Debug\us_slicer_custom.lib and object C:\Projects\ifugen\us_slicer_custom\x64\Debug\us_slicer_custom.exp
+  us_slicer_custom.vcxproj -> C:\Projects\ifugen\us_slicer_custom\x64\Debug\us_slicer_custom.dll

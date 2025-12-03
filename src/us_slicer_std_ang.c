@@ -17,8 +17,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
 /* a generic Snells law refraction routine */
 int Refract(double thisn, double nextn, double *l, double *m, double *n, double ln, double mn, double nn);
-void SetFDFromSlicerParamsAngular(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
-void SetSlicerParamsFromFDAngular(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD);
+void SetFDFromSlicerParamsAngular(IMAGE_SLICER_PARAMS_ANGULAR*p, FIXED_DATA5 *FD);
+void SetSlicerParamsFromFDAngular(IMAGE_SLICER_PARAMS_ANGULAR*p, FIXED_DATA5 *FD);
 
 // Normally having global variables that can change is bad practice, but this is
 // necessary for us to store the global extrema without having to recalculate them
@@ -106,7 +106,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
-   IMAGE_SLICER_PARAMS_ANGULAR p; SetSlicerParamsFromFD(&p, FD);
+   IMAGE_SLICER_PARAMS_ANGULAR p; SetSlicerParamsFromFDAngular(&p, FD);
    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
    //// We will never need the p_custom array in standard mode but we need
    //// to pass it as an argument. It will never be accessed because p.custom will
@@ -367,14 +367,15 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
-         SetSlicerParamsFromFD(&p, FD);
+         SetSlicerParamsFromFDAngular(&p, FD);
          ValidateSlicerParamsAngular(&p); // prevent illegal values - not allowed to modify FD here... causes it to crash 
 
          if ( !IsParametersEqualAngular(p, P_OLD) ) {
             // Update global extrema
             MakeSliceParamsArrayAngular(p_custom, p);
-            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p, p_custom);
-            GetMinMaxU(&UMIN, &UMAX, p, p_custom);
+            p_basic = MakeBasicParamsFromCustom(p_custom);
+            FindSlicerGlobalExtrema(&ZMIN, &ZMAX, p_basic, p_custom);
+            GetMinMaxU(&UMIN, &UMAX, p_basic, p_custom);
             P_OLD = p;
          };
      
@@ -412,7 +413,7 @@ return 0;
 }
 
 // Functions to convert between Zemax FIXED_DATA and image slicer params struct
-void SetFDFromSlicerParamsAngular(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
+void SetFDFromSlicerParamsAngular(IMAGE_SLICER_PARAMS_ANGULAR *p, FIXED_DATA5 *FD) {
    FD->param[3] =  p->surface_type;
    FD->param[4] =  p->n_each;
    FD->param[5] =  p->n_rows;
@@ -446,7 +447,7 @@ void SetFDFromSlicerParamsAngular(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    FD->k = p->k;
 }
 
-void SetSlicerParamsFromFDAngular(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
+void SetSlicerParamsFromFDAngular(IMAGE_SLICER_PARAMS_ANGULAR*p, FIXED_DATA5 *FD) {
    p->surface_type = FD->param[3];
    p->n_each =       FD->param[4];
    p->n_rows =       FD->param[5];
