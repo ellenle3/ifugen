@@ -190,19 +190,30 @@ def conic_2d_off_axis_distance(c, k, alpha, beta):
     # Make direction of effective rotation consistent with plane. For a reflective
     # surface where alpha and/or beta apply a rotation rather than an OAD, the
     # angles are effectively doubled.
-    # if c <= 0:
-    #     x0 *= -1
-    # else:
-    #     y0 *= -1
+    if c <= 0:
+        x0 *= -1
+    else:
+        y0 *= -1
 
     return x0, y0
 
-def conic_2d_off_axis_angle(r0, c, k):
+def conic_2d_off_axis_angle(x0, y0, c, k):
     if abs(c) < 1e-13:
         return 0
-    sag = c * r0 * r0 / (1 + np.sqrt(1 - (1 + k) * c * c * r0 * r0))
-    denom = 1 / (2*c) - sag
-    return np.arctan(r0 / denom)
+    sagx = c * x0 * x0 / (1 + np.sqrt(1 - (1 + k) * c * c * x0 * x0))
+    denom = 1 / (2*c) - sagx
+    beta = np.arctan(x0 / denom)
+
+    sagy = c * y0 * y0 / (1 + np.sqrt(1 - (1 + k) * c * c * y0 * y0))
+    denom = 1 / (2*c) - sagy
+    alpha = np.arctan(y0 / denom)
+
+    if c <= 0:
+        beta *= -1
+    else:
+        alpha *= -1
+
+    return alpha, beta
 
 def conic_2d_transformation(coords, pslice, direction, translate=True):
     """Transforms the ray coordinates and direction cosines to the local

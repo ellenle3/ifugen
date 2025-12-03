@@ -135,7 +135,7 @@ void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, 
  */
 void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double alpha, double beta);
 
-double Conic2DOffAxisAngle(double r0, double cv, double k);
+double Conic2DOffAxisAngle(double* alpha, double* beta, double cv, double k, double x0, double y0);
 
 /**
  * @brief Transforms coordinates for a conicoid.

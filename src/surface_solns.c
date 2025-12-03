@@ -214,16 +214,24 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double 
     // Make direction of effective rotation consistent with plane. For a reflective
     // surface where alpha and/or beta apply a rotation rather than an OAD, the
     // angles are effectively doubled.
-    // if (cv <= 0) {*x0 *=-1;}
-    // else {*y0 *=-1;}
+    if (cv <= 0) {*x0 *=-1;}
+    else {*y0 *=-1;}
 }
 
 // Converts off-axis distances to angles in radians. Only works if cv is non-zero.
-double Conic2DOffAxisAngle(double r0, double cv, double k) {
+double Conic2DOffAxisAngle(double* alpha, double* beta, double cv, double k, double x0, double y0) {
     if (fabs(cv) < 1E-13) return 0;
-    double sag = cv * r0 * r0 / (1 + sqrt(1 - (1 + k) * cv * cv * r0 * r0));
-    double denom = 1 / (2*cv) - sag;
-    return atan(r0 / denom);
+    double sagx = cv * x0 * x0 / (1 + sqrt(1 - (1 + k) * cv * cv * x0 * x0));
+    double denom = 1 / (2*cv) - sagx;
+    *alpha = atan(x0 / denom);
+
+    double sagy = cv * y0 * y0 / (1 + sqrt(1 - (1 + k) * cv * cv * y0 * y0));
+    denom = 1 / (2*cv) - sagy;
+    *beta = atan(y0 / denom);
+
+    if (cv <= 0) {*beta *=-1;}
+    else {*alpha *=-1;}
+
 }
 
 void Conic2DTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
