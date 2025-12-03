@@ -6,29 +6,43 @@
 int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny) {
 
     // For computing how many triangles we need
-	int num_slices_total = 2;
-	int num_gaps_x = 0, num_gaps_y = 0;
-	int num_walls_x = 0, num_walls_y = 0;
-	int num_triangles_surface = 2, num_triangles_sides = 2;
+	int num_gaps_x, num_gaps_y;
+	int num_walls_x, num_walls_y;
+    int num_gaps_between = 0, num_walls_between = 0;
 
-    num_slices_total = p.n_each * p.n_rows * p.n_cols;
-    if (p.gx_width > 0) {
-        num_gaps_x = p.n_cols - 1;
-        num_walls_x = num_gaps_x * 2;
-    }
-    else { num_gaps_x = 0; num_walls_x = 0; }
-    if (p.gy_width > 0) {
-        num_gaps_y = p.n_each * p.n_rows - 1;
-        num_walls_y = num_gaps_y * 2;
-    }
-    else { num_gaps_y = 0; num_walls_y = 0; }
-    // Number of triangles for just the surface
-    num_triangles_surface = 2*Nx*Ny*num_slices_total + 2*Nx*num_walls_x + 2*Ny*num_walls_y + 2*(num_gaps_x + num_gaps_y);
-    // Need to do 5 more panels - 4 for the sides and one for the back
-    // THIS IS WRONG BECAUSE OF HOW SIDE PANELS ARE MADE
-    num_triangles_sides = 2 + 2 * (Nx*num_slices_total + num_gaps_x) + 2 * (Ny*num_slices_total + num_gaps_y);
-    num_triangles_sides = 10000; // temp for testing
-    return num_triangles_surface + num_triangles_sides;
+    // Number of triangles for the surface
+    int num_slices_total = p.n_each * p.n_rows * p.n_cols;
+
+    // Gap widths are always > 0 for now, even if they are negligibly small.
+    num_gaps_x = (p.n_cols - 1) * p.n_each * p.n_rows;
+    num_walls_x = num_gaps_x * 2;
+    num_gaps_y = (p.n_each * p.n_rows - 1) * p.n_cols;
+    num_walls_y = num_gaps_y * 2;
+    num_gaps_between = (p.n_cols - 1) * (p.n_each * p.n_rows - 1);
+    if (p.gx_depth != p.gy_depth) num_walls_between = num_gaps_between * 2;
+
+    int num_facets_surface = Nx * Ny * num_slices_total  // Slice faces
+        + Ny * num_walls_x + Nx * num_walls_y            // Walls
+        + Ny * num_gaps_x
+        + Nx * num_gaps_y
+        + num_gaps_between + num_walls_between; 
+    ;
+
+    int zextra = (p.gy_depth == p.gx_depth) ? 2 : 3;
+    int gy_extra = (p.gy_depth > p.gx_depth) ? 1 : 2;
+    int gx_extra = (p.gx_depth > p.gy_depth) ? 1 : 2;
+    
+    // For the outer shell
+    int num_facets_shell = 2 * (Ny * p.n_each * p.n_rows * zextra) // left and right slices
+        + 2 * (Nx * p.n_cols * zextra)              // bottom and top slices
+        + 2 * (num_gaps_y * gy_extra)   // left and right gaps
+        + 2 * (num_gaps_x * gx_extra)   // bottom and top gaps
+        + Nx * Ny * num_slices_total
+        + Ny * num_gaps_x + Nx * num_gaps_y
+        + num_gaps_between;
+    ;
+
+    return 2 * (num_facets_surface + num_facets_shell);
 }
 
 static void CrossoverPoint(double *wc, double* zc, LINE line1, LINE line2) {
@@ -118,9 +132,9 @@ int IsValidTriangle(POINT3D p1, POINT3D p2, POINT3D p3) {
     return 1;
 }
 
-double CalcZBack(double *tri_list, int *num_triangles, double slice_grid[],
-    int Nx, int Ny, double zdiff, IMAGE_SLICER_PARAMS_BASIC p) {
-        
+void CalcZBack(double* Z_back, double* Z_max_slice, double slice_grid[], int Nx, int Ny,
+    double zdiff, IMAGE_SLICER_PARAMS_BASIC p) {
+
     double zmax = slice_grid[0];
     int Npts = (Nx + 1) * (Ny + 1) * p.n_each * p.n_rows * p.n_cols;
     for (int i = 1; i < Npts; i++) {
@@ -128,15 +142,14 @@ double CalcZBack(double *tri_list, int *num_triangles, double slice_grid[],
             zmax = slice_grid[i];
         }
     }
+    *Z_max_slice = zmax;
     zmax = (p.gx_depth > 0 && zmax < p.gx_depth) ? p.gx_depth : zmax;
     zmax = (p.gy_depth > 0 && zmax < p.gy_depth) ? p.gy_depth : zmax;
 
     if (zdiff == 0) {
         zdiff = 2e-6; // Small extra margin
     }
-    
-    double Z_back = zmax + fabs(zdiff);
-    return Z_back;
+    *Z_back = zmax + fabs(zdiff);
 }
 
 void SetTriListForTriangle(double *tri_list, int *num_triangles, POINT3D p1, POINT3D p2,
@@ -231,26 +244,6 @@ void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[
 
             for (int ny = 0; ny < Ny; ny++) {
 
-                // This is for the back of the shell
-                i1 = GetSliceGridIndex(nc, ns, p, Nx, Ny, 0, ny);
-                i2 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, ny);
-                i3 = GetSliceGridIndex(nc, ns, p, Nx, Ny, 0, ny + 1);
-                i4 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, ny + 1);
-
-                p1 = (POINT3D){x_grid[i1], y_grid[i1], Z_back};
-                p2 = (POINT3D){x_grid[i2], y_grid[i2], Z_back};
-                p3 = (POINT3D){x_grid[i3], y_grid[i3], Z_back};
-                p4 = (POINT3D){x_grid[i4], y_grid[i4], Z_back};
-
-                facet.p1 = p1;
-                facet.p2 = p2;
-                facet.p3 = p3;
-                facet.p4 = p4;
-                facet.code_a = code_a;
-                facet.code_b = code_b;
-
-                SetTriListForFacet(tri_list, num_triangles, facet);
-
                 for (int nx = 0; nx < Nx; nx++) {
 
                     code_a = code_b = 010017.0;             // exact 1, CSG 0, all invisible
@@ -268,6 +261,21 @@ void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[
                     p2 = (POINT3D){x_grid[i2], y_grid[i2], slice_grid[i2]};
                     p3 = (POINT3D){x_grid[i3], y_grid[i3], slice_grid[i3]};
                     p4 = (POINT3D){x_grid[i4], y_grid[i4], slice_grid[i4]};
+
+                    facet.p1 = p1;
+                    facet.p2 = p2;
+                    facet.p3 = p3;
+                    facet.p4 = p4;
+                    facet.code_a = code_a;
+                    facet.code_b = code_b;
+
+                    SetTriListForFacet(tri_list, num_triangles, facet);
+
+                    // This is for the back of the shell
+                    p1 = (POINT3D){x_grid[i1], y_grid[i1], Z_back};
+                    p2 = (POINT3D){x_grid[i2], y_grid[i2], Z_back};
+                    p3 = (POINT3D){x_grid[i3], y_grid[i3], Z_back};
+                    p4 = (POINT3D){x_grid[i4], y_grid[i4], Z_back};
 
                     facet.p1 = p1;
                     facet.p2 = p2;
@@ -554,38 +562,6 @@ void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 
         for (int ns = 0; ns < p.n_each * p.n_rows; ns++) {
 
-            // This is for the back of the shell
-            i1 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, 0);
-            i2 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, Ny);
-            i3 = GetSliceGridIndex(nc + 1, ns, p, Nx, Ny, 0, 0);
-            i4 = GetSliceGridIndex(nc + 1, ns , p, Nx, Ny, 0, Ny);
-
-            x1 = x_grid[i1];
-            x2 = x_grid[i2];
-            x3 = x_grid[i3];
-            x4 = x_grid[i4];
-            y1 = y_grid[i1];
-            y2 = y_grid[i2];
-            y3 = y_grid[i3];
-            y4 = y_grid[i4];
-
-            code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
-            code_b = 000110.0;
-
-            p1 = (POINT3D){x1, y1, Z_back};
-            p2 = (POINT3D){x2, y2, Z_back};
-            p3 = (POINT3D){x3, y3, Z_back};
-            p4 = (POINT3D){x4, y4, Z_back};
-
-            facet.p1 = p1;
-            facet.p2 = p2;
-            facet.p3 = p3;
-            facet.p4 = p4;
-            facet.code_a = code_a;
-            facet.code_b = code_b;
-
-            SetTriListForFacet(tri_list, num_triangles, facet);
-
             for (int ny = 0; ny < Ny; ny++) {
 
                 i1 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, ny);
@@ -607,6 +583,26 @@ void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
                 p2 = (POINT3D){x2, y3, p.gx_depth};
                 p3 = (POINT3D){x1, y2, p.gx_depth};
                 p4 = (POINT3D){x2, y4, p.gx_depth};
+
+                facet.p1 = p1;
+                facet.p2 = p2;
+                facet.p3 = p3;
+                facet.p4 = p4;
+                facet.code_a = code_a;
+                facet.code_b = code_b;
+
+                SetTriListForFacet(tri_list, num_triangles, facet);
+
+
+                // This is for the back of the shell
+                code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_b = 000110.0;
+
+                p1 = (POINT3D){x1, y1, Z_back};
+                p2 = (POINT3D){x2, y3, Z_back};
+                p3 = (POINT3D){x1, y2, Z_back};
+                p4 = (POINT3D){x2, y4, Z_back};
+
 
                 facet.p1 = p1;
                 facet.p2 = p2;
@@ -638,38 +634,6 @@ void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 
         for (int ns = 0; ns < p.n_each * p.n_rows - 1; ns++) {
 
-            // This is for the back of the shell
-            i1 = GetSliceGridIndex(nc, ns, p, Nx, Ny, 0, Ny);
-            i2 = GetSliceGridIndex(nc, ns, p, Nx, Ny, Nx, Ny);
-            i3 = GetSliceGridIndex(nc, ns + 1, p, Nx, Ny, 0, 0);
-            i4 = GetSliceGridIndex(nc, ns + 1, p, Nx, Ny, Nx, 0);
-
-            x1 = x_grid[i1];
-            x2 = x_grid[i2];
-            x3 = x_grid[i3];
-            x4 = x_grid[i4];
-            y1 = y_grid[i1];
-            y2 = y_grid[i2];
-            y3 = y_grid[i3];
-            y4 = y_grid[i4];
-
-            code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
-            code_b = 000110.0;
-
-            p1 = (POINT3D){x1, y1, Z_back};
-            p2 = (POINT3D){x2, y2, Z_back};
-            p3 = (POINT3D){x3, y3, Z_back};
-            p4 = (POINT3D){x4, y4, Z_back};
-
-            facet.p1 = p1;
-            facet.p2 = p2;
-            facet.p3 = p3;
-            facet.p4 = p4;
-            facet.code_a = code_a;
-            facet.code_b = code_b;
-
-            SetTriListForFacet(tri_list, num_triangles, facet);
-
             for (int nx = 0; nx < Nx; nx++) {
 
                 i1 = GetSliceGridIndex(nc, ns, p, Nx, Ny, nx, Ny);
@@ -692,6 +656,24 @@ void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
                 p2 = (POINT3D){x2, y1, p.gy_depth};
                 p3 = (POINT3D){x3, y2, p.gy_depth};
                 p4 = (POINT3D){x4, y2, p.gy_depth};
+
+                facet.p1 = p1;
+                facet.p2 = p2;
+                facet.p3 = p3;
+                facet.p4 = p4;
+                facet.code_a = code_a;
+                facet.code_b = code_b;
+
+                SetTriListForFacet(tri_list, num_triangles, facet);
+
+                // This is for the back of the shell
+                code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_b = 000110.0;
+
+                p1 = (POINT3D){x1, y1, Z_back};
+                p2 = (POINT3D){x2, y1, Z_back};
+                p3 = (POINT3D){x3, y2, Z_back};
+                p4 = (POINT3D){x4, y2, Z_back};
 
                 facet.p1 = p1;
                 facet.p2 = p2;
@@ -769,34 +751,36 @@ void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid
             SetTriListForFacet(tri_list, num_triangles, facet);
 
             // Now fill in the two walls on the sides
-            p1 = (POINT3D){x1, y1, p.gx_depth};
-            p2 = (POINT3D){x2, y2, p.gx_depth};
-            p3 = (POINT3D){x1, y1, p.gy_depth};
-            p4 = (POINT3D){x2, y2, p.gy_depth};
 
-            facet.p1 = p1;
-            facet.p2 = p2;
-            facet.p3 = p3;
-            facet.p4 = p4;
-            facet.code_a = code_a;
-            facet.code_b = code_b;
+            if (p.gx_depth != p.gy_depth) {
+                p1 = (POINT3D){x1, y1, p.gx_depth};
+                p2 = (POINT3D){x2, y2, p.gx_depth};
+                p3 = (POINT3D){x1, y1, p.gy_depth};
+                p4 = (POINT3D){x2, y2, p.gy_depth};
 
-            SetTriListForFacet(tri_list, num_triangles, facet);
+                facet.p1 = p1;
+                facet.p2 = p2;
+                facet.p3 = p3;
+                facet.p4 = p4;
+                facet.code_a = code_a;
+                facet.code_b = code_b;
 
-            p1 = (POINT3D){x3, y3, p.gx_depth};
-            p2 = (POINT3D){x4, y4, p.gx_depth};
-            p3 = (POINT3D){x3, y3, p.gy_depth};
-            p4 = (POINT3D){x4, y4, p.gy_depth};
+                SetTriListForFacet(tri_list, num_triangles, facet);
 
-            facet.p1 = p1;
-            facet.p2 = p2;
-            facet.p3 = p3;
-            facet.p4 = p4;
-            facet.code_a = code_a;
-            facet.code_b = code_b;
+                p1 = (POINT3D){x3, y3, p.gx_depth};
+                p2 = (POINT3D){x4, y4, p.gx_depth};
+                p3 = (POINT3D){x3, y3, p.gy_depth};
+                p4 = (POINT3D){x4, y4, p.gy_depth};
 
-            SetTriListForFacet(tri_list, num_triangles, facet);
+                facet.p1 = p1;
+                facet.p2 = p2;
+                facet.p3 = p3;
+                facet.p4 = p4;
+                facet.code_a = code_a;
+                facet.code_b = code_b;
 
+                SetTriListForFacet(tri_list, num_triangles, facet);
+            }
         }
     }
 }
@@ -1074,7 +1058,6 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
         }
     }
-
     if (p.gx_width > 0) {
         
         for (int nc = 0; nc < p.n_cols - 1; nc++) {
@@ -1143,7 +1126,7 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
 void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int Ny, double zdiff,
     IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
-    
+
     int Npts = (Nx + 1) * (Ny + 1) * p.n_each * p.n_rows * p.n_cols;
     double *slice_grid = (double *)malloc(Npts * sizeof(double));
     double *x_grid = (double *)malloc(Npts * sizeof(double));
@@ -1156,19 +1139,23 @@ void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int
         return;
     }
 
-    double Z_back = CalcZBack(tri_list, num_triangles, slice_grid, Nx, Ny, zdiff, p);
+    EvalSliceGrid(slice_grid, x_grid, y_grid, Nx, Ny, p, p_custom);
 
-    // Side panel generation does not work if gy_width == 0 and rows are not
-    // perfectly aligned.
+    double Z_back, Z_max_slice;
+    CalcZBack(&Z_back, &Z_max_slice, slice_grid, Nx, Ny, zdiff, p);
+
     IMAGE_SLICER_PARAMS_BASIC p2 = p;
-
-    if (!IsAllRowsAligned(p_custom) && p.gy_width == 0) {
-        fprintf(stderr, "Error: Side panel generation requires gy_width > 0 when rows are not aligned. Setting to infinitesimal value.\n");
-        p2.gy_width = 1e-6;
-        p2.gy_depth = Z_back + 1e-6;
+    if (p.gy_width == 0) {
+        fprintf(stderr, "Error: Triangle generation currently requires non-zero gap widths. Setting gy_width to infinitesimal value.\n");
+        p2.gy_width = 1e-9;
+        p2.gy_depth = Z_max_slice + 1e-9;
+    }
+    if (p.gx_width == 0) {
+        fprintf(stderr, "Error: Triangle generation currently requires non-zero gap widths. Setting gx_width to infinitesimal value.\n");
+        p2.gx_width = 1e-9;
+        p2.gx_depth = Z_max_slice + 1e-9;
     }
 
-    EvalSliceGrid(slice_grid, x_grid, y_grid, Nx, Ny, p2, p_custom);
     MakeSliceTriangles(tri_list, num_triangles, slice_grid, x_grid, y_grid, Nx, Ny, Z_back, p2);
     MakeXWallTriangles(tri_list, num_triangles, slice_grid, x_grid, y_grid, Nx, Ny, p2);
     MakeYWallTriangles(tri_list, num_triangles, slice_grid, x_grid, y_grid, Nx, Ny, p2);

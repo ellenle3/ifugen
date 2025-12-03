@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "slicer_generation.h"
+#include "slice_param_helpers.h"
 #include "surface_solns.h"
 #include "triangles.h"
 
@@ -50,7 +51,6 @@ The number of facets to use in approximating the curve of the cylinder is also a
 
 static double *p_custom = NULL;
 static IMAGE_SLICER_PARAMS_ANGULAR P_OLD = {
-        .custom = 0,
         .surface_type = -1,
         .n_each = -1,
         .n_rows = -1,
@@ -117,11 +117,11 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
             MakeSliceParamsArrayAngular(p_custom, p);
             P_OLD = p;
          };
+	IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
     int Nx = (int) data[101];
     int Ny = (int) data[102];
-	double Z_back = data[103];
-
+	double Zdiff = data[103];
 
 	/* what we do now depends upon what was requested */
 	code = (int) data[1];
@@ -254,27 +254,39 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			/* set safe parameter data values the first time the DLL is initialized */
 			data[101] = 4; 		  // Nx
 			data[102] = 3; 		  // Ny
-			data[103] = 5;		  // Z_back
-			data[104] = (int) 5;  // n_each
-			data[105] = (int) 1;  // n_rows
-			data[106] = (int) 1;  // n_cols
-			data[107] = (int) 0;  // mode
-			data[108] = 4.0;      // dalpha
-			data[109] = 4.0;      // dbeta
-			data[110] = 1.0;      // dgamma
-			data[111] = 1.0; 	  // gamma_offset
-			data[112] = 0.0;      // alpha_cen
-			data[113] = 0.0;      // beta_cen
-			data[114] = 0.0;      // gamma_cen
-			data[115] = 8.0;      // dx
-			data[116] = 1;        // dy
-			data[117] = 0.0;      // gx_width
-			data[118] = 0.0;      // gx_depth
-			data[119] = 0.0;      // gy_width
-			data[120] = 0.0;      // gy_depth
-			data[121] = -0.01	  // curvature
-			data[122] = 0.0;	  // conic constant
-			
+			data[103] = 5;		  // Zdiff
+
+			 // slicer params
+			data[104] = -0.01;    // cv
+			data[105] = 0.0;      // k
+			data[106] = (int) 0;  // surface_type
+			data[107] = (int) 6;  // n_each
+			data[108] = (int) 2;  // n_rows
+			data[109] = (int) 1;  // n_cols
+			data[110] = (int) 2;  // angle_mode
+			data[111] = 4.0;      // dalpha
+			data[112] = 0.0;      // dbeta
+			data[113] = 0.5;      // dgamma
+			data[114] = 0.0;      // gamma_offset
+			data[115] = 0.0;      // azps
+			data[116] = 0.0;      // dsyx
+			data[117] = 0.0;      // dsyz
+			data[118] = 0.0;      // du
+			data[119] = 0.0;      // alpha_cen
+			data[120] = 0.0;      // beta_cen
+			data[121] = 0.0;      // gamma_cen
+			data[122] = 4.0;      // syx_cen
+			data[123] = 0.0;      // syz_cen
+			data[124] = 0.0;      // sxy_cen
+			data[125] = 0.0;      // sxz_cen
+			data[126] = 0.0;      // u_cen
+			data[127] = 8.0;      // dx
+			data[128] = 0.75;     // dy
+			data[129] = 0.05;     // gx_width
+			data[130] = 0.0;      // gx_depth
+			data[131] = 0.0;      // gy_width
+			data[132] = 0.0;      // gy_depth
+
 			SetSlicerParamsFromData(&p, data);
 			return 0;
 		}
@@ -283,8 +295,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 	return -1;
    }
 
-int __declspec(dllexport) APIENTRY UserParamNames(char *data)
-	{
+int __declspec(dllexport) APIENTRY UserParamNames(char *data) {
 	/* this function returns the name of the parameter requested */
 	int i;
 	i = atoi(data);
@@ -294,74 +305,110 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data)
 	if (i ==  0) strcpy(data,"Slicer Face");
 	if (i == -1) strcpy(data,"Wall Face");
 	if (i == -2) strcpy(data,"Gap Face");
-	if (i == -3) strcpy(dta,"Outside Face")
-	
-	if (i == 1) strcpy(data,"# Facets x");
-	if (i == 2) strcpy(data,"# Facets y");
-	if (i == 3) strcpy(data,"Z_back");
-	if (i == 4) strcpy(data,"n_each");
-	if (i == 5) strcpy(data,"n_rows");
-	if (i == 6) strcpy(data,"n_cols");
-	if (i == 7) strcpy(data,"mode");
-	if (i == 8) strcpy(data,"dalpha");
-	if (i == 9) strcpy(data,"dbeta");
-	if (i == 10) strcpy(data,"dgamma");
-	if (i == 11) strcpy(data,"gamma_offset");
-	if (i == 12) strcpy(data,"alpha_cen");
-	if (i == 13) strcpy(data,"beta_cen");
-	if (i == 14) strcpy(data,"gamma_cen");
-	if (i == 15) strcpy(data,"dx");
-	if (i == 16) strcpy(data,"dy");
-	if (i == 17) strcpy(data,"gx_width");
-	if (i == 18) strcpy(data,"gx_depth");
-	if (i == 19) strcpy(data,"gy_width");
-	if (i == 20) strcpy(data,"gy_depth");
-	if (i == 21) strcpy(data,"cv");
-	if (i == 22) strcpy(data,"k");
+	if (i == -3) strcpy(data,"Shell Face");
+
+	if (i == 1) strcpy(data,"Nx");
+	if (i == 2) strcpy(data,"Ny");
+	if (i == 3) strcpy(data,"Zdiff");
+	if (i == 4) strcpy(data,"cv");
+	if (i == 5) strcpy(data,"k");
+	if (i == 6) strcpy(data,"surface_type");
+	if (i == 7) strcpy(data,"n_each");
+	if (i == 8) strcpy(data,"n_rows");
+	if (i == 9) strcpy(data,"n_cols");
+	if (i == 10) strcpy(data,"angle_mode");
+	if (i == 11) strcpy(data,"dalpha");
+	if (i == 12) strcpy(data,"dbeta");
+	if (i == 13) strcpy(data,"dgamma");
+	if (i == 14) strcpy(data,"gamma_offset");
+	if (i == 15) strcpy(data,"azps");
+	if (i == 16) strcpy(data,"dsyx");
+	if (i == 17) strcpy(data,"dsyz");
+	if (i == 18) strcpy(data,"dsxy");
+	if (i == 19) strcpy(data,"dsxz");
+	if (i == 20) strcpy(data,"du");
+	if (i == 21) strcpy(data,"alpha_cen");
+	if (i == 22) strcpy(data,"beta_cen");
+	if (i == 23) strcpy(data,"gamma_cen");
+	if (i == 24) strcpy(data,"syx_cen");
+	if (i == 25) strcpy(data,"syz_cen");
+	if (i == 26) strcpy(data,"sxy_cen");
+	if (i == 27) strcpy(data,"sxz_cen");
+	if (i == 28) strcpy(data,"u_cen");
+	if (i == 29) strcpy(data,"dx");
+	if (i == 30) strcpy(data,"dy");
+	if (i == 31) strcpy(data,"gx_width");
+	if (i == 32) strcpy(data,"gx_depth");
+	if (i == 33) strcpy(data,"gy_width");
+	if (i == 34) strcpy(data,"gy_depth");
 	return 0;
-	}
+}
 
 // Functions to convert between Zemax data and image slicer params struct
 void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
-	data[104] = p->n_each;
-	data[105] = p->n_rows;
-	data[106] = p->n_cols;
-	data[107] = p->mode;
-	data[108] = p->dalpha;
-	data[109] = p->dbeta;
-	data[110] = p->dgamma;
-	data[111] = p->gamma_offset;
-	data[112] = p->alpha_cen;
-	data[113] = p->beta_cen;
-	data[114] = p->gamma_cen;
-	data[115] = p->dx;
-	data[116] = p->dy;
-	data[117] = p->gx_width;
-	data[118] = p->gx_depth;
-	data[119] = p->gy_width;
-	data[120] = p->gy_depth;
-	data[121] = p->cv;
-	data[122] = p->k;
+	data[104] = p->cv;
+	data[105] = p->k;
+	data[106] = (int) p->surface_type;
+	data[107] = (int) p->n_each;
+	data[108] = (int) p->n_rows;
+	data[109] = (int) p->n_cols;
+	data[110] = (int) p->angle_mode;
+	data[111] = p->dalpha;
+	data[112] = p->dbeta;
+	data[113] = p->dgamma;
+	data[114] = p->gamma_offset;
+	data[115] = p->azps;
+	data[116] = p->dsyx;
+	data[117] = p->dsyz;
+	data[118] = p->dsxy;
+	data[119] = p->dsxz;
+	data[120] = p->du;
+	data[121] = p->alpha_cen;
+	data[122] = p->beta_cen;
+	data[123] = p->gamma_cen;
+	data[124] = p->syx_cen;
+	data[125] = p->syz_cen;
+	data[126] = p->sxy_cen;
+	data[127] = p->sxz_cen;
+	data[128] = p->u_cen;
+	data[129] = p->dx;
+	data[130] = p->dy;
+	data[131] = p->gx_width;
+	data[132] = p->gx_depth;
+	data[133] = p->gy_width;
+	data[134] = p->gy_depth;
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
-	p->n_each =       (int) data[104];
-	p->n_rows =       (int) data[105];
-	p->n_cols =       (int) data[106];
-	p->mode =         (int) data[107];
-	p->dalpha =       data[108];
-	p->dbeta =        data[109];
-	p->dgamma =       data[110];
-	p->gamma_offset = data[111];
-	p->alpha_cen =    data[112];
-	p->beta_cen =     data[113];
-	p->gamma_cen =    data[114];
-	p->dx =           data[115];
-	p->dy =           data[116];
-	p->gx_width =     data[117];
-	p->gx_depth =     data[118];
-	p->gy_width =     data[119];
-	p->gy_depth =     data[120];
-	p->cv =           data[121];
-	p->k =            data[122];
+	p->cv = data[104];
+	p->k = data[105];
+	p->surface_type = (int) data[106];
+	p->n_each = (int) data[107];
+	p->n_rows = (int) data[108];
+	p->n_cols = (int) data[109];
+	p->angle_mode = (int) data[110];
+	p->dalpha = data[111];
+	p->dbeta = data[112];
+	p->dgamma = data[113];
+	p->gamma_offset = data[114];
+	p->azps = data[115];
+	p->dsyx = data[116];
+	p->dsyz = data[117];
+	p->dsxy = data[118];
+	p->dsxz = data[119];
+	p->du = data[120];
+	p->alpha_cen = data[121];
+	p->beta_cen = data[122];
+	p->gamma_cen = data[123];
+	p->syx_cen = data[124];
+	p->syz_cen = data[125];
+	p->sxy_cen = data[126];
+	p->sxz_cen = data[127];
+	p->u_cen = data[128];
+	p->dx = data[129];
+	p->dy = data[130];
+	p->gx_width = data[131];
+	p->gx_depth = data[132];
+	p->gy_width = data[133];
+	p->gy_depth = data[134];
 }

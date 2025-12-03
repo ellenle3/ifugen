@@ -82,7 +82,7 @@ def plot_triangles(triangles):
             j=[1],
             k=[2],
             color="lightblue",
-            opacity=0.35,
+            opacity=1,
             hoverinfo="skip"
         ))
     

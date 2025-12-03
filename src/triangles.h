@@ -46,6 +46,12 @@ static POINT3D Normalize(POINT3D v);
 
 int IsValidTriangle(POINT3D p1, POINT3D p2, POINT3D p3);
 
+void CalcZBack(double* Z_back, double* Z_max_slice, double slice_grid[], int Nx, int Ny,
+    double zdiff, IMAGE_SLICER_PARAMS_BASIC p);
+
+void SetTriListForTriangle(double *tri_list, int *num_triangles, POINT3D p1, POINT3D p2,
+    POINT3D p3, double code);
+
 void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet);
 
 int GetSliceGridIndex(int nc, int ns, IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny, int i, int j);
@@ -104,9 +110,6 @@ void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 
 void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
     int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p);
-
-double CalcZBack(double *tri_list, int *num_triangles, double slice_grid[],
-    int Nx, int Ny, double zdiff, IMAGE_SLICER_PARAMS_BASIC p);
 
 /**
  * @brief Generates all triangles for the image slicer.

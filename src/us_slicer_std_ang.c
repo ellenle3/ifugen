@@ -28,7 +28,6 @@ static double ZMIN, ZMAX, UMIN, UMAX;
 // Need to keep track of whether parameters changed
 static double *p_custom = NULL;
 static IMAGE_SLICER_PARAMS_ANGULAR P_OLD = {
-        .custom = 0,
         .surface_type = -1,
         .n_each = -1,
         .n_rows = -1,
@@ -334,7 +333,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[4] = 5;      // n_each
          FD->param[5] = 2;      // n_rows
          FD->param[6] = 1;      // n_cols
-         FD->param[7] = 0;      // angle_mode
+         FD->param[7] = 2;      // angle_mode
          FD->param[8] = 4.0;    // dalpha
          FD->param[9] = 4.0;    // dbeta
          FD->param[10] = 1.0;   // dgamma
