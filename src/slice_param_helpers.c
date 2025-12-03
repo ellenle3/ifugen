@@ -609,9 +609,9 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     pslice.gamma = atan( d / f ) * 180.0 / M_PI;
 
     double alpha, beta;
-    Conic2DOffAxisAngle(&alpha, &beta, p.cv, p.k, beta, alpha);
-    pslice.alpha *= 180.0 / M_PI;
-    pslice.beta  *= 180.0 / M_PI;
+    Conic2DOffAxisAngle(&alpha, &beta, p.cv, p.k, x0, y0);
+    pslice.alpha = alpha * 180.0 / M_PI;
+    pslice.beta  = beta * 180.0 / M_PI;
     
     pslice.zp = p.azps * CalcZpFromGamma(pslice.gamma, p.cv, p.k);
 

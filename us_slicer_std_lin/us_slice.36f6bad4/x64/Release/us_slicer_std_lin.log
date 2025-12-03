@@ -5,9 +5,9 @@ C:\Projects\ifugen\src\slicer_generation.c(134,19): warning C4244: 'initializing
 C:\Projects\ifugen\src\slicer_generation.c(190,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 C:\Projects\ifugen\src\slicer_generation.c(365,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   slice_param_helpers.c
-C:\Projects\ifugen\src\slice_param_helpers.c(122,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slice_param_helpers.c(463,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slice_param_helpers.c(531,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(138,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(480,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(548,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   surface_solns.c
   us_slicer_std_lin.c
 C:\Projects\ifugen\src\us_slicer_std_lin.c(117,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
@@ -21,6 +21,7 @@ C:\Projects\ifugen\src\us_slicer_std_lin.c(459,31): warning C4244: '=': conversi
      Creating library C:\Projects\ifugen\us_slicer_std_lin\x64\Release\us_slicer_std_lin.lib and object C:\Projects\ifugen\us_slicer_std_lin\x64\Release\us_slicer_std_lin.exp
   Generating code
   Previous IPDB not found, fall back to full compilation.
-  All 67 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+C:\Projects\ifugen\src\surface_solns.c(235): warning C4715: 'Conic2DOffAxisAngle': not all control paths return a value
+  All 68 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   us_slicer_std_lin.vcxproj -> C:\Projects\ifugen\us_slicer_std_lin\x64\Release\us_slicer_std_lin.dll

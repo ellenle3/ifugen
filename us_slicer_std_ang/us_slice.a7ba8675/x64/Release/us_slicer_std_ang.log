@@ -5,9 +5,9 @@ C:\Projects\ifugen\src\slicer_generation.c(134,19): warning C4244: 'initializing
 C:\Projects\ifugen\src\slicer_generation.c(190,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 C:\Projects\ifugen\src\slicer_generation.c(365,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   slice_param_helpers.c
-C:\Projects\ifugen\src\slice_param_helpers.c(122,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slice_param_helpers.c(463,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\slice_param_helpers.c(531,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(138,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(480,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(548,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
   surface_solns.c
   us_slicer_std_ang.c
 C:\Projects\ifugen\src\us_slicer_std_ang.c(116,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data

@@ -223,11 +223,11 @@ double Conic2DOffAxisAngle(double* alpha, double* beta, double cv, double k, dou
     if (fabs(cv) < 1E-13) return 0;
     double sagx = cv * x0 * x0 / (1 + sqrt(1 - (1 + k) * cv * cv * x0 * x0));
     double denom = 1 / (2*cv) - sagx;
-    *alpha = atan(x0 / denom);
+    *beta = atan(x0 / denom);
 
     double sagy = cv * y0 * y0 / (1 + sqrt(1 - (1 + k) * cv * cv * y0 * y0));
     denom = 1 / (2*cv) - sagy;
-    *beta = atan(y0 / denom);
+    *alpha = atan(y0 / denom);
 
     if (cv <= 0) {*beta *=-1;}
     else {*alpha *=-1;}
