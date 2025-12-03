@@ -23,19 +23,19 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
         return;
     }
 
-    int n_rows, n_cols;
+    int n_rows, n_cols, is_linear;
     int surface_type;
-    double dx, dy, gx_width, gx_depth, gy_width, gy_depth;
+    double dx, dy, gx_width, gx_depth, gy_width, gy_depth, f;
 
     // Read first line
-    if (fscanf(file, "%d %d %d\n", &n_rows, &n_cols, &surface_type) != 3) {
+    if (fscanf(file, "%d %d %d %d\n", &n_rows, &n_cols, &surface_type, &is_linear) != 4) {
         printf("Error: Invalid format on first line\n");
         fclose(file);
         return;
     }
 
     // Read second line
-    if (fscanf(file, "%lf %lf %lf %lf %lf %lf\n", &dx, &dy, &gx_width, &gx_depth, &gy_width, &gy_depth) != 6) {
+    if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf\n", &dx, &dy, &gx_width, &gx_depth, &gy_width, &gy_depth, &f) != 7) {
         printf("Error: Invalid format on second line\n");
         fclose(file);
         return;
@@ -52,6 +52,11 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     // Zero-initialize array
     for (int i = 0; i < array_size; i++) p_custom[i] = 0.0;
 
+    if (f <= 0) {
+        printf("Error: f must be positive. Setting to 100.\n");
+        f = 100.0;
+    }
+
     // Store first 10 entries
     p_custom[0] = (double)n_rows;
     p_custom[1] = (double)n_cols;
@@ -63,6 +68,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     p_custom[7] = gx_depth;
     p_custom[8] = gy_width;
     p_custom[9] = gy_depth;
+    p_custom[10] = f;
     //number of params above must match NUM_BASE_PARAMS
 
     // Read third line: u values
@@ -82,6 +88,15 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
         if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
                 &alpha, &beta, &gamma, &cv, &k, &zp, &syx, &syz, &sxy, &sxz) == 10) {
             base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
+
+            if (is_linear) {
+                // If params are defined in linear space, convert to angles first
+                if (cv != 0) f = 1 / (cv);
+                alpha = atan( alpha / f ) * 180.0 / M_PI;  // the input alpha is actually y0
+                beta = atan( beta / f ) * 180.0 / M_PI;    // x0
+                gamma = atan( gamma / f ) * 180.0 / M_PI;  // y0
+            }
+
             p_custom[base_idx]     = alpha;
             p_custom[base_idx + 1] = beta;
             p_custom[base_idx + 2] = gamma;

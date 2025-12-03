@@ -6,12 +6,20 @@
 #include "slice_param_helpers.h"
 #include "triangles.h"
 
+int main_stdmode();
+int main_triangles();
 void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
 void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
+    main_stdmode();
+    //main_triangles();
+    return 0;
+}
+
+int main_triangles() {
 
     FILE* fptr = fopen("triangles.txt", "w+");
 
@@ -24,9 +32,9 @@ int main() {
 
     IMAGE_SLICER_PARAMS_ANGULAR p = {
         .surface_type = 0,
-        .n_each = 3,
-        .n_rows = 2,
-        .n_cols = 2,
+        .n_each = 1,
+        .n_rows = 1,
+        .n_cols = 1,
         .angle_mode = 2,
 
         .dalpha = 5,
@@ -61,8 +69,8 @@ int main() {
     };
 
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
-    //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
-    MakeSliceParamsArrayAngular(p_custom, p);
+    LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/");
+    //MakeSliceParamsArrayAngular(p_custom, p);
     IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
     int Nx = 4;
@@ -141,11 +149,14 @@ int main_stdmode() {
     };
 
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
-    //LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/", 10000);
-    MakeSliceParamsArrayAngular(p_custom, p);
+    LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/");
+    //MakeSliceParamsArrayAngular(p_custom, p);
     IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
-    SLICE_PARAMS pslice = GetSliceParams(9, 0, p_custom); // Test function call
+    SLICE_PARAMS pslice = GetSliceParams(0, 0, p_custom); // Test function call
+    // printf("values in pslice: %f %f %f %f %f %f %f %f %f %f\n",
+    //     pslice.alpha, pslice.beta, pslice.gamma, pslice.cv, pslice.k,
+    //     pslice.zp, pslice.syx, pslice.syz, pslice.sxy, pslice.sxz);
     //SLICE_PARAMS pslice = GetSliceParamsAngular(2, 0, p); // Test function call
     TestRayTrace(fptr, p_basic, p_custom);
     //TestImageSlicerSag(fptr, p_basic, p_custom);
@@ -171,10 +182,10 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom
     double output;
     GetSlicerSize(&xsize, &ysize, p);
 
-    int nx = 200; int ny = 200;
+    int nx = 20; int ny = 20;
     double xpts[nx]; double ypts[ny];
-    linspace(xpts, -xsize/2 - 3, xsize/2 + 3, nx);
-    linspace(ypts, -ysize/2 - 3, ysize/2 + 3, ny);
+    linspace(xpts, -xsize/2 - 1, xsize/2 + 1, nx);
+    linspace(ypts, -ysize/2 - 1, ysize/2 + 1, ny);
 
     int nc, ns;
     for (int i = 0; i < nx; i++) {
