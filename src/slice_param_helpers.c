@@ -91,10 +91,10 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
 
             if (is_linear) {
                 // If params are defined in linear space, convert to angles first
-                if (cv != 0) f = 1 / (cv);
-                alpha = atan( alpha / f ) * 180.0 / M_PI;  // the input alpha is actually y0
-                beta = atan( beta / f ) * 180.0 / M_PI;    // x0
-                gamma = atan( gamma / f ) * 180.0 / M_PI;  // y0
+                if (cv != 0) f = 1 / (2 * cv);
+                alpha = Conic2DOffAxisAngle(alpha, cv, k) * 180.0 / M_PI;  // the input alpha is actually y0
+                beta = Conic2DOffAxisAngle(beta, cv, k) * 180.0 / M_PI;    // x0
+                gamma = atan( gamma / f ) * 180.0 / M_PI;  // gamma
             }
 
             p_custom[base_idx]     = alpha;
@@ -605,8 +605,8 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     if (p.cv == 0) f = p.f;
     else f = 1 / (2*p.cv);
 
-    pslice.alpha = atan( y0 / f ) * 180.0 / M_PI;
-    pslice.beta  = atan( x0 / f ) * 180.0 / M_PI;
+    pslice.alpha = Conic2DOffAxisAngle(y0, p.cv, p.k);
+    pslice.beta  = Conic2DOffAxisAngle(x0, p.cv, p.k);
     pslice.gamma = atan( d / f ) * 180.0 / M_PI;
 
     pslice.zp = p.azps * CalcZpFromGamma(pslice.gamma, p.cv, p.k);

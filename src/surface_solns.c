@@ -184,12 +184,13 @@ void SliceSurfaceNormal(double* ln, double* mn, double* nn, double x, double y, 
 ** --------------------------------------------------------------------
 */
 
-// Converts angles measured from vertex to off-axis distances. Only works if
-// cv is non-zero. If cv is close to zero, the plane solutions (below) should be
-// used instead, for which no off-axis distances are necessary.
-void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double alpha, double beta) {
+// Converts angles in radians to measured from vertex to off-axis distances. Only
+// works if cv is non-zero. If cv is close to zero, the plane solutions (below)
+// should be used instead, for which no off-axis distances are necessary.
+void Conic2DOffAxisDistance(double *x0, double *y0, double cv, double k, double alpha, double beta) {
+
     // Put a minimum on cv to prevent division by zero
-    if (fabs(c) < 1E-13) c = 1E-13;
+    if (fabs(cv) < 1E-13) cv = 1E-13;
 
     if (alpha == 0.0) {
         *y0 = 0.0;
@@ -197,7 +198,7 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
         double tana = tan(alpha);
         double num = (k - 1.0) + sqrt(4.0 + tana * tana * (3.0 - k));
         double den = tana * tana + (1.0 + k);
-        *y0 = (tana / (2.0 * c)) * (num / den);
+        *y0 = (tana / (2.0 * cv)) * (num / den);
     }
 
     // same as above but for x0 (beta)
@@ -207,14 +208,22 @@ void Conic2DOffAxisDistance(double *x0, double *y0, double c, double k, double a
         double tanb = tan(beta);
         double num = (k - 1.0) + sqrt(4.0 + tanb * tanb * (3.0 - k));
         double den = tanb * tanb + (1.0 + k);
-        *x0 = (tanb / (2.0 * c)) * (num / den);
+        *x0 = (tanb / (2.0 * cv)) * (num / den);
     }
 
     // Make direction of effective rotation consistent with plane. For a reflective
     // surface where alpha and/or beta apply a rotation rather than an OAD, the
     // angles are effectively doubled.
-    if (c <= 0) {*x0 *=-1;}
-    else {*y0 *=-1;}
+    // if (cv <= 0) {*x0 *=-1;}
+    // else {*y0 *=-1;}
+}
+
+// Converts off-axis distances to angles in radians. Only works if cv is non-zero.
+double Conic2DOffAxisAngle(double r0, double cv, double k) {
+    if (fabs(cv) < 1E-13) return 0;
+    double sag = cv * r0 * r0 / (1 + sqrt(1 - (1 + k) * cv * cv * r0 * r0));
+    double denom = 1 / (2*cv) - sag;
+    return atan(r0 / denom);
 }
 
 void Conic2DTransformation(double coords_out[3], const double coords_in[3], SLICE_PARAMS pslice,
