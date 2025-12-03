@@ -245,6 +245,9 @@ int ValidateSlicerParamsLinear(IMAGE_SLICER_PARAMS_LINEAR* p) {
     if (!(p->angle_mode==0 || p->angle_mode==1 || p->angle_mode==2 || p->angle_mode==3)){
         p->angle_mode = 0; is_valid = 0;
         }
+    if (p->f <= 0) {
+        p->f = 100.0; is_valid = 0;
+    }
 
     free(p_custom);
 

@@ -134,7 +134,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			/* Compute the total number of triangular facets used to render and trace this object */
 			/* put this value in data[10] */
 
-			data[10] = CalcNumTriangles(p, Nx, Ny);
+			data[10] = CalcNumTriangles(p_basic, Nx, Ny);
 			
 			/* is this object a solid? put 1 in data[11], use 0 if shell */
 			data[11] = 1;
@@ -182,7 +182,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			*/
 
 			int num_triangles = 0;
-			MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, p, p_custom);
+			MakeAllTrianglesForSlicer(tri_list, &num_triangles, Nx, Ny, p_basic, p_custom);
 			}
 			break;
 

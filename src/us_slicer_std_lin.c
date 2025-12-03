@@ -28,7 +28,6 @@ static double ZMIN, ZMAX, UMIN, UMAX;
 // Need to keep track of whether parameters changed
 static double *p_custom = NULL;
 static IMAGE_SLICER_PARAMS_LINEAR P_OLD = {
-        .custom = 0,
         .surface_type = -1,
         .n_each = -1,
         .n_rows = -1,
@@ -56,6 +55,7 @@ static IMAGE_SLICER_PARAMS_LINEAR P_OLD = {
         .dy = -1,
         .cv = -1,
         .k = -1,
+        .f = -1,
         .gx_width = -1,
         .gx_depth = -1,
         .gy_width = -1,
@@ -359,6 +359,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
          FD->param[29] = 0.0;   // gx_depth
          FD->param[30] = 0.0;   // gy_width
          FD->param[31] = 0.0;   // gy_depth
+         FD->param[32] = 50.0;  // f
          FD->cv = -0.01;
          FD->k = 0;
 
@@ -443,6 +444,7 @@ void SetFDFromSlicerParamsLinear(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    FD->param[29] = p->gx_depth;
    FD->param[30] = p->gy_width;
    FD->param[31] = p->gy_depth;
+   FD->param[32] = p->f;
    FD->cv = p->cv;
    FD->k = p->k;
 }
@@ -477,6 +479,7 @@ void SetSlicerParamsFromFDLinear(IMAGE_SLICER_PARAMS *p, FIXED_DATA5 *FD) {
    p->gx_depth =     FD->param[29];
    p->gy_width =     FD->param[30];
    p->gy_depth =     FD->param[31];
+   p->f =            FD->param[32];
    p->cv = FD->cv;
    p->k =  FD->k;
 }
