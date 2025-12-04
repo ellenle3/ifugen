@@ -97,16 +97,17 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
+   // Read in the custom slice array params
+   IMAGE_SLICER_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
+   ValidateBasicParams(&p);
+
    // Store FD params
    int trace_walls = FD->param[0];
    int active_x = FD->param[1];
    int active_y = FD->param[2];
    int file_num = FD->param[3];
 
-   // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
-   ValidateBasicParams(&p);
-   FILE* fptr;
+   active_x = active_y = 0;
 
    switch(FD->type)
    	{
@@ -247,9 +248,8 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
 
       case 8:
          /* ZEMAX is calling the DLL for the first time, do any memory or data initialization here. */
-          fptr = fopen("C:\\Projects\\testout.txt", "a");
-          fprintf(fptr, "calling for the first time.\n");
-          fclose(fptr);
+          p = MakeBasicParamsFromCustom(p_custom);
+          ValidateBasicParams(&p);
 
          if ( FILE_NUM_OLD != file_num ) {
             // Update custom slice params and global extrema

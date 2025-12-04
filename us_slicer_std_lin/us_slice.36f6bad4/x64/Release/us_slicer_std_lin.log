@@ -13,11 +13,11 @@ C:\Projects\ifugen\src\slice_param_helpers.c(548,19): warning C4244: 'initializi
 C:\Projects\ifugen\src\us_slicer_std_lin.c(117,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 C:\Projects\ifugen\src\us_slicer_std_lin.c(118,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 C:\Projects\ifugen\src\us_slicer_std_lin.c(119,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std_lin.c(455,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std_lin.c(456,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std_lin.c(457,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std_lin.c(458,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
-C:\Projects\ifugen\src\us_slicer_std_lin.c(459,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_lin.c(462,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_lin.c(463,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_lin.c(464,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_lin.c(465,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_lin.c(466,31): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
      Creating library C:\Projects\ifugen\us_slicer_std_lin\x64\Release\us_slicer_std_lin.lib and object C:\Projects\ifugen\us_slicer_std_lin\x64\Release\us_slicer_std_lin.exp
   Generating code
   Previous IPDB not found, fall back to full compilation.

@@ -1,0 +1,23 @@
+﻿  slicer_generation.c
+C:\Projects\ifugen\src\slicer_generation.c(73,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(94,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(134,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(190,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slicer_generation.c(365,16): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  slice_param_helpers.c
+C:\Projects\ifugen\src\slice_param_helpers.c(138,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(480,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\slice_param_helpers.c(548,19): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+  surface_solns.c
+  us_slicer_std_ang-DEBUG.c
+C:\Projects\ifugen\src\us_slicer_std_ang-DEBUG.c(98,31): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_ang-DEBUG.c(99,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_ang-DEBUG.c(100,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+C:\Projects\ifugen\src\us_slicer_std_ang-DEBUG.c(101,28): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+     Creating library C:\Projects\ifugen\us_slicer_custom_debug\x64\Release\us_slicer_custom_debug.lib and object C:\Projects\ifugen\us_slicer_custom_debug\x64\Release\us_slicer_custom_debug.exp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+C:\Projects\ifugen\src\surface_solns.c(235): warning C4715: 'Conic2DOffAxisAngle': not all control paths return a value
+  All 64 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  us_slicer_custom_debug.vcxproj -> C:\Projects\ifugen\us_slicer_custom_debug\x64\Release\us_slicer_custom_debug.dll

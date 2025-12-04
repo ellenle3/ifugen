@@ -471,8 +471,9 @@ def get_slice_params_standard_linear(slice_num, col_num, p):
         f = p.f
     else:
         f = 1 / (2*p.c)
-    alpha = math.degrees( math.atan( y0 / f ) )
-    beta = math.degrees( math.atan( x0 / f ) )
+    alpha, beta = conic_2d_off_axis_angle(x0, y0, p.c, p.k)
+    alpha = math.degrees(alpha)
+    beta = math.degrees(beta)
     gamma = math.degrees( math.atan( d / f ) )
 
     zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)

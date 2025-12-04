@@ -60,7 +60,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     // Store first 10 entries
     p_custom[0] = (double)n_rows;
     p_custom[1] = (double)n_cols;
-    p_custom[2] = 1;  // n_each is always 1 when reading from a TXT file
+    p_custom[2] = 1;
     p_custom[3] = (double)surface_type;
     p_custom[4] = dx;
     p_custom[5] = dy;

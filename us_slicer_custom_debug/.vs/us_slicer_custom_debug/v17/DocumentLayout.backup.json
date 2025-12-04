@@ -1,0 +1,44 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Projects\\ifugen\\us_slicer_custom_debug\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{F6515D51-8118-4D47-ABA3-2FB94DEBF1E7}|us_slicer_custom_debug.vcxproj|C:\\Projects\\ifugen\\src\\us_slicer_std_ang-DEBUG.c||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 1,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedHeight": 332,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{d78612c7-9962-4b83-95d9-268046dad23a}"
+            },
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{34e76e81-ee4a-11d0-ae2e-00a0c90fffc3}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "us_slicer_std_ang-DEBUG.c",
+              "DocumentMoniker": "C:\\Projects\\ifugen\\src\\us_slicer_std_ang-DEBUG.c",
+              "RelativeDocumentMoniker": "..\\src\\us_slicer_std_ang-DEBUG.c",
+              "ToolTip": "C:\\Projects\\ifugen\\src\\us_slicer_std_ang-DEBUG.c",
+              "RelativeToolTip": "..\\src\\us_slicer_std_ang-DEBUG.c",
+              "ViewState": "AgIAAOEAAAAAAAAAAAAAADwAAAAbAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000423|",
+              "WhenOpened": "2025-12-04T03:56:37.356Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
