@@ -4,6 +4,7 @@
 #include "triangles.h"
 
 int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny) {
+    // Likely a slight overestimate of the number of triangles required.
 
     // For computing how many triangles we need
 	int num_gaps_x, num_gaps_y;
@@ -14,9 +15,9 @@ int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny) {
     int num_slices_total = p.n_each * p.n_rows * p.n_cols;
 
     // Gap widths are always > 0 for now, even if they are negligibly small.
-    num_gaps_x = (p.n_cols - 1) * p.n_each * p.n_rows;
+    num_gaps_x = p.n_cols * p.n_each * p.n_rows + 1;
     num_walls_x = num_gaps_x * 2;
-    num_gaps_y = (p.n_each * p.n_rows - 1) * p.n_cols;
+    num_gaps_y = p.n_each * p.n_rows * p.n_cols + 1;
     num_walls_y = num_gaps_y * 2;
     num_gaps_between = (p.n_cols - 1) * (p.n_each * p.n_rows - 1);
     if (p.gx_depth != p.gy_depth) num_walls_between = num_gaps_between * 2;
@@ -42,7 +43,12 @@ int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny) {
         + num_gaps_between;
     ;
 
-    return 2 * (num_facets_surface + num_facets_shell);
+    int num_triangles_total = 2 * (num_facets_surface + num_facets_shell);
+
+    // If we ever understimate the number of triangles needed, the DLL will crash.
+    // Add another 5% just in case...
+
+    return (int)(num_triangles_total * 1.05);
 }
 
 static void CrossoverPoint(double *wc, double* zc, LINE line1, LINE line2) {
@@ -172,9 +178,6 @@ void SetTriListForTriangle(double *tri_list, int *num_triangles, POINT3D p1, POI
 }
 
 void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet) {
-
-    // check if reflective or refractive and update codes accordingly
-    // if refractive code_a -=10 codeb-=10
 
     SetTriListForTriangle(tri_list, num_triangles, facet.p1, facet.p2, facet.p3, facet.code_a);
     SetTriListForTriangle(tri_list, num_triangles, facet.p2, facet.p3, facet.p4, facet.code_b);
@@ -598,8 +601,8 @@ void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 
 
                 // This is for the back of the shell
-                code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
-                code_b = 000110.0;
+                code_a = 000310.0;                      // exact 0, CSG 1, top and bottom visible
+                code_b = 000310.0;
 
                 p1 = (POINT3D){x1, y1, Z_back};
                 p2 = (POINT3D){x2, y3, Z_back};
@@ -670,8 +673,8 @@ void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
                 SetTriListForFacet(tri_list, num_triangles, facet);
 
                 // This is for the back of the shell
-                code_a = 000110.0;                      // exact 0, CSG 1, top and bottom visible
-                code_b = 000110.0;
+                code_a = 000310.0;
+                code_b = 000310.0;
 
                 p1 = (POINT3D){x1, y1, Z_back};
                 p2 = (POINT3D){x2, y1, Z_back};
@@ -844,8 +847,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
                 z3 = zvals[nz];
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;                      // exact 0, CSG 3, top and bottom visible
                 //if (ny == 0) { code_a -= 4; }           // left is visible
                 //else if (ny == Ny - 1) { code_b -= 4; } // right is visible
 
@@ -886,8 +889,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
                 z3 = zvals[nz];
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;                      // exact 0, CSG 3, top and bottom visible
                 //if (ny == 0) { code_a -= 4; }           // left is visible
                 //else if (ny == Ny - 1) { code_b -= 4; } // right is visible
 
@@ -928,8 +931,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
                 z3 = zvals[nz];
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;                      // exact 0, CSG 3, top and bottom visible
                 //if (ny == 0) { code_a -= 4; }           // left is visible
                 //else if (ny == Ny - 1) { code_b -= 4; } // right is visible
 
@@ -970,8 +973,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 
                 z3 = zvals[nz];
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;                      // exact 0, CSG 3, top and bottom visible
                 //if (ny == 0) { code_a -= 4; }           // left is visible
                 //else if (ny == Ny - 1) { code_b -= 4; } // right is visible
 
@@ -1025,8 +1028,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
                     nz++; // Skip the next iteration
                 }
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;
 
                 p1 = (POINT3D){x1, y1, z1};
                 p2 = (POINT3D){x2, y2, z1};
@@ -1089,8 +1092,8 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
                     nz++; // Skip the next iteration
                 } 
 
-                code_a = 000110.0;
-                code_b = 000110.0;                      // exact 0, CSG 1, top and bottom visible
+                code_a = 000310.0;
+                code_b = 000310.0;
 
                 p1 = (POINT3D){x1, y1, z1};
                 p2 = (POINT3D){x2, y2, z1};
@@ -1170,6 +1173,11 @@ void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int
     free(slice_grid);
     free(x_grid);
     free(y_grid);
+}
+
+void MakeTrianglesRefractive(double* tri_list, int num_triangles) {
+    // subtract all codes by ...
+    return;
 }
 
 void TrianglesToSTL(double *tri_list, int num_triangles, const char *filename) {
