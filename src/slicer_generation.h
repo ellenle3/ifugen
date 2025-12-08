@@ -43,7 +43,7 @@ void linspace(double *array, double start, double end, int n);
  * @param p Image slicer parameters.
  */
 void GetSurfaceFuncs(TRANSFER_DIST_FUNC *transfer_dist_func, SURF_NORMAL_FUNC *surf_normal_func,
-    CRITICAL_XY_FUNC *critical_xy_func, TRANSFORMATION_FUNC *transform_func, SLICE_PARAMS pslice, IMAGE_SLICER_PARAMS_BASIC p);
+    CRITICAL_XY_FUNC *critical_xy_func, TRANSFORMATION_FUNC *transform_func, SLICE_PARAMS pslice, GRID_PARAMS_BASIC p);
 
 /**
  * @brief Computes the size of the image slicer.
@@ -52,7 +52,7 @@ void GetSurfaceFuncs(TRANSFER_DIST_FUNC *transfer_dist_func, SURF_NORMAL_FUNC *s
  * @param ysize Pointer for size of the image slicer along the y-axis.
  * @param p Image slicer parameters.
  */
-void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS_BASIC p);
+void GetSlicerSize(double *xsize, double *ysize, GRID_PARAMS_BASIC p);
 
 /**
  * @brief Computes column, slice indices for a given set of x, y.
@@ -63,7 +63,7 @@ void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS_BASIC p);
  * @param y y-coordinate.
  * @param p Image slicer parameters.
  */
-void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Checks whether a point (x, y) is inside a gap.
@@ -75,7 +75,7 @@ void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLIC
  * @param p Image slicer parameters.
  * @param p_custom Custom slice parameters if applicable.
  */
-void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Computes the minimum and maximum u values for the image slicer.
@@ -85,7 +85,7 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
  * @param p Image slicer parameters.
  * @param p_custom Custom slice parameters if applicable.
  */
-void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void GetMinMaxU(double *umin, double *umax, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /** @brief Computes the sag of the image slicer.
 * 
@@ -96,7 +96,7 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS_BASIC p, double 
 * 
 *   @return The sag of the image slicer, or NAN if out of bounds.
 **/
-double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+double ImageSlicerSag(double x, double y, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Finds an extremum of a slice within the bounds that it is defined for
@@ -110,7 +110,7 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_
  * @param critical_xy_func Function to compute the critical point of a slice.
  * @return double Bounded maximum or minimum for a slice.
  */
-double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+double FindBoundedSliceExtremum(double x0, double y0, int mode, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Computes global extrema for the image slicer.
@@ -121,7 +121,7 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
  * @param sag_func Function to compute the sag of a slice.
  * @param critical_xy_func Function to compute the critical point of a slice.
  */
-void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Transfer equation for the entire image slicer. The roots of this function
@@ -137,7 +137,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS_BAS
  * @param sag_func Function to compute the sag of a slice.
  * @return double The image slicer sag minus the computed z-coordinate at the surface (zs).
  */
-double TransferFunction(double t, RAY_IN ray_in, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+double TransferFunction(double t, RAY_IN ray_in, GRID_PARAMS_BASIC p, double p_custom[]);
 
 /**
  * @brief Computes the bounds of a ray.
@@ -152,32 +152,32 @@ double TransferFunction(double t, RAY_IN ray_in, IMAGE_SLICER_PARAMS_BASIC p, do
  * @return RAY_BOUNDS The bounds of the ray.
  */
 RAY_BOUNDS GetRayBounds(RAY_IN ray_in, double umin, double umax, double zmin, double zmax,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom);
+    GRID_PARAMS_BASIC p, void *p_custom);
 
-int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, double umax, double umin, IMAGE_SLICER_PARAMS_BASIC p);
+int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, double umax, double umin, GRID_PARAMS_BASIC p);
 
-int IsSectionInBounds(int col_num, int row_num, double umin, double umax, IMAGE_SLICER_PARAMS_BASIC p);
+int IsSectionInBounds(int col_num, int row_num, double umin, double umax, GRID_PARAMS_BASIC p);
 
 void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test, int nc_test,
-                           IMAGE_SLICER_PARAMS_BASIC p, void *p_custom);
+                           GRID_PARAMS_BASIC p, void *p_custom);
 
 void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgns,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom);
+    GRID_PARAMS_BASIC p, void *p_custom);
 
 void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgnc,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom);
+    GRID_PARAMS_BASIC p, void *p_custom);
 
 void CalcNextCoords(double *x_next, double *y_next, int *code, RAY_IN ray_in, int sgnc, int sgns, int nc_test, int nr_test,
-    double x_test, double y_test, double xmax, double ymax, IMAGE_SLICER_PARAMS_BASIC p,
+    double x_test, double y_test, double xmax, double ymax, GRID_PARAMS_BASIC p,
     void *p_custom);
 
 void CalcNumSlicesToCheck(int sgnc, int sgns, int nc_test, int nr_test,
                            double x_test, double y_test,
                            double x_next, double y_next, int code,
-                           IMAGE_SLICER_PARAMS_BASIC p, void *p_custom,
+                           GRID_PARAMS_BASIC p, void *p_custom,
                            int *n_stocheck, int *nc_new, int *nr_new);
 
-int IsLastSliceInSection(int ns_test, int sgns, IMAGE_SLICER_PARAMS_BASIC p);
+int IsLastSliceInSection(int ns_test, int sgns, GRID_PARAMS_BASIC p);
             
 /**
  * @brief Computes the transfered ray and surface normals for the image slicer.
@@ -193,10 +193,10 @@ int IsLastSliceInSection(int ns_test, int sgns, IMAGE_SLICER_PARAMS_BASIC p);
  * @param surf_normal_func Function to compute the surface normal of a slice.
  */
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, double umin, double umax,
-     int trace_walls, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+     int trace_walls, GRID_PARAMS_BASIC p, double p_custom[]);
 
 void ParaxialRayTraceSlicer(RAY_OUT* ray_out, double* l_out, double* m_out, double* n_out,
     RAY_IN* ray_in, double n1, double n2, int active_x, int active_y,
-    IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+    GRID_PARAMS_BASIC p, double p_custom[]);
 
 #endif

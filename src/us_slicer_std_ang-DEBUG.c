@@ -92,7 +92,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
       .nn = NAN
    };
 
-   IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+   GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
    //// Store some other FD params
    int trace_walls = FD->param[0];

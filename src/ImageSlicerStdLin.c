@@ -117,7 +117,7 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
             MakeSliceParamsArrayLinear(p_custom, p);
             P_OLD = p;
          };
-	IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+	GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
     int Nx = (int) data[101];
     int Ny = (int) data[102];

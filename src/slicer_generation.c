@@ -23,7 +23,7 @@ void linspace(double *array, double start, double end, int n) {
 }
 
 void GetSurfaceFuncs(TRANSFER_DIST_FUNC *transfer_dist_func, SURF_NORMAL_FUNC *surf_normal_func,
-    CRITICAL_XY_FUNC *critical_xy_func, TRANSFORMATION_FUNC *transform_func, SLICE_PARAMS pslice, IMAGE_SLICER_PARAMS_BASIC p) {
+    CRITICAL_XY_FUNC *critical_xy_func, TRANSFORMATION_FUNC *transform_func, SLICE_PARAMS pslice, GRID_PARAMS_BASIC p) {
     if (pslice.cv == 0) {
         *transfer_dist_func = &PlaneTransfer;
         *surf_normal_func = &PlaneSurfaceNormal;
@@ -49,7 +49,7 @@ void GetSurfaceFuncs(TRANSFER_DIST_FUNC *transfer_dist_func, SURF_NORMAL_FUNC *s
 // The size of the image slicer along x is determined by the number of columns and
 // the width of the gaps between them. Ditto for y except with the total number
 // of slices within a column.
-void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS_BASIC p) {
+void GetSlicerSize(double *xsize, double *ysize, GRID_PARAMS_BASIC p) {
     int n_slices = p.n_each * p.n_rows;
     *ysize = n_slices * p.dy + (n_slices - 1) * p.gy_width;
     *xsize = p.n_cols * p.dx + (p.n_cols - 1) * p.gx_width;
@@ -66,7 +66,7 @@ void GetSlicerSize(double *xsize, double *ysize, IMAGE_SLICER_PARAMS_BASIC p) {
 // includes the gap above the slice and column 0 includes the gap to the left of
 // the column. The computation for the sag is cut off before the topmost and leftmost
 // gaps, so in practice gaps can only appear between slices.
-void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, GRID_PARAMS_BASIC p, double p_custom[]) {
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     *slice_num = (int) floor((y + ysize / 2) / (p.dy + p.gy_width));
@@ -79,7 +79,7 @@ void GetSlicerIndex(int *col_num, int *slice_num, double x, double y, IMAGE_SLIC
 
 // Checks whether a point (x, y) is inside a gap. This is useful for sag and ray
 // tracing computations.
-void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, GRID_PARAMS_BASIC p, double p_custom[]) {
     double xsize, ysize;
     int col_num, slice_num;
     GetSlicerSize(&xsize, &ysize, p);
@@ -103,7 +103,7 @@ void IsInsideSlicerGap(int *in_xgap, int *in_ygap, double x, double y, IMAGE_SLI
 // to specify whether they want to slice above or below the center line. Same
 // goes for the columns. The parameters p.active_x and p.active_y exist for this
 // purpose.
-void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int active_y, IMAGE_SLICER_PARAMS_BASIC p) {
+void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int active_y, GRID_PARAMS_BASIC p) {
     *col_num = p.n_cols / 2;
     if (p.n_cols % 2 == 0 && active_x) (*col_num)++;
 
@@ -114,7 +114,7 @@ void GetParaxialSliceIndex(int *col_num, int *slice_num, int active_x, int activ
 
 // Computes the maximum and minimum row offsets for the image slicer. umin and umax
 // are needed along with the global extrema of the sag to compute the ray trace.
-void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void GetMinMaxU(double *umin, double *umax, GRID_PARAMS_BASIC p, double p_custom[]) {
     int i;
     *umin = GetUForRow(0, p_custom);
     *umax = GetUForRow(1, p_custom);
@@ -127,7 +127,7 @@ void GetMinMaxU(double *umin, double *umax, IMAGE_SLICER_PARAMS_BASIC p, double 
     return;
 }
 
-double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+double ImageSlicerSag(double x, double y, GRID_PARAMS_BASIC p, double p_custom[]) {
     // Check if out of bounds
     int col_num, slice_num;
     GetSlicerIndex(&col_num, &slice_num, x, y, p, p_custom);
@@ -166,7 +166,7 @@ double ImageSlicerSag(double x, double y, IMAGE_SLICER_PARAMS_BASIC p, double p_
 
 // Ray tracing
 
-double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+double FindBoundedSliceExtremum(double x0, double y0, int mode, GRID_PARAMS_BASIC p, double p_custom[]) {
     // If x0, y0 are inside gaps then we don't need to go further
     int in_xgap, in_ygap;
     IsInsideSlicerGap(&in_xgap, &in_ygap, x0, y0, p, p_custom);
@@ -228,7 +228,7 @@ double FindBoundedSliceExtremum(double x0, double y0, int mode, IMAGE_SLICER_PAR
 }
 
 
-void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void FindSlicerGlobalExtrema(double *zmin, double *zmax, GRID_PARAMS_BASIC p, double p_custom[]) {
     // Determine which slice the global extrema are on by roughly sampling the
     // entire image slicer
     double xsize, ysize;
@@ -281,7 +281,7 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, IMAGE_SLICER_PARAMS_BAS
     *zmax = FindBoundedSliceExtremum(x0_max, y0_max, 1, p, p_custom);
 }
 
-double TransferFunction(double t, RAY_IN ray_in, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+double TransferFunction(double t, RAY_IN ray_in, GRID_PARAMS_BASIC p, double p_custom[]) {
     double xs = ray_in.xt + t*ray_in.l;
     double ys = ray_in.yt + t*ray_in.m;
     double zs = t*ray_in.n;
@@ -290,7 +290,7 @@ double TransferFunction(double t, RAY_IN ray_in, IMAGE_SLICER_PARAMS_BASIC p, do
 }
 
 RAY_BOUNDS GetRayBounds(RAY_IN ray_in, double umin, double umax, double zmin, double zmax,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom) {
+    GRID_PARAMS_BASIC p, void *p_custom) {
 
     RAY_BOUNDS bounds;
 
@@ -361,7 +361,7 @@ RAY_BOUNDS GetRayBounds(RAY_IN ray_in, double umin, double umax, double zmin, do
 }
 
 // Checks if the ray is bounds at least some of the time.
-int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, double umax, double umin, IMAGE_SLICER_PARAMS_BASIC p) {
+int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, double umax, double umin, GRID_PARAMS_BASIC p) {
     int dcol = ceil( (umax - umin) / p.dx);
     int col_min = -dcol;
     int col_max = p.n_cols + dcol;
@@ -378,7 +378,7 @@ int IsRayInBounds(int nc_min, int ns_min, int nc_max, int ns_max, double umax, d
     return 1;
 }
 
-int IsSectionInBounds(int col_num, int row_num, double umin, double umax, IMAGE_SLICER_PARAMS_BASIC p) {
+int IsSectionInBounds(int col_num, int row_num, double umin, double umax, GRID_PARAMS_BASIC p) {
     if (row_num < 0 || row_num >= p.n_rows) {
         return 0;
     }
@@ -392,7 +392,7 @@ int IsSectionInBounds(int col_num, int row_num, double umin, double umax, IMAGE_
     return 1;
 }
 
-int IsSectionValid(int col_num, int row_num, IMAGE_SLICER_PARAMS_BASIC p) {
+int IsSectionValid(int col_num, int row_num, GRID_PARAMS_BASIC p) {
     if (row_num < 0 || row_num >= p.n_rows) {
         return 0;
     }
@@ -403,7 +403,7 @@ int IsSectionValid(int col_num, int row_num, IMAGE_SLICER_PARAMS_BASIC p) {
 }
 
 void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test, int nc_test,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom) {
+    GRID_PARAMS_BASIC p, void *p_custom) {
 
     *ray_out = (RAY_OUT){NAN, NAN, NAN, NAN, NAN, NAN, NAN};
 
@@ -440,7 +440,7 @@ void CheckSliceSolution(RAY_OUT *ray_out, double tol, RAY_IN ray_in, int ns_test
 }
 
 void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgns,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom){
+    GRID_PARAMS_BASIC p, void *p_custom){
 
     *ray_out = (RAY_OUT){NAN, NAN, NAN, NAN, NAN, NAN, NAN};
     double xt = ray_in.xt; double yt = ray_in.yt;
@@ -522,7 +522,7 @@ void CheckYWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
 }
 
 void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_test, int sgnc,
-    IMAGE_SLICER_PARAMS_BASIC p, void *p_custom) {
+    GRID_PARAMS_BASIC p, void *p_custom) {
 
     *ray_out = (RAY_OUT){NAN, NAN, NAN, NAN, NAN, NAN, NAN};
 
@@ -603,7 +603,7 @@ void CheckXWallCollision(RAY_OUT *ray_out, RAY_IN ray_in, int ns_test, int nc_te
 }
 
 void CalcNextCoords(double *x_next, double *y_next, int *code, RAY_IN ray_in, int sgnc, int sgns, int nc_test, int nr_test,
-    double x_test, double y_test, double xmax, double ymax, IMAGE_SLICER_PARAMS_BASIC p,
+    double x_test, double y_test, double xmax, double ymax, GRID_PARAMS_BASIC p,
     void *p_custom) {
 
     double l = ray_in.l;
@@ -657,7 +657,7 @@ void CalcNextCoords(double *x_next, double *y_next, int *code, RAY_IN ray_in, in
 void CalcNumSlicesToCheck(int sgnc, int sgns, int nc_test, int nr_test,
                           double x_test, double y_test,
                           double x_next, double y_next, int code,
-                          IMAGE_SLICER_PARAMS_BASIC p, void *p_custom,
+                          GRID_PARAMS_BASIC p, void *p_custom,
                           int *n_stocheck, int *nc_new, int *nr_new) {
     int ns1 = 0, ns2 = 0;
 
@@ -694,7 +694,7 @@ void CalcNumSlicesToCheck(int sgnc, int sgns, int nc_test, int nr_test,
     }
 }
 
-int IsLastSliceInSection(int ns_test, int sgns, IMAGE_SLICER_PARAMS_BASIC p) {
+int IsLastSliceInSection(int ns_test, int sgns, GRID_PARAMS_BASIC p) {
     if (sgns > 0) {
         return (ns_test % p.n_each == p.n_each - 1);
     } else if (sgns < 0) {
@@ -705,7 +705,7 @@ int IsLastSliceInSection(int ns_test, int sgns, IMAGE_SLICER_PARAMS_BASIC p) {
 
 
 void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, double umin, double umax,
-                    int trace_walls, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+                    int trace_walls, GRID_PARAMS_BASIC p, double p_custom[]) {
     // Tolerance for accepting the transfer distance as valid
     double tol = 1e-12;
 
@@ -853,7 +853,7 @@ void RayTraceSlicer(RAY_OUT *ray_out, RAY_IN ray_in, double zmin, double zmax, d
 
 void ParaxialRayTraceSlicer(RAY_OUT *ray_out, double *l_out, double *m_out, double *n_out,
     RAY_IN *ray_in, double n1, double n2, int active_x, int active_y,
-    IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) 
+    GRID_PARAMS_BASIC p, double p_custom[]) 
 {
     int nc, ns;
     GetParaxialSliceIndex(&nc, &ns, active_x, active_y, p);

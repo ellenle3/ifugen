@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "triangles.h"
 
-int CalcNumTriangles(IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny) {
+int CalcNumTriangles(GRID_PARAMS_BASIC p, int Nx, int Ny) {
     // Likely a slight overestimate of the number of triangles required.
 
     // For computing how many triangles we need
@@ -139,7 +139,7 @@ int IsValidTriangle(POINT3D p1, POINT3D p2, POINT3D p3) {
 }
 
 void CalcZBack(double* Z_back, double* Z_max_slice, double slice_grid[], int Nx, int Ny,
-    double zdiff, IMAGE_SLICER_PARAMS_BASIC p) {
+    double zdiff, GRID_PARAMS_BASIC p) {
 
     double zmax = slice_grid[0];
     int Npts = (Nx + 1) * (Ny + 1) * p.n_each * p.n_rows * p.n_cols;
@@ -183,11 +183,11 @@ void SetTriListForFacet(double *tri_list, int *num_triangles, FACET facet) {
     SetTriListForTriangle(tri_list, num_triangles, facet.p2, facet.p3, facet.p4, facet.code_b);
 }
 
-int GetSliceGridIndex(int nc, int ns, IMAGE_SLICER_PARAMS_BASIC p, int Nx, int Ny, int nx, int ny) {
+int GetSliceGridIndex(int nc, int ns, GRID_PARAMS_BASIC p, int Nx, int Ny, int nx, int ny) {
     return (nc * p.n_rows * p.n_each + ns) * ((Ny + 1) * (Nx + 1)) + ny * (Nx + 1) + nx;
 }
 
-void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx, int Ny, GRID_PARAMS_BASIC p, double p_custom[]) {
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
     double xstart, ystart;
@@ -237,7 +237,7 @@ void EvalSliceGrid(double slice_grid[], double x_grid[], double y_grid[], int Nx
 }
 
 void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
-    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, double Z_back, GRID_PARAMS_BASIC p) {
 
     FACET facet;
     POINT3D p1, p2, p3, p4;
@@ -298,7 +298,7 @@ void MakeSliceTriangles(double *tri_list, int *num_triangles, double slice_grid[
 }
 
 void MakeXWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, GRID_PARAMS_BASIC p) {
 
     FACET facet;
     POINT3D p1, p2, p3, p4, pc;
@@ -425,7 +425,7 @@ void MakeXWallTriangles(double *tri_list, int *num_triangles, double slice_grid[
 }
 
 void MakeYWallTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
-    int Nx, int Ny, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, GRID_PARAMS_BASIC p) {
 
     FACET facet;
     POINT3D p1, p2, p3, p4, pc;
@@ -552,7 +552,7 @@ void MakeYWallTriangles(double *tri_list, int *num_triangles, double slice_grid[
 }
 
 void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, double Z_back, GRID_PARAMS_BASIC p) {
 
     if (p.gx_width <= 0) {
         return;
@@ -624,7 +624,7 @@ void MakeXGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 }            
 
 void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, double Z_back, GRID_PARAMS_BASIC p) {
 
     if (p.gy_width <= 0) {
         return;
@@ -695,7 +695,7 @@ void MakeYGapTriangles(double *tri_list, int *num_triangles, double x_grid[], do
 }
 
 void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid[], double y_grid[],
-    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, double Z_back, GRID_PARAMS_BASIC p) {
 
     if (p.gy_width <= 0 || p.gx_width <= 0) {
         return;
@@ -792,7 +792,7 @@ void MakeGapBetweenTriangles(double *tri_list, int *num_triangles, double x_grid
 }
 
 void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_grid[], double x_grid[], double y_grid[], 
-    int Nx, int Ny, double Z_back, IMAGE_SLICER_PARAMS_BASIC p) {
+    int Nx, int Ny, double Z_back, GRID_PARAMS_BASIC p) {
 
     FACET facet;
     POINT3D p1, p2, p3, p4, pc;
@@ -1131,7 +1131,7 @@ void MakeShellSideTriangles(double *tri_list, int *num_triangles, double slice_g
 }
 
 void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int Ny, double zdiff,
-    IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+    GRID_PARAMS_BASIC p, double p_custom[]) {
 
     int Npts = (Nx + 1) * (Ny + 1) * p.n_each * p.n_rows * p.n_cols;
     double *slice_grid = (double *)malloc(Npts * sizeof(double));
@@ -1150,7 +1150,7 @@ void MakeAllTrianglesForSlicer(double *tri_list, int *num_triangles, int Nx, int
     double Z_back, Z_max_slice;
     CalcZBack(&Z_back, &Z_max_slice, slice_grid, Nx, Ny, zdiff, p);
 
-    IMAGE_SLICER_PARAMS_BASIC p2 = p;
+    GRID_PARAMS_BASIC p2 = p;
     if (p.gy_width == 0) {
         fprintf(stderr, "Error: Triangle generation currently requires non-zero gap widths. Setting gy_width to infinitesimal value.\n");
         p2.gy_width = 1e-9;

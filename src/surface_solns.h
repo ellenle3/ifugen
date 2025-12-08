@@ -17,6 +17,16 @@ typedef struct {
     double sxy;     // y-coordinate of axis of rotation about x (if applicable)
     double sxz;     // z-coordinate of axis of rotation about x (if applicable)
     double u;       // Row offset along x-axis
+    
+    // ..if you want to shift along the y-axis, use a coordinate break in Zemax
+    // and rotate by 90 degrees. We cannot have both x- and y-axis shifts at once
+    // without breaking the grid of surfaces.
+
+    double theta; // NOT IMPLEMENTED: Parameters for rotations about the z-axis.
+    double sxz;   // Combined with the above parameters, it is possible to represent
+    double szy;   // any rigid transformation in 3-dimensions! Maybe useful for
+                  // other surface types...
+
 } SLICE_PARAMS;
 
 /** Function pointers */                                                                

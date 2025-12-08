@@ -172,8 +172,8 @@ int IsAllRowsAligned(double p_custom[]) {
     return 1; // All rows have the same u value
 }
 
-IMAGE_SLICER_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]) {
-    IMAGE_SLICER_PARAMS_BASIC p_basic;
+GRID_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]) {
+    GRID_PARAMS_BASIC p_basic;
     p_basic.n_rows = (int)p_custom[0];
     p_basic.n_cols = (int)p_custom[1];
     p_basic.n_each = (int)p_custom[2];
@@ -188,7 +188,7 @@ IMAGE_SLICER_PARAMS_BASIC MakeBasicParamsFromCustom(double p_custom[]) {
 }
 
 // Validate image slicer parameters, modifying illegal parameters as needed.
-int ValidateBasicParams(IMAGE_SLICER_PARAMS_BASIC* p) {
+int ValidateBasicParams(GRID_PARAMS_BASIC* p) {
     // Keep track of whether we had to change any parameters
     int is_valid = 1;
 
@@ -214,7 +214,7 @@ int ValidateSlicerParamsAngular(IMAGE_SLICER_PARAMS_ANGULAR* p) {
 
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
     MakeSliceParamsArrayAngular(p_custom, *p);
-    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
     int is_valid = ValidateBasicParams(&p_basic);
 
     p->n_cols = p_basic.n_cols;
@@ -241,7 +241,7 @@ int ValidateSlicerParamsLinear(IMAGE_SLICER_PARAMS_LINEAR* p) {
 
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
     MakeSliceParamsArrayLinear(p_custom, *p);
-    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
     int is_valid = ValidateBasicParams(&p_basic);
 
     p->n_cols = p_basic.n_cols;

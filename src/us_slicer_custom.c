@@ -98,7 +98,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    };
 
    // Read in the custom slice array params
-   IMAGE_SLICER_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
+   GRID_PARAMS_BASIC p = MakeBasicParamsFromCustom(p_custom);
    ValidateBasicParams(&p);
 
    // Store FD params

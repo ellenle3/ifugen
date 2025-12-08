@@ -107,7 +107,7 @@ int __declspec(dllexport) APIENTRY UserDefinedSurface5(USER_DATA *UD, FIXED_DATA
    };
 
    IMAGE_SLICER_PARAMS_ANGULAR p; SetSlicerParamsFromFDAngular(&p, FD);
-   IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+   GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
    //// We will never need the p_custom array in standard mode but we need
    //// to pass it as an argument. It will never be accessed because p.custom will
    //// always be set to 0.

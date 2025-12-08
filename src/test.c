@@ -8,9 +8,9 @@
 
 int main_stdmode();
 int main_triangles();
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]);
+void TestImageSlicerSag(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]);
+void TestGlobalExtrema(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]);
+void TestRayTrace(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]);
 void TestLoadCustomParams(FILE* fptr, int file_num);
 
 int main() {
@@ -71,7 +71,7 @@ int main_triangles() {
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
     LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/");
     //MakeSliceParamsArrayAngular(p_custom, p);
-    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
     int Nx = 4;
     int Ny = 3;
@@ -151,7 +151,7 @@ int main_stdmode() {
     double* p_custom = (double*)malloc(MAX_ELEMENTS * sizeof(double));
     LoadCustomParamsFromFile(p_custom, 0, "/Users/ellenlee/Documents/Zemax_dll/ifugen/python/");
     //MakeSliceParamsArrayAngular(p_custom, p);
-    IMAGE_SLICER_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
+    GRID_PARAMS_BASIC p_basic = MakeBasicParamsFromCustom(p_custom);
 
     SLICE_PARAMS pslice = GetSliceParams(0, 0, p_custom); // Test function call
     // printf("values in pslice: %f %f %f %f %f %f %f %f %f %f\n",
@@ -175,7 +175,7 @@ int main_stdmode() {
     return 0;
 }
 
-void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void TestImageSlicerSag(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]) {
     
     // Compute test function over an array of points and save to a TXT file
     double xsize, ysize;
@@ -197,7 +197,7 @@ void TestImageSlicerSag(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom
     }
 }
 
-void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void TestGlobalExtrema(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]) {
 
     double zmin, zmax;
     FindSlicerGlobalExtrema(&zmin, &zmax, p, p_custom);
@@ -205,7 +205,7 @@ void TestGlobalExtrema(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[
 
 }
 
-void TestRayTrace(FILE* fptr, IMAGE_SLICER_PARAMS_BASIC p, double p_custom[]) {
+void TestRayTrace(FILE* fptr, GRID_PARAMS_BASIC p, double p_custom[]) {
 
     RAY_IN ray_in;
     RAY_OUT ray_out;
