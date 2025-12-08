@@ -82,11 +82,11 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     }
 
     // Read slice parameters directly into p_custom
-    double alpha, beta, gamma, cv, k, zp, syx, syz, sxy, sxz;
+    double alpha, beta, gamma, cv, k, zp, syx, syz, sxy, sxz, theta, szx, szy;
     int base_idx;
     for (int slice_idx = 0; slice_idx < num_slices; slice_idx++) {
-        if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
-                &alpha, &beta, &gamma, &cv, &k, &zp, &syx, &syz, &sxy, &sxz) == 10) {
+        if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
+                &alpha, &beta, &gamma, &cv, &k, &zp, &syx, &syz, &sxy, &sxz, &theta, &szx, &szy) == NUM_PARAMS_PER_SLICE) {
             base_idx = NUM_BASE_PARAMS + n_rows + NUM_PARAMS_PER_SLICE * slice_idx;
 
             if (is_linear) {
@@ -108,6 +108,9 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
             p_custom[base_idx + 7] = syz;
             p_custom[base_idx + 8] = sxy;
             p_custom[base_idx + 9] = sxz;
+            p_custom[base_idx + 10] = theta;
+            p_custom[base_idx + 11] = szx;
+            p_custom[base_idx + 12] = szy;
         } else {
             break; // stop if fewer than 10 values found
         }
@@ -140,7 +143,7 @@ SLICE_PARAMS GetSliceParams(int slice_num, int col_num, double p_custom[]) {
     // Get the u value for this row
     slice.u = p_custom[u_start_idx + row_num];
 
-    // Get the 10 slice parameters
+    // Get the slice parameters
     int base_idx = slice_params_start_idx + NUM_PARAMS_PER_SLICE * slice_idx;
     slice.alpha = p_custom[base_idx];
     slice.beta  = p_custom[base_idx + 1];
@@ -152,6 +155,9 @@ SLICE_PARAMS GetSliceParams(int slice_num, int col_num, double p_custom[]) {
     slice.syz   = p_custom[base_idx + 7];
     slice.sxy   = p_custom[base_idx + 8];
     slice.sxz   = p_custom[base_idx + 9];
+    slice.theta  = p_custom[base_idx + 10];
+    slice.szx    = p_custom[base_idx + 11];
+    slice.szy    = p_custom[base_idx + 12];
 
     return slice;
 }
@@ -405,6 +411,11 @@ void MakeSliceParamsArrayAngular(double p_custom[], IMAGE_SLICER_PARAMS_ANGULAR 
                 p_custom[base_idx + 7] = pslice.syz;
                 p_custom[base_idx + 8] = pslice.sxy;
                 p_custom[base_idx + 9] = pslice.sxz;
+
+                // no rotations about z-axis, this parameters should never be accessed
+                p_custom[base_idx + 10] = 0.0;
+                p_custom[base_idx + 11] = 0.0;
+                p_custom[base_idx + 12] = 0.0;
             }
         }
     }
@@ -459,6 +470,11 @@ void MakeSliceParamsArrayLinear(double p_custom[], IMAGE_SLICER_PARAMS_LINEAR p)
                 p_custom[base_idx + 7] = pslice.syz;
                 p_custom[base_idx + 8] = pslice.sxy;
                 p_custom[base_idx + 9] = pslice.sxz;
+
+                // no rotations about z-axis, this parameters should never be accessed
+                p_custom[base_idx + 10] = 0.0;
+                p_custom[base_idx + 11] = 0.0;
+                p_custom[base_idx + 12] = 0.0;
             }
         }
     }
@@ -480,7 +496,7 @@ static SLICE_PARAMS GetSliceParamsAngular(int slice_num, int col_num, IMAGE_SLIC
     int row_num = floor((double)slice_num / p.n_each);
     int slice_num_row = slice_num % p.n_each;
     double gamma_extra;
-    SLICE_PARAMS pslice;
+    SLICE_PARAMS pslice = {0};
 
     double row_mid = (p.n_rows % 2 == 0) ? (p.n_rows - 1) / 2.0 : p.n_rows / 2;
     double col_mid = (p.n_cols % 2 == 0) ? (p.n_cols - 1) / 2.0 : p.n_cols / 2;
@@ -547,7 +563,7 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     // Get row number and the subindex of the slice within that row
     int row_num = floor((double)slice_num / p.n_each);
     int slice_num_row = slice_num % p.n_each;
-    SLICE_PARAMS pslice;
+    SLICE_PARAMS pslice = {0};
 
     double row_mid = (p.n_rows % 2 == 0) ? (p.n_rows - 1) / 2.0 : p.n_rows / 2;
     double col_mid = (p.n_cols % 2 == 0) ? (p.n_cols - 1) / 2.0 : p.n_cols / 2;

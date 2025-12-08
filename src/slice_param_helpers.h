@@ -5,7 +5,7 @@
 // Up to a single column of 50,000 slices
 #define MAX_ELEMENTS 1009
 #define NUM_BASE_PARAMS 11
-#define NUM_PARAMS_PER_SLICE 10
+#define NUM_PARAMS_PER_SLICE 13
 
 /*
 * @brief Basic parameters for validating input.

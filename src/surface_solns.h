@@ -23,7 +23,7 @@ typedef struct {
     // without breaking the grid of surfaces.
 
     double theta; // NOT IMPLEMENTED: Parameters for rotations about the z-axis.
-    double sxz;   // Combined with the above parameters, it is possible to represent
+    double szx;   // Combined with the above parameters, it is possible to represent
     double szy;   // any rigid transformation in 3-dimensions! Maybe useful for
                   // other surface types...
 
