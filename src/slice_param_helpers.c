@@ -68,7 +68,6 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     p_custom[7] = gx_depth;
     p_custom[8] = gy_width;
     p_custom[9] = gy_depth;
-    p_custom[10] = f;
     //number of params above must match NUM_BASE_PARAMS
 
     // Read third line: u values
@@ -619,10 +618,10 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     } else if (p.angle_mode == 1 || p.angle_mode == 3) {
         d = d_bot + slice_num_row * p.dd + d_extra;
     }
-    double f;
-    if (p.cv == 0) f = p.f;
-    else f = 1 / (2*p.cv);
-    pslice.gamma = atan( d / f ) * 180.0 / M_PI;
+    // Would usually be atan(d/f) where f is the distance to the plane where it's
+    // linearly spaced, but just set f=1 here. It will be linearly spaced no
+    // matter the distance.
+    pslice.gamma = atan( d ) * 180.0 / M_PI;
 
     double alpha, beta;
     Conic2DOffAxisAngle(&alpha, &beta, p.cv, p.k, x0, y0);

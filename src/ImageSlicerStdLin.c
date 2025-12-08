@@ -286,7 +286,6 @@ int __declspec(dllexport) APIENTRY UserObjectDefinition(double *data, double *tr
 			data[130] = 0.0;      // gx_depth
 			data[131] = 0.0;      // gy_width
 			data[132] = 0.0;      // gy_depth
-            data[133] = 50.0;     // f
 
 			SetSlicerParamsFromData(&p, data);
 			return 0;
@@ -342,7 +341,6 @@ int __declspec(dllexport) APIENTRY UserParamNames(char *data) {
 	if (i == 32) strcpy(data,"gx_depth");
 	if (i == 33) strcpy(data,"gy_width");
 	if (i == 34) strcpy(data,"gy_depth");
-    if (i == 35) strcpy(data,"f");
 	return 0;
 }
 
@@ -379,7 +377,6 @@ void SetDataFromSlicerParams(IMAGE_SLICER_PARAMS *p, double *data) {
 	data[132] = p->gx_depth;
 	data[133] = p->gy_width;
 	data[134] = p->gy_depth;
-    data[135] = p->f;
 }
 
 void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
@@ -414,5 +411,4 @@ void SetSlicerParamsFromData(IMAGE_SLICER_PARAMS *p, double *data) {
 	p->gx_depth = data[132];
 	p->gy_width = data[133];
 	p->gy_depth = data[134];
-    p->f = data[135];
 }

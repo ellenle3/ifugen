@@ -4,7 +4,7 @@
 
 // Up to a single column of 50,000 slices
 #define MAX_ELEMENTS 1009
-#define NUM_BASE_PARAMS 11
+#define NUM_BASE_PARAMS 10
 #define NUM_PARAMS_PER_SLICE 13
 
 /*
@@ -94,7 +94,6 @@ typedef struct {
     double dy;           // Slice size along y-axis
     double cv;           // Curvature = 1 / R
     double k;            // Conic constant
-    double f;
 
     double gx_width;     // Width of gaps between columns along x-axis
     double gx_depth;     // Depth (z) of gaps between columns
