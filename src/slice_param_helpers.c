@@ -25,7 +25,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
 
     int n_rows, n_cols, is_linear;
     int surface_type;
-    double dx, dy, gx_width, gx_depth, gy_width, gy_depth, f;
+    double dx, dy, gx_width, gx_depth, gy_width, gy_depth;
 
     // Read first line
     if (fscanf(file, "%d %d %d %d\n", &n_rows, &n_cols, &surface_type, &is_linear) != 4) {
@@ -35,7 +35,7 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
     }
 
     // Read second line
-    if (fscanf(file, "%lf %lf %lf %lf %lf %lf %lf\n", &dx, &dy, &gx_width, &gx_depth, &gy_width, &gy_depth, &f) != 7) {
+    if (fscanf(file, "%lf %lf %lf %lf %lf %lf\n", &dx, &dy, &gx_width, &gx_depth, &gy_width, &gy_depth) != 6) {
         printf("Error: Invalid format on second line\n");
         fclose(file);
         return;
@@ -51,11 +51,6 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
 
     // Zero-initialize array
     for (int i = 0; i < array_size; i++) p_custom[i] = 0.0;
-
-    if (f <= 0) {
-        printf("Error: f must be positive. Setting to 100.\n");
-        f = 100.0;
-    }
 
     // Store first 10 entries
     p_custom[0] = (double)n_rows;
@@ -90,11 +85,12 @@ void LoadCustomParamsFromFile(double p_custom[], int file_num, char params_dir[]
 
             if (is_linear) {
                 // If params are defined in linear space, convert to angles first
-                if (cv != 0) f = 1 / (2 * cv);
+                // alpha and beta are actually already OADs, so convert to angles
                 Conic2DOffAxisAngle(&alpha, &beta, cv, k, beta, alpha);
                 alpha *= 180.0 / M_PI;
                 beta  *= 180.0 / M_PI;
-                gamma = atan( gamma / f ) * 180.0 / M_PI; 
+                gamma = atan( gamma ) * 180.0 / M_PI; // gamma is actually d in the file
+                theta = atan( theta ) * 180.0 / M_PI;
             }
 
             p_custom[base_idx]     = alpha;
@@ -618,9 +614,8 @@ static SLICE_PARAMS GetSliceParamsLinear(int slice_num, int col_num, IMAGE_SLICE
     } else if (p.angle_mode == 1 || p.angle_mode == 3) {
         d = d_bot + slice_num_row * p.dd + d_extra;
     }
-    // Would usually be atan(d/f) where f is the distance to the plane where it's
-    // linearly spaced, but just set f=1 here. It will be linearly spaced no
-    // matter the distance.
+    // Would usually be atan(d/f) where f is the distance to a plane, but set f=1 here.
+    // It will be linearly spaced no matter the distance.
     pslice.gamma = atan( d ) * 180.0 / M_PI;
 
     double alpha, beta;

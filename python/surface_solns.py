@@ -15,7 +15,11 @@ class SliceParams:
     syz: float
     sxy: float
     sxz: float
+    theta: float
+    szx: float
+    szy: float
     u: float
+    
 @dataclass
 class RayIn:
     """Class for storing input ray parameters."""

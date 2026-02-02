@@ -179,17 +179,17 @@ def make_image_slicer_params_from_custom(p_custom):
     """
     p = ImageSlicerParams(
         custom = 1,
-        n_each = 1,
-        n_rows = p_custom[0],
-        n_cols = p_custom[1],
-        surface_type = p_custom[2],
-        dx = p_custom[3],
-        dy = p_custom[4],
-        gx_width = p_custom[5],
-        gx_depth = p_custom[6],
-        gy_width = p_custom[7],
-        gy_depth = p_custom[8],
-
+        n_each = int(p_custom[2]),
+        n_rows = int(p_custom[0]),
+        n_cols = int(p_custom[1]),
+        surface_type = int(p_custom[3]),
+        dx = p_custom[4],
+        dy = p_custom[5],
+        gx_width = p_custom[6],
+        gx_depth = p_custom[7],
+        gy_width = p_custom[8],
+        gy_depth = p_custom[9],
+    
         # These params are unused for custom slicers, set to 0
         angle_mode = 0,
         dalpha = 0,
@@ -312,6 +312,7 @@ def get_u_for_row(row_num, p, p_custom):
     column index of the slice.
     """
     row_num = int(row_num)
+
     if p.custom:
         return p_custom[9 + row_num]
     
@@ -408,7 +409,7 @@ def get_slice_params_standard(slice_num, col_num, p):
         gamma = gamma_bot + slice_num_row*p.dgamma + gamma_extra
         
     zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)
-    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
+    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, 0, 0, 0, u)
 
 def get_slice_params_standard_linear(slice_num, col_num, p):
     """Returns slice parameters for standard mode.
@@ -477,7 +478,7 @@ def get_slice_params_standard_linear(slice_num, col_num, p):
     gamma = math.degrees( math.atan( d / f ) )
 
     zp = p.azps * calc_zp_from_gamma(gamma, p.c, p.k)
-    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, u)
+    return SliceParams(alpha, beta, gamma, p.c, p.k, zp, syx, syz, sxy, sxz, 0, 0, 0, u)
 
 
 def make_image_slicer(x, y, p, p_custom):
