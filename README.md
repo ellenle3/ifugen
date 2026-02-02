@@ -9,7 +9,7 @@ This repository contains Zemax DLLs for generating image slicer integral field u
 is needed to specify the entire IFU. Non-sequential versions of these surfaces are
 also available.
 
-## Installation
+<!-- ## Installation
 
 1. Download the latest release. See "Releases" in the sidebar to the right.
 2. Navigate to the folder for Zemax data folder for DLL files on your PC. This should be something like "Documents\Zemax\DLL".
@@ -19,7 +19,7 @@ also available.
 That's it! You should now be able to load the DLLs as user-defined surfaces
 (or objects) in Zemax. Treat these files with the same level of caution that you
 would downloading an EXE file from the internet. Alternatively, build the DLL from
-source yourself.
+source yourself. -->
 
 ## Dependencies
 
