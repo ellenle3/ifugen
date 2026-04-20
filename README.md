@@ -37,5 +37,5 @@ a reference to this repository.
 
 ## Citation
 
-A paper is in preparation for this repository. Information about citing this
-paper will be shared here if (when?) it becomes available.
+A paper has been accepted to JATIS. A full reference will be provided here when
+it is published, but please see the [pre-print](https://arxiv.org/abs/2604.15530) in this meantime.

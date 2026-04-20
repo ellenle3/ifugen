@@ -2,8 +2,10 @@
 #define CUSTOM_SLICER_HELPERS_H
 #include "surface_solns.h"
 
-// Up to a single column of 50,000 slices
-#define MAX_ELEMENTS 1009
+// MAX_ELEMENTS = 10 base params + 5000 rows of u values + 13 params per slice * 5000 slices
+// Times 8 bytes per double ~ 500 kB
+#define MAX_ELEMENTS 70010 
+
 #define NUM_BASE_PARAMS 10
 #define NUM_PARAMS_PER_SLICE 13
 

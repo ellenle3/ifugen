@@ -233,15 +233,16 @@ void FindSlicerGlobalExtrema(double *zmin, double *zmax, GRID_PARAMS_BASIC p, do
     // entire image slicer
     double xsize, ysize;
     GetSlicerSize(&xsize, &ysize, p);
-    int nx = p.n_cols * 6;
+    int nx = p.n_cols * 4;
     int ny = p.n_rows * p.n_each * 8;
 
     // Safeguard in case the user attempts to initialize an obscenely large number
     // of slices
-    if (nx > 300000 || ny > 400000) {
-        nx = 300000; // Implies 50,000 columns
-        ny = 400000; // 50,000 slices per column...
-    }
+    int nx_max = 5000 * 4; // Implies 5,000 columns
+    int ny_max = 5000 * 8; // Implies 5,000 slices per column
+    if (nx > nx_max || ny > ny_max) {
+        nx = nx_max;
+        ny = ny_max;
 
     // Generally the number of points shouldn't be a problem but dynamically allocate
     // memory for xpts and ypts just in case
