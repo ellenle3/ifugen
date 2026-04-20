@@ -38,4 +38,4 @@ a reference to this repository.
 ## Citation
 
 A paper has been accepted to JATIS. A full reference will be provided here when
-it is published, but please see the [pre-print](https://arxiv.org/abs/2604.15530) in this meantime.
+it is published, but please see this [pre-print](https://arxiv.org/abs/2604.15530) in the meantime.
