@@ -31,11 +31,10 @@ to install any dependencies yourself.
 
 It is probably apparent from the source code that I am not a software engineer.
 Significant work remains to be done to make the software more accessible to users.
-Note that this repository uses an MIT license, so I encourage others to repurpose
-the code for their own use (including commercial). If you do so, please provide
-a reference to this repository.
 
 ## Citation
 
-A paper has been accepted to JATIS. A full reference will be provided here when
-it is published, but please see this [pre-print](https://arxiv.org/abs/2604.15530) in the meantime.
+Pre-print: (2604.15530)[https://arxiv.org/abs/2604.15530]
+
+Ellen Lee "Sequential and nonsequential Zemax dynamic-link libraries for generating image slicer integral field units," Journal of Astronomical Telescopes, Instruments, and Systems 12(2), 025003 (8 May 2026) [https://doi.org/10.1117/1.JATIS.12.2.025003](https://doi.org/10.1117/1.JATIS.12.2.025003)
+
