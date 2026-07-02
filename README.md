@@ -34,7 +34,7 @@ Significant work remains to be done to make the software more accessible to user
 
 ## Citation
 
-Pre-print: (2604.15530)[https://arxiv.org/abs/2604.15530]
+Pre-print: [2604.15530](https://arxiv.org/abs/2604.15530)
 
 Ellen Lee "Sequential and nonsequential Zemax dynamic-link libraries for generating image slicer integral field units," Journal of Astronomical Telescopes, Instruments, and Systems 12(2), 025003 (8 May 2026) [https://doi.org/10.1117/1.JATIS.12.2.025003](https://doi.org/10.1117/1.JATIS.12.2.025003)
 
